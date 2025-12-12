@@ -1,0 +1,112 @@
+# file: docker-compose.yaml
+services:
+  # === MODERN BUILDER (Ubuntu 22.04) ===
+  builder-beeline:
+    build: .
+    environment:
+      - CONF_FILE=${SELECTED_CONF}
+    volumes:
+      # 1. КЭШ АРХИВОВ
+      - imagebuilder-cache:/cache
+      # 2. КЭШ ПАКЕТОВ
+      - ipk-cache:/builder_workspace/dl
+      # 3. РЕПОЗИТОРИЙ ПАКЕТОВ
+      - ./custom_packages:/input_packages
+      # 4. ДИНАМИЧЕСКИЕ ПУТИ
+      - ${HOST_FILES_DIR}:/overlay_files
+      - ${HOST_OUTPUT_DIR}:/output
+      # 5. КОНФИГУРАЦИЯ
+      - ./profiles:/profiles
+      # 6. Фикс SSL (если нужен)
+      - ./openssl.cnf:/openssl.cnf
+    command: &build_script |
+      /bin/bash -c "
+      set -e  # Прерывать при ошибках
+      
+      # Проверка профиля
+      if [ ! -f \"/profiles/$$CONF_FILE\" ]; then
+        echo \"FATAL: Profile /profiles/$$CONF_FILE not found!\"
+        exit 1
+      fi
+      
+      # === [FIX] КОНВЕРТАЦИЯ CRLF -> LF ===
+      echo \"[INIT] Normalizing config line endings...\"
+      tr -d '\\r' < \"/profiles/$$CONF_FILE\" > /tmp/clean_config.env
+
+      # Подгружаем настройки
+      source /tmp/clean_config.env
+      
+      # ЗАСЕКАЕМ ВРЕМЯ
+      START_TIME=$$(date +%s)
+      TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
+
+      # --- 1. КЭШИРОВАНИЕ IMAGEBUILDER ---
+      ARCHIVE_NAME=$$(basename \"$$IMAGEBUILDER_URL\")
+      CACHE_FILE=\"/cache/$$ARCHIVE_NAME\"
+
+      if [ ! -f \"$$CACHE_FILE\" ]; then
+        echo \"[CACHE MISS] Downloading $$ARCHIVE_NAME...\"        
+        wget -q \"$$IMAGEBUILDER_URL\" -O \"$$CACHE_FILE\"
+      else
+        echo \"[CACHE HIT] Using $$ARCHIVE_NAME\"
+      fi
+      
+      echo \"Extracting...\"
+      if echo \"$$IMAGEBUILDER_URL\" | grep -q '.zst$$'; then
+          tar -I zstd -xf \"$$CACHE_FILE\" --strip-components=1
+      else
+          tar -xJf \"$$CACHE_FILE\" --strip-components=1
+      fi
+
+      # --- 2. ФИКСЫ (ВОССТАНОВЛЕН ПРАВИЛЬНЫЙ ПУТЬ) ---
+      if [ -f /openssl.cnf ]; then
+         echo \"Applying OpenSSL Fix to /builder/shared-workdir/...\"
+         # Создаем путь-обманку, который зашит в бинарниках OpenWrt
+         mkdir -p /builder/shared-workdir/build/staging_dir/host/etc/ssl
+         cp /openssl.cnf /builder/shared-workdir/build/staging_dir/host/etc/ssl/openssl.cnf
+      fi
+      
+      # Копируем кастомные IPK
+      [ -d /input_packages ] && cp /input_packages/*.ipk packages/ 2>/dev/null || true
+
+      export SOURCE_DATE_EPOCH=$$(date +%s)
+      
+      # --- 3. СБОРКА ---
+      echo \"Starting make image for $$TARGET_PROFILE...\"
+      make image PROFILE=\"$$TARGET_PROFILE\" FILES=\"/overlay_files\" PACKAGES=\"$$PKGS\"
+
+      # --- 4. СОХРАНЕНИЕ ---
+      echo \"Saving artifacts...\"
+      find bin/targets -name \"*sysupgrade.bin\" -o -name \"*factory.bin\" -o -name \"*factory.img\" | while read f; do
+          cp \"$$f\" \"/output/$$PROFILE_NAME-$$TIMESTAMP-$$(basename \"$$f\")\"
+      done
+
+      # --- 5. РАСЧЕТ ВРЕМЕНИ ---
+      END_TIME=$$(date +%s)
+      ELAPSED=$$((END_TIME - START_TIME))
+      
+      echo \"\"
+      echo \"============================================================\"
+      echo \"=== Сборка $$PROFILE_NAME завершена за $${ELAPSED}с.\"
+      echo \"============================================================\"
+      "
+
+  # === LEGACY BUILDER (Ubuntu 18.04) ===
+  builder-841n:
+    build:
+      context: .
+      dockerfile: dockerfile.841n
+    environment:
+      - CONF_FILE=${SELECTED_CONF}
+    volumes:
+      - imagebuilder-cache:/cache
+      - ipk-cache:/builder_workspace/dl
+      - ./custom_packages:/input_packages
+      - ${HOST_FILES_DIR}:/overlay_files
+      - ${HOST_OUTPUT_DIR}:/output
+      - ./profiles:/profiles
+    command: *build_script
+
+volumes:
+  imagebuilder-cache:
+  ipk-cache:

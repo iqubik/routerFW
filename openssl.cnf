@@ -1,0 +1,8 @@
+# file openssl.cnf
+# Super minimal openssl.cnf for static OpenSSL builds
+# It deliberately avoids loading dynamic providers.
+openssl_conf = default_conf_section
+
+[default_conf_section]
+# An empty section is valid and does nothing.
+# end file beeline\openssl.cnf

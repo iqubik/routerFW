@@ -1,0 +1,152 @@
+@echo off
+setlocal enabledelayedexpansion
+cls
+chcp 65001 >nul
+
+:: Запоминаем текущую папку
+set "PROJECT_DIR=%CD%"
+
+:: === 1. ИНИЦИАЛИЗАЦИЯ ПАПОК ===
+call :CHECK_DIR "profiles"
+call :CHECK_DIR "custom_packages"
+call :CHECK_DIR "custom_files"
+call :CHECK_DIR "firmware_output"
+
+:: === 2. ПРОВЕРКА НАЛИЧИЯ ПРОФИЛЕЙ ===
+if not exist "profiles\*.conf" (
+    echo.
+    echo [INIT] Папка 'profiles' пуста. Создаю пример профиля...
+    call :CREATE_EXAMPLE_PROFILE
+    echo [INFO] Файл 'profiles\example_841n.conf' создан.
+)
+
+:MENU
+cls
+echo ========================================
+echo  OpenWrt Smart Builder v3.4 (iqubik)
+echo ========================================
+echo.
+echo Обнаруженные профили:
+echo.
+
+set count=0
+:: Цикл сканирования: теперь он не только выводит список, но и создает папки
+for %%f in (profiles\*.conf) do (
+    set /a count+=1
+    set "profile[!count!]=%%~nxf"
+    set "p_id=%%~nf"
+    
+    :: СРАЗУ СОЗДАЕМ ПАПКУ В custom_files ПРИ ОБНАРУЖЕНИИ
+    if not exist "custom_files\!p_id!" (
+        echo [INFO] Создаю папку custom_files\!p_id!
+        mkdir "custom_files\!p_id!"
+    )
+    echo    [!count!] %%~nxf
+)
+
+echo.
+echo    [A] Собрать ВСЕ профили (Параллельно)
+echo    [0] Выход
+echo.
+set /p choice="Выберите опцию: "
+
+if /i "%choice%"=="0" exit /b
+if /i "%choice%"=="A" goto BUILD_ALL
+
+set /a num_choice=%choice% 2>nul
+if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
+if %num_choice% gtr %count% goto INVALID
+if %num_choice% lss 1 goto INVALID
+
+:: === ОДИНОЧНАЯ СБОРКА ===
+set "SELECTED_CONF=!profile[%choice%]!"
+call :BUILD_ROUTINE "%SELECTED_CONF%"
+echo Сборка завершена.
+goto MENU
+
+:BUILD_ALL
+echo.
+echo === ЗАПУСК ПАРАЛЛЕЛЬНОЙ СБОРКИ ===
+echo Новые окна откроются автоматически...
+echo.
+for /L %%i in (1,1,%count%) do (
+    set "CURRENT_CONF=!profile[%%i]!"
+    call :BUILD_ROUTINE "!CURRENT_CONF!"
+)
+echo.
+echo === ВСЕ ЗАДАЧИ ЗАПУЩЕНЫ ===
+echo Не закрывайте это окно до завершения работы.
+pause
+goto MENU
+
+:INVALID
+echo Неверный выбор!
+pause
+goto MENU
+
+:: =========================================================
+::  ПОДПРОГРАММА СБОРКИ
+:: =========================================================
+:BUILD_ROUTINE
+set "CONF_FILE=%~1"
+set "PROFILE_ID=%~n1"
+
+echo.
+echo ----------------------------------------------------
+echo [PROCESSING] Профиль: %CONF_FILE%
+echo ----------------------------------------------------
+
+:: 1. Извлекаем URL (без лишних кавычек)
+set "URL_CLEAN="
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "IMAGEBUILDER_URL"`) do (
+    set "VAL=%%a"
+    set "VAL=!VAL:"=!"
+    for /f "tokens=* delims= " %%b in ("!VAL!") do set "URL_CLEAN=%%b"
+)
+
+if "%URL_CLEAN%"=="" (
+    echo [ERROR] URL не найден в конфиге %CONF_FILE%!
+    exit /b
+)
+
+:: 2. Определение Legacy
+set "IS_LEGACY="
+echo "!URL_CLEAN!" | findstr /C:"/19." >nul && set IS_LEGACY=1
+echo "!URL_CLEAN!" | findstr /C:"/18." >nul && set IS_LEGACY=1
+echo "!URL_CLEAN!" | findstr /C:"/17." >nul && set IS_LEGACY=1
+
+IF DEFINED IS_LEGACY (
+    set "BUILDER_SERVICE=builder-841n"
+) ELSE (
+    set "BUILDER_SERVICE=builder-beeline"
+)
+
+:: 3. Подготовка путей
+:: Создаем папку вывода, если её нет
+if not exist "firmware_output\%PROFILE_ID%" (
+    mkdir "firmware_output\%PROFILE_ID%"
+)
+
+:: 4. ЗАПУСК DOCKER
+echo [LAUNCH] Запуск окна для: %PROFILE_ID%...
+echo [DEBUG] URL определен как: !URL_CLEAN!
+
+START "Build: %PROFILE_ID%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=./firmware_output/%PROFILE_ID%&& docker-compose -p build_%PROFILE_ID% up --build --force-recreate --remove-orphans %BUILDER_SERVICE% & echo. & echo === WORK FINISHED === & pause"
+
+exit /b
+
+:: =========================================================
+::  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+:: =========================================================
+:CHECK_DIR
+if not exist "%~1" mkdir "%~1"
+exit /b
+
+:CREATE_EXAMPLE_PROFILE
+:: Создаем папку для файлов примера
+if not exist "custom_files\example_841n" mkdir "custom_files\example_841n"
+if not exist "custom_files\giga" mkdir "custom_files\giga"
+:: PowerShell используется для записи файла с LF (Unix) переносами строк
+powershell -Command "$text = \"# === Example Profile for TL-WR841N v9 ===`nPROFILE_NAME=`\"example_841n`\"`nTARGET_PROFILE=`\"tl-wr841-v9`\"`nIMAGEBUILDER_URL=`\"https://downloads.openwrt.org/releases/19.07.9/targets/ar71xx/tiny/openwrt-imagebuilder-19.07.9-ar71xx-tiny.Linux-x86_64.tar.xz`\"`nPKGS=`\"luci-base luci-mod-admin-full luci-theme-bootstrap luci-i18n-base-ru luci-i18n-opkg-ru uhttpd luci-app-firewall libiwinfo-lua relayd luci-proto-relay iw rpcd-mod-rrdns opkg -luci -iw-full -luci-proto-ipv6 -luci-proto-ppp -ipv6 -kmod-ipv6 -ip6tables -kmod-ip6tables -odhcp6c -odhcpd-ipv6only -libip6tc -ppp -ppp-mod-pppoe -kmod-ppp -kmod-pppoe -kmod-pppox -kmod-slhc -kmod-lib-crc-ccitt -luci-app-ntpc -luci-i18n-ntpc-ru -ntpclient -libpthread -librt -uboot-envtools -kmod-nf-conntrack6 -kmod-usb-core -kmod-usb2`\"\"; [IO.File]::WriteAllText('profiles\example_841n.conf', $text)"
+powershell -Command "$text = \"# === Example Profile for SmartBox Giga ===`nPROFILE_NAME=`\"giga`\"`nTARGET_PROFILE=`\"beeline_smartbox-giga`\"`nIMAGEBUILDER_URL=`\"https://mirror-03.infra.openwrt.org/releases/24.10.4/targets/ramips/mt7621/openwrt-imagebuilder-24.10.4-ramips-mt7621.Linux-x86_64.tar.zst`\"`nPKGS=`\"wpad-openssl coreutils bzip2 tar unzip gzip grep sed gawk shadow-utils bind-host knot-host drill e2fsprogs tcpdump fdisk cfdisk ca-certificates libustream-openssl kmod-mtd-rw ip-full vnstat batctl-full arp-scan arp-scan-database curl openssh-sftp-server mc htop screen wget-ssl iw-full iftop bash nano coreutils-ls block-mount kmod-usb3 kmod-usb2 kmod-usb-uhci kmod-usb-ohci kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-exfat kmod-fs-ntfs3 kmod-fs-vfat kmod-fs-netfs kmod-fs-ksmbd kmod-fs-smbfs-common luci luci-compat luci-proto-batman-adv luci-proto-vxlan luci-app-nlbwmon luci-app-firewall luci-app-commands luci-app-statistics luci-app-ttyd luci-app-attendedsysupgrade luci-app-wol luci-app-transmission luci-app-ksmbd luci-app-minidlna luci-app-adblock-fast luci-app-package-manager collectd-mod-ping luci-i18n-base-ru luci-i18n-commands-ru luci-i18n-firewall-ru luci-i18n-ksmbd-ru luci-i18n-minidlna-ru luci-i18n-statistics-ru luci-i18n-ttyd-ru luci-i18n-usteer-ru luci-i18n-wol-ru luci-i18n-attendedsysupgrade-ru luci-i18n-transmission-ru luci-i18n-adblock-fast-ru luci-i18n-filemanager-ru luci-i18n-package-manager-ru kmod-nls-utf8 opkg kmod-nls-cp1251 kmod-nls-cp866 -wpad-basic-mbedtls -iw -ca-bundle -libustream-mbedtls`\"\"; [IO.File]::WriteAllText('profiles\giga.conf', $text)"
+exit /b

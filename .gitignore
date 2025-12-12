@@ -1,0 +1,10 @@
+# Firmware build artifacts
+*.bin
+*.img
+*.ipk
+
+# Config directories
+/custom_files/
+/custom_packages/
+/firmware_output/
+debug.md
