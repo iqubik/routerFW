@@ -5,6 +5,23 @@
 
 # Config directories
 /custom_files/
+
+# 1. Игнорируем всё внутри папки
+custom_files/*
+
+# 2. Разрешаем заходить в подпапки первого уровня (там где у вас wildcard *)
+!custom_files/*/
+
+# 3. Разрешаем заходить в папку etc внутри любой подпапки
+!custom_files/*/etc/
+
+# 4. Разрешаем заходить в uci-defaults
+!custom_files/*/etc/uci-defaults/
+
+# 5. И наконец разрешаем сам файл
+!custom_files/*/etc/uci-defaults/99-permissions.sh
+
+
 /custom_packages/
 /firmware_output/
 debug.md
