@@ -6,10 +6,10 @@ if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles"
 
 function Show-Header($Text) {
     Clear-Host
-    Write-Host "======================================================" -ForegroundColor Cyan
+    Write-Host "==========================================================================" -ForegroundColor Cyan
     Write-Host "  OpenWrt Profile Creator (v5.8 iqubik)" -ForegroundColor Cyan
     Write-Host "  $Text" -ForegroundColor Yellow
-    Write-Host "======================================================" -ForegroundColor Cyan
+    Write-Host "==========================================================================" -ForegroundColor Cyan
     Write-Host ""
 }
 
@@ -21,7 +21,7 @@ try {
     Write-Host "Не знаете параметры своего роутера?" -ForegroundColor Gray
     Write-Host "Найдите его в OpenWrt Table of Hardware (ToH):"
     Write-Host "https://openwrt.org/toh/start" -ForegroundColor Blue
-    Write-Host "------------------------------------------------------`n"
+    Write-Host "--------------------------------------------------------------------------`n"
 
     Write-Host "Получение списка релизов..."
     $baseUrl = "https://downloads.openwrt.org/releases/"
@@ -36,6 +36,14 @@ try {
 
     # --- ШАГ 2: ВЫБОР TARGET ---
     Show-Header "Шаг 2: Выбор Target ($selectedRelease)"
+    # Косметика: подсказка по TARGET
+    Write-Host "Не знаете TARGET своего роутера?" -ForegroundColor Gray
+    Write-Host "Найдите его на странице роутера в графе HARDWARE - TARGET" -ForegroundColor Blue
+    Write-Host "Или внутри ссылки на любую доступную прошивку" -ForegroundColor Red
+    Write-Host "Пример: smartbox giga часть ссылки: -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Blue
+    Write-Host "Для  beeline  giga  внутри  ссылки: -ramips-****************************-" -ForegroundColor Red    
+    Write-Host "--------------------------------------------------------------------------`n"
+    
     $targetUrl = if ($selectedRelease -eq "snapshots") { "https://downloads.openwrt.org/snapshots/targets/" } else { "$baseUrl$selectedRelease/targets/" }
     
     $html = (Invoke-WebRequest -Uri $targetUrl -UseBasicParsing).Content
@@ -49,6 +57,13 @@ try {
 
     # --- ШАГ 3: ВЫБОР SUBTARGET ---
     Show-Header "Шаг 3: Выбор Subtarget"
+    # Косметика: подсказка по CPU
+    Write-Host "Не знаете CPU своего роутера?" -ForegroundColor Gray
+    Write-Host "Найдите его на странице роутера в графе HARDWARE - CPU" -ForegroundColor Blue
+    Write-Host "Или внутри ссылки на любую доступную прошивку" -ForegroundColor Red
+    Write-Host "Пример: smartbox giga часть ссылки: -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Blue
+    Write-Host "Для  beeline  giga  внутри  ссылки: -******-mt7621-*********************-" -ForegroundColor Red
+    Write-Host "--------------------------------------------------------------------------`n"
     $subUrl = "$targetUrl$selectedTarget/"
     $html = (Invoke-WebRequest -Uri $subUrl -UseBasicParsing).Content
     $subtargets = [regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
@@ -67,6 +82,13 @@ try {
 
     # --- ШАГ 4: ВЫБОР МОДЕЛИ ---
     Show-Header "Шаг 4: Выбор модели"
+    # Косметика: подсказка по Модели
+    Write-Host "Не знаете точное название модели своего роутера?" -ForegroundColor Gray
+    Write-Host "Найдите его на странице роутера внутри ссылки на любую доступную прошивку" -ForegroundColor Blue
+    Write-Host "Пример: smartbox giga часть ссылки: -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Blue
+    Write-Host "Для  beeline  giga  внутри  ссылки: -******-******-beeline_smartbox-giga-" -ForegroundColor Red
+    
+    Write-Host "--------------------------------------------------------------------------`n"
     $finalFolderUrl = "$targetUrl$selectedTarget/$selectedSubtarget/"
     $data = Invoke-RestMethod -Uri "$($finalFolderUrl)profiles.json"
     
