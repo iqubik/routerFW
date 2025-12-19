@@ -26,9 +26,9 @@ try {
     Write-Host "Получение списка релизов..."
     $baseUrl = "http://downloads.openwrt.org/releases/"
     $html = (Invoke-WebRequest -Uri $baseUrl -UseBasicParsing).Content
-    $releases = [regex]::Matches($html, 'href="(\d{2}\.\d{2}\.[^"/]+/|snapshots/)"') | 
+    $releases = @([regex]::Matches($html, 'href="(\d{2}\.\d{2}\.[^"/]+/|snapshots/)"') | 
                 ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
-                Select-Object -Unique | Sort-Object -Descending
+                Select-Object -Unique | Sort-Object -Descending)
 
     for ($i=0; $i -lt $releases.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $releases[$i]) }
     $resIdx = Read-Host "`nВыберите номер релиза"
@@ -47,9 +47,9 @@ try {
     $targetUrl = if ($selectedRelease -eq "snapshots") { "http://downloads.openwrt.org/snapshots/targets/" } else { "$baseUrl$selectedRelease/targets/" }
     
     $html = (Invoke-WebRequest -Uri $targetUrl -UseBasicParsing).Content
-    $targets = [regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
-               ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
-               Where-Object { $_ -notin @('backups', 'kmodindex') }
+    $targets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
+            ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
+            Where-Object { $_ -notin @('backups', 'kmodindex') })
 
     for ($i=0; $i -lt $targets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $targets[$i]) }
     $tarIdx = Read-Host "`nВыберите номер Target"
@@ -66,9 +66,9 @@ try {
     Write-Host "--------------------------------------------------------------------------`n"
     $subUrl = "$targetUrl$selectedTarget/"
     $html = (Invoke-WebRequest -Uri $subUrl -UseBasicParsing).Content
-    $subtargets = [regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
-                  ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
-                  Where-Object { $_ -notin @('backups', 'kmodindex', 'packages') }
+    $subtargets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
+                ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
+                Where-Object { $_ -notin @('backups', 'kmodindex', 'packages') })
 
     if ($subtargets.Count -eq 0) {
         $selectedSubtarget = "generic"
