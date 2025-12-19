@@ -20,11 +20,11 @@ try {
     # Косметика: Ссылка на TOH
     Write-Host "Не знаете параметры своего роутера?" -ForegroundColor Gray
     Write-Host "Найдите его в OpenWrt Table of Hardware (ToH):"
-    Write-Host "https://openwrt.org/toh/start" -ForegroundColor Blue
+    Write-Host "http://openwrt.org/toh/start" -ForegroundColor Blue
     Write-Host "--------------------------------------------------------------------------`n"
 
     Write-Host "Получение списка релизов..."
-    $baseUrl = "https://downloads.openwrt.org/releases/"
+    $baseUrl = "http://downloads.openwrt.org/releases/"
     $html = (Invoke-WebRequest -Uri $baseUrl -UseBasicParsing).Content
     $releases = [regex]::Matches($html, 'href="(\d{2}\.\d{2}\.[^"/]+/|snapshots/)"') | 
                 ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
@@ -44,7 +44,7 @@ try {
     Write-Host "Для  beeline  giga  внутри  ссылки: -ramips-****************************-" -ForegroundColor Red    
     Write-Host "--------------------------------------------------------------------------`n"
     
-    $targetUrl = if ($selectedRelease -eq "snapshots") { "https://downloads.openwrt.org/snapshots/targets/" } else { "$baseUrl$selectedRelease/targets/" }
+    $targetUrl = if ($selectedRelease -eq "snapshots") { "http://downloads.openwrt.org/snapshots/targets/" } else { "$baseUrl$selectedRelease/targets/" }
     
     $html = (Invoke-WebRequest -Uri $targetUrl -UseBasicParsing).Content
     $targets = [regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
@@ -90,9 +90,9 @@ try {
     
     Write-Host "--------------------------------------------------------------------------`n"
     $finalFolderUrl = "$targetUrl$selectedTarget/$selectedSubtarget/"
-    $data = Invoke-RestMethod -Uri "$($finalFolderUrl)profiles.json"
+    $data = Invoke-RestMethod -Uri "$($finalFolderUrl)profiles.json"    
     
-    $profileIds = $data.profiles.PSObject.Properties.Name | Sort-Object
+    $profileIds = @($data.profiles.PSObject.Properties.Name | Sort-Object)
     $profileList = @()
     for ($i=0; $i -lt $profileIds.Count; $i++) {
         $id = $profileIds[$i]
