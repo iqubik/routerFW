@@ -7,7 +7,7 @@ if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles"
 function Show-Header($Text) {
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  OpenWrt Profile Creator (v5.8 iqubik)" -ForegroundColor Cyan
+    Write-Host "  OpenWrt Profile Creator (v5.9 iqubik)" -ForegroundColor Cyan
     Write-Host "  $Text" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     Write-Host ""
