@@ -3,6 +3,10 @@ setlocal enabledelayedexpansion
 cls
 chcp 65001 >nul
 
+echo [INIT] Очистка неиспользуемых сетей Docker...
+docker network prune --force
+echo.
+
 :: === 0. РАСПАКОВКА ВСТРОЕННЫХ ФАЙЛОВ ===
 call :EXTRACT_RESOURCES
 
@@ -26,7 +30,7 @@ if not exist "profiles\*.conf" (
 :MENU
 cls
 echo ========================================
-echo  OpenWrt Smart Builder v3.4 (iqubik)
+echo  OpenWrt Smart Builder v3.5 (iqubik)
 echo ========================================
 echo.
 echo Обнаруженные профили:
@@ -39,7 +43,7 @@ for %%f in (profiles\*.conf) do (
     set "p_id=%%~nf"
     
     if not exist "custom_files\!p_id!" (
-        echo [INFO] Создаю папку custom_files\!p_id!
+        rem echo [INFO] Создаю папку custom_files\!p_id!
         mkdir "custom_files\!p_id!"
     )
     echo    [!count!] %%~nxf
