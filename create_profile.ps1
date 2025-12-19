@@ -1,54 +1,46 @@
-# Скрипт для создания профилей OpenWrt
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# 1. Создаем папку для профилей
+# Создаем папку для профилей
 if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles" | Out-Null }
 
 function Show-Header($Text) {
     Clear-Host
     Write-Host "======================================================" -ForegroundColor Cyan
-    Write-Host "  OpenWrt Profile Creator: $Text" -ForegroundColor Cyan
+    Write-Host "  OpenWrt Profile Creator (v5.7 Final)" -ForegroundColor Cyan
+    Write-Host "  $Text" -ForegroundColor Yellow
     Write-Host "======================================================" -ForegroundColor Cyan
     Write-Host ""
 }
 
 try {
     # --- ШАГ 1: ВЫБОР РЕЛИЗА ---
-    Show-Header "Выбор релиза"
-    Write-Host "Получение списка релизов с downloads.openwrt.org..."
+    Show-Header "Шаг 1: Выбор релиза"
     $baseUrl = "https://downloads.openwrt.org/releases/"
     $html = (Invoke-WebRequest -Uri $baseUrl -UseBasicParsing).Content
-    
-    # Находим все ссылки вида 23.05.0 или snapshots
     $releases = [regex]::Matches($html, 'href="(\d{2}\.\d{2}\.[^"/]+/|snapshots/)"') | 
                 ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
                 Select-Object -Unique | Sort-Object -Descending
 
-    if ($releases.Count -eq 0) { throw "Не удалось найти релизы. Проверьте интернет." }
-
-    for ($i=0; $i -lt $releases.Count; $i++) {
-        Write-Host (" {0,2}. {1}" -f ($i+1), $releases[$i])
-    }
+    for ($i=0; $i -lt $releases.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $releases[$i]) }
     $resIdx = Read-Host "`nВыберите номер релиза"
     $selectedRelease = $releases[($resIdx-1)]
 
     # --- ШАГ 2: ВЫБОР TARGET ---
-    Show-Header "Выбор Target ($selectedRelease)"
-    $targetUrl = "$baseUrl$selectedRelease/targets/"
+    Show-Header "Шаг 2: Выбор Target ($selectedRelease)"
+    $targetUrl = if ($selectedRelease -eq "snapshots") { "https://downloads.openwrt.org/snapshots/targets/" } else { "$baseUrl$selectedRelease/targets/" }
+    
     $html = (Invoke-WebRequest -Uri $targetUrl -UseBasicParsing).Content
     $targets = [regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
                ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
                Where-Object { $_ -notin @('backups', 'kmodindex') }
 
-    for ($i=0; $i -lt $targets.Count; $i++) {
-        Write-Host (" {0,2}. {1}" -f ($i+1), $targets[$i])
-    }
+    for ($i=0; $i -lt $targets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $targets[$i]) }
     $tarIdx = Read-Host "`nВыберите номер Target"
     $selectedTarget = $targets[($tarIdx-1)]
 
     # --- ШАГ 3: ВЫБОР SUBTARGET ---
-    Show-Header "Выбор Subtarget"
+    Show-Header "Шаг 3: Выбор Subtarget"
     $subUrl = "$targetUrl$selectedTarget/"
     $html = (Invoke-WebRequest -Uri $subUrl -UseBasicParsing).Content
     $subtargets = [regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
@@ -60,53 +52,66 @@ try {
     } elseif ($subtargets.Count -eq 1) {
         $selectedSubtarget = $subtargets[0]
     } else {
-        for ($i=0; $i -lt $subtargets.Count; $i++) {
-            Write-Host (" {0,2}. {1}" -f ($i+1), $subtargets[$i])
-        }
+        for ($i=0; $i -lt $subtargets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $subtargets[$i]) }
         $subIdx = Read-Host "`nВыберите номер Subtarget"
         $selectedSubtarget = $subtargets[($subIdx-1)]
     }
 
-    # --- ШАГ 4: ВЫБОР ПРОФИЛЯ ---
-    Show-Header "Выбор модели устройства"
-    Write-Host "Загрузка profiles.json..."
-    $jsonUrl = "$baseUrl$selectedRelease/targets/$selectedTarget/$selectedSubtarget/profiles.json"
-    $data = Invoke-RestMethod -Uri $jsonUrl
+    # --- ШАГ 4: ВЫБОР ПРОФИЛЯ (УСТРОЙСТВА) ---
+    Show-Header "Шаг 4: Выбор модели"
+    $finalFolderUrl = "$targetUrl$selectedTarget/$selectedSubtarget/"
+    $data = Invoke-RestMethod -Uri "$($finalFolderUrl)profiles.json"
     
     $profileIds = $data.profiles.PSObject.Properties.Name | Sort-Object
     $profileList = @()
-    
     for ($i=0; $i -lt $profileIds.Count; $i++) {
         $id = $profileIds[$i]
         $title = $data.profiles.$id.title
         Write-Host (" {0,3}. {1} ({2})" -f ($i+1), $title, $id)
         $profileList += [PSCustomObject]@{ ID = $id; Title = $title }
     }
-
     $profIdx = Read-Host "`nВыберите номер устройства"
-    $selectedProfile = $profileList[($profIdx-1)].ID
+    $targetProfile = $profileList[($profIdx-1)].ID
 
-    # --- ШАГ 5: ПАКЕТЫ И СОХРАНЕНИЕ ---
-    Show-Header "Завершение"
-    Write-Host "Выбрано: $selectedProfile"
-    $pkgs = Read-Host "Введите список пакетов через пробел (или оставьте пустым)"
-    $filename = Read-Host "Введите имя файла профиля (без .conf, по умолчанию: $selectedProfile)"
-    if ([string]::IsNullOrWhiteSpace($filename)) { $filename = $selectedProfile }
+    # --- ШАГ 5: ПОИСК ССЫЛКИ НА IMAGEBUILDER ---
+    Show-Header "Шаг 5: Генерация ссылки"
+    Write-Host "Поиск архива билдера в папке..."
+    $folderHtml = (Invoke-WebRequest -Uri $finalFolderUrl -UseBasicParsing).Content
+    # Ищем файл, начинающийся на openwrt-imagebuilder и заканчивающийся на .tar.xz или .tar.zst
+    if ($folderHtml -match 'href="(openwrt-imagebuilder-[^"]+\.tar\.(xz|zst))"') {
+        $ibFileName = $Matches[1]
+        $ibUrl = "$finalFolderUrl$ibFileName"
+    } else {
+        throw "Не удалось найти файл ImageBuilder в папке $finalFolderUrl"
+    }
 
-    $confPath = "profiles\$filename.conf"
+    # --- ШАГ 6: СОХРАНЕНИЕ ---
+    Show-Header "Шаг 6: Сохранение профиля"
+    $pkgs = Read-Host "Введите пакеты (через пробел)"
+    $profileName = Read-Host "Введите имя конфига (например: main или giga)"
+    if ([string]::IsNullOrWhiteSpace($profileName)) { $profileName = "default" }
+
+    $confPath = "profiles\$profileName.conf"
+    
+    # Формируем контент строго по образцу
     $content = @"
-PROFILE="$selectedProfile"
-TARGET="$selectedTarget"
-SUBTARGET="$selectedSubtarget"
-PACKAGES="$pkgs"
-RELEASE="$selectedRelease"
+PROFILE_NAME="$profileName"
+TARGET_PROFILE="$targetProfile"
+IMAGEBUILDER_URL="$ibUrl"
+PKGS="$pkgs"
 "@
+    
     $content | Out-File -FilePath $confPath -Encoding ascii -Force
     
-    Write-Host "`nГОТОВО! Файл создан: $confPath" -ForegroundColor Green
+    Write-Host "`nГОТОВО! Конфиг создан: $confPath" -ForegroundColor Green
+    Write-Host "Содержимое:"
+    Write-Host "------------------------"
+    Write-Host $content
+    Write-Host "------------------------"
+
 } catch {
     Write-Host "`nОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-Write-Host "`nНажмите любую клавишу, чтобы выйти..."
+Write-Host "`nНажмите любую клавишу для выхода..."
 $null = [Console]::ReadKey($true)
