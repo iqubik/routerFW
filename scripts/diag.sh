@@ -226,7 +226,8 @@ header "7. CONFIGURATION"
 for cfg in network wireless firewall dhcp usteer batman-adv; do
     [ -f "/etc/config/$cfg" ] || continue
     echo "--- $cfg ---" >> "$LOG"
-    uci export "$cfg" 2>/dev/null | sed -E "s/(option|list) (key|password|secret|psk|users|auth_secret) (.+)/\1 \2 '[HIDDEN]'/" >> "$LOG"
+    # Добавил private_key и preshared_key в фильтр
+    uci export "$cfg" 2>/dev/null | sed -E "s/(option|list) (key|password|secret|psk|users|auth_secret|private_key|preshared_key) (.+)/\1 \2 '[HIDDEN]'/" >> "$LOG"
 done
 footer
 
