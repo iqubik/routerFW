@@ -101,14 +101,23 @@ fi
 # 3. HTTP/Application Check
 echo "--- HTTP Check ---" >> "$LOG"
 if command -v curl >/dev/null; then
-    HTTP_CODE=$(curl -sS -I -m 5 -o /dev/null -w "%{http_code}" https://google.com 2>&1)
-    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
-        echo "HTTP Connection: OK (Code: $HTTP_CODE)" >> "$LOG"
-    else
-        echo "HTTP Connection: FAIL (Result: $HTTP_CODE)" >> "$LOG"
-        # Run verbose to see SSL/Timeout errors
-        curl -I -m 5 -v https://google.com 2>&1 | grep "curl:" >> "$LOG"
-    fi
+    # Добавил флаг -4, чтобы исключить проблемы IPv6
+    # Сменил google.com на 1.1.1.1 (Cloudflare), так как Google часто ломается из-за Zapret
+    HTTP_CODE=$(curl -4 -sS -I -m 5 -o /dev/null -w "%{http_code}" https://1.1.1.1 2>&1)
+    
+    # Проверка на успешные коды (200, 301, 302)
+    case "$HTTP_CODE" in
+        200|301|302)
+            echo "HTTP Connection: OK (Code: $HTTP_CODE)" >> "$LOG"
+            ;;
+        *)
+            # Если в переменную попала ошибка curl (текст), она выведется тут
+            echo "HTTP Connection: FAIL (Result: $HTTP_CODE)" >> "$LOG"
+            # Повторный тест с выводом деталей для отладки
+            echo "DEBUG: Trying verbose connection to google.com..." >> "$LOG"
+            curl -4 -I -m 5 -v https://google.com 2>&1 | grep "curl:" >> "$LOG"
+            ;;
+    esac
 else
     echo "curl not found, skipping HTTP check" >> "$LOG"
 fi
