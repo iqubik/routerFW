@@ -30,7 +30,7 @@
 
 ```text
 ========================================
-OpenWrt Smart Builder v4.1 (iqubik)
+OpenWrt Smart Builder v4.2 (iqubik)
 ========================================
 
 Обнаруженные профили:
