@@ -65,6 +65,23 @@ PKGS="luci-base -opkg"
 
 # Размер корня в МБ
 ROOTFS_SIZE="512"
+
+#Размер раздела ядра
+KERNEL_SIZE="64"
+
+#Спец имя для сборки
+EXTRA_IMAGE_NAME="v2-stable"
+
+#Отключение сервисов
+DISABLED_SERVICES="transmission-daemon minidlna"
+
+#Добавляем кастомные репозитории
+#Сначала ключ от репы
+CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
+#Теперь список репозиториев по одному на строке.
+CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/aarch64_generic/luci
+src/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/aarch64_generic/packages
+src/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/aarch64_generic/special"
 ```
 
 ---
