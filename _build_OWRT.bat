@@ -119,9 +119,9 @@ echo "!URL_CLEAN!" | findstr /C:"/18." >nul && set IS_LEGACY=1
 echo "!URL_CLEAN!" | findstr /C:"/17." >nul && set IS_LEGACY=1
 
 IF DEFINED IS_LEGACY (
-    set "BUILDER_SERVICE=builder-841n"
+    set "BUILDER_SERVICE=builder-oldwrt"
 ) ELSE (
-    set "BUILDER_SERVICE=builder-beeline"
+    set "BUILDER_SERVICE=builder-openwrt"
 )
 
 if not exist "firmware_output\%PROFILE_ID%" (
