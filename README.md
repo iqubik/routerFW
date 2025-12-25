@@ -57,32 +57,32 @@ OpenWrt Smart Builder v4.1 (iqubik)
 Файл конфигурации (например, `example_841n.conf`):
 
 ```bash
-# Имя профиля (нижний регистр как и имя файла профиля) * обязательно
+# Имя профиля (нижний регистр как и имя файла профиля) [*не обязательно]
 PROFILE_NAME="example_841n"
 
-# Цель сборки (Target Profile) *обязательно
+# Цель сборки (Target Profile) [*обязательно]
 TARGET_PROFILE="tl-wr841-v9"
 
-# Ссылка на ImageBuilder *обязательно
+# Ссылка на ImageBuilder [*обязательно]
 IMAGEBUILDER_URL="https://downloads.openwrt.org/releases/19.07.9/targets/ar71xx/tiny/openwrt-imagebuilder-19.07.9-ar71xx-tiny.Linux-x86_64.tar.xz"
 
-# Список пакетов *обязательно
+# Список пакетов [*не обязательно]
 # (Пример: добавить luci, убрать opkg)
 PKGS="luci-base -opkg"
 
-# Размер корня в МБ *не обязательно
+# Размер корня в МБ [*не обязательно]
 ROOTFS_SIZE="512"
 
-#Размер раздела ядра *не обязательно
+#Размер раздела ядра [*не обязательно]
 KERNEL_SIZE="64"
 
-#Спец имя для сборки *не обязательно
+#Спец имя для сборки [*не обязательно]
 EXTRA_IMAGE_NAME="stable-v2"
 
-#Отключение сервисов *не обязательно
+#Отключение сервисов [*не обязательно]
 DISABLED_SERVICES="transmission-daemon minidlna"
 
-#Добавляем кастомные репозитории *не обязательно
+#Добавляем кастомные репозитории [*не обязательно]
 #Сначала ключ от репы
 CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
 #Теперь список репозиториев по одному на строке.
