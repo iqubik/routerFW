@@ -30,7 +30,7 @@ if not exist "profiles\*.conf" (
 :MENU
 cls
 echo ========================================
-echo  OpenWrt Smart Builder v3.6 (iqubik)
+echo  OpenWrt Smart Builder v3.7 (iqubik)
 echo ========================================
 echo.
 echo Обнаруженные профили:
