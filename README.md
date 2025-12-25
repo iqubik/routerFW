@@ -57,13 +57,13 @@ OpenWrt Smart Builder v4.1 (iqubik)
 Файл конфигурации (например, `example_841n.conf`):
 
 ```bash
-# Имя профиля (нижний регистр как и имя файла профиля) *обязательно
+# Имя профиля (нижний регистр как и имя файла профиля) * обязательно
 PROFILE_NAME="example_841n"
 
 # Цель сборки (Target Profile) *обязательно
 TARGET_PROFILE="tl-wr841-v9"
 
-# Ссылка на ImageBuilder
+# Ссылка на ImageBuilder *обязательно
 IMAGEBUILDER_URL="https://downloads.openwrt.org/releases/19.07.9/targets/ar71xx/tiny/openwrt-imagebuilder-19.07.9-ar71xx-tiny.Linux-x86_64.tar.xz"
 
 # Список пакетов *обязательно
