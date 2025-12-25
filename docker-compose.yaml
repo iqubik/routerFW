@@ -76,8 +76,8 @@ services:
       make image PROFILE=\"$$TARGET_PROFILE\" FILES=\"/overlay_files\" PACKAGES=\"$$PKGS\"
 
       # --- 4. СОХРАНЕНИЕ ---
-      echo \"Saving artifacts...\"
-      find bin/targets -name \"*sysupgrade.bin\" -o -name \"*factory.bin\" -o -name \"*factory.img\" | while read f; do
+      echo \"Saving artifacts...\"      
+      find bin/targets -type f -not -path \"*/packages/*\" | while read f; do
           cp \"$$f\" \"/output/$$PROFILE_NAME-$$TIMESTAMP-$$(basename \"$$f\")\"
       done
 
