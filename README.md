@@ -1,5 +1,3 @@
-Вот оформленный в Markdown текст, готовый для публикации на GitHub или форумах (например, 4PDA).
-
 ***
 
 # OpenWrt Smart Builder v4.0 (iqubik)
