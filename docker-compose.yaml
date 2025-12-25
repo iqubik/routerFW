@@ -70,7 +70,20 @@ services:
       [ -d /input_packages ] && cp /input_packages/*.ipk packages/ 2>/dev/null || true
 
       export SOURCE_DATE_EPOCH=$$(date +%s)
-      
+
+      # === ИЗМЕНЕНИЕ РАЗМЕРА РАЗДЕЛА ===
+      if [ -n \"$$ROOTFS_SIZE\" ]; then
+        echo \"[CONFIG] Setting RootFS size to $$ROOTFS_SIZE MB...\"
+        # Создаем файл, если его нет, чтобы sed не ругался
+        touch .config
+        # Удаляем старое значение, чтобы не дублировалось
+        sed -i '/CONFIG_TARGET_ROOTFS_PARTSIZE/d' .config
+        # Добавляем нужное значение
+        echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$ROOTFS_SIZE\" >> .config
+      else
+        echo \"[CONFIG] Using default RootFS size\"
+      fi     
+
       # --- 3. СБОРКА ---
       echo \"Starting make image for $$TARGET_PROFILE...\"
       make image PROFILE=\"$$TARGET_PROFILE\" FILES=\"/overlay_files\" PACKAGES=\"$$PKGS\"
