@@ -131,14 +131,14 @@ PKGS="$pkgs"
     $content | Out-File -FilePath $confPath -Encoding ascii -Force
     
     Write-Host "`n[OK] Конфиг создан: $confPath" -ForegroundColor Green
-    Write-Host "Запуск сборщика _build_OWRT.bat..." -ForegroundColor Cyan
+    Write-Host "Запуск сборщика _Image_Builder.bat..." -ForegroundColor Cyan
     Start-Sleep -Seconds 2
 
     # Запуск батника сборщика
-    if (Test-Path "_build_OWRT.bat") {
-        cmd.exe /c _build_OWRT.bat
+    if (Test-Path "_Image_Builder.bat") {
+        cmd.exe /c _Image_Builder.bat
     } else {
-        Write-Host "`nПредупреждение: Файл _build_OWRT.bat не найден в текущей папке." -ForegroundColor Yellow
+        Write-Host "`nПредупреждение: Файл _Image_Builder.bat не найден в текущей папке." -ForegroundColor Yellow
         Pause
     }
 
