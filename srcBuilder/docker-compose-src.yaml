@@ -1,13 +1,16 @@
 # file: srcBuilder\docker-compose-src.yaml
+
 services:
   builder-src-openwrt:
     build:
       context: .
       dockerfile: src.dockerfile
-    user: "build"
+    # ЗАПУСКАЕМСЯ ОТ ROOT, ЧТОБЫ ПОЧИНИТЬ ПРАВА НА ТОМА
+    user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
     volumes:
+      - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - ./src_profiles:/profiles
       - ./custom_packages:/input_packages
@@ -17,6 +20,21 @@ services:
     command: &src_build_script |
       /bin/bash -c "
       set -e
+      echo '[INIT] Checking volume permissions...'
+      # Используем $$(...) чтобы docker-compose не пытался интерпретировать переменную
+      if [ \"$$(stat -c '%U' /home/build/openwrt)\" != \"build\" ]; then
+          echo \"[INIT] First run detected: Fixing ownership of workdir...\"
+          chown -R build:build /home/build/openwrt
+      fi
+      
+      # Создаем скрипт сборки внутри контейнера
+      cat << 'EOF' > /tmp/build_script.sh      
+      set -e
+      export HOME=/home/build
+      
+      # Вычисляем ID профиля из имени файла конфига (для красивого лога в конце)
+      PROFILE_ID=$$(basename \"$$CONF_FILE\" .conf)
+
       # === 0. Setup Environment ===
       if [ ! -f \"/profiles/$$CONF_FILE\" ]; then
         echo \"FATAL: Profile /profiles/$$CONF_FILE not found!\"
@@ -64,7 +82,14 @@ services:
       echo \"[FEEDS] Updating and Installing feeds...\"
       ./scripts/feeds update -a
       ./scripts/feeds install -a
-      
+
+      # === CUSTOM SOURCES ===
+      # ВАЖНО: Сюда нужно класть ПАПКИ с исходниками (Makefile), а не .ipk файлы!
+      if [ -d \"/input_packages\" ] && [ \"$$(ls -A /input_packages)\" ]; then
+          echo \"[PKG] Injecting custom sources into package/ directory...\"
+          cp -rf /input_packages/* package/
+      fi
+
       # === 3. CONFIGURATION ===
       echo \"[CONFIG] Generating .config...\"
       rm -f .config
@@ -86,18 +111,25 @@ services:
           fi
       done
       
-      # Apply LUCI default
-      echo \"CONFIG_PACKAGE_luci=y\" >> .config
+      # Apply LUCI default (если пользователь не указал его сам)
+      # ВАЖНО: Кавычки экранированы \", чтобы bash -c их не съел
+      if ! grep -q \"CONFIG_PACKAGE_luci=y\" .config; then
+          echo \"CONFIG_PACKAGE_luci=y\" >> .config
+      fi
       
       # Sizes
       if [ -n \"$$SRC_ROOTFS_SIZE\" ]; then
         echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$SRC_ROOTFS_SIZE\" >> .config
       fi
+
       if [ -n \"$$SRC_KERNEL_SIZE\" ]; then
         echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$SRC_KERNEL_SIZE\" >> .config
       fi
 
-      # Expand config to full dependency tree
+      echo \"[DEBUG] Showing generated SEED .config:\"
+      echo \"----------------------------------------\"
+      cat .config
+      echo \"----------------------------------------\"
       make defconfig
       
       # === 4. CUSTOM FILES ===
@@ -111,7 +143,7 @@ services:
       echo \"[DOWNLOAD] Downloading sources to cache...\"
       mkdir -p dl
       # Пробуем скачать молча. Если ошибка — повторяем с подробным выводом (V=s) и останавливаемся
-      make download || (echo \"[ERROR] Download failed! Retrying with logging...\" && make download V=s && exit 1)      
+      make download || (echo \"[ERROR] Download failed! Retrying with logging...\" && make download V=s && exit 1)
       
       # === 6. BUILD ===
       echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"
@@ -124,7 +156,7 @@ services:
       mkdir -p \"$$TARGET_DIR\"
       
       # Ищем файлы в bin/targets
-      find bin/targets/$$SRC_TARGET/$$SRC_SUBTARGET -maxdepth 2 -type f \( -name \"*.bin\" -o -name \"*.img\" -o -name \"*.iso\" \) -exec cp {} \"$$TARGET_DIR/\" \;
+      find bin/targets/$$SRC_TARGET/$$SRC_SUBTARGET -maxdepth 2 -type f \\( -name \"*.bin\" -o -name \"*.img\" -o -name \"*.iso\" \\) -exec cp {} \"$$TARGET_DIR/\" \\;
       
       # Сохраняем итоговый конфиг для справки
       cp .config \"$$TARGET_DIR/build.config\"
@@ -137,16 +169,24 @@ services:
       echo \"=== Сборка $$PROFILE_NAME завершена за $${ELAPSED}с.\"
       echo \"=== Образы: firmware_output/$$PROFILE_ID/$$TIMESTAMP\"
       echo \"============================================================\"
+      EOF
+      
+      chmod +x /tmp/build_script.sh
+      chown build:build /tmp/build_script.sh
+      
+      echo '[EXEC] Switching to user build...'
+      sudo -E -u build bash /tmp/build_script.sh
       "
 
   builder-src-oldwrt:
     build:
       context: .
       dockerfile: src.dockerfile.legacy
-    user: "build"
+    user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
     volumes:
+      - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - ./src_profiles:/profiles
       - ./custom_packages:/input_packages
@@ -157,3 +197,4 @@ services:
 
 volumes:
   src-dl-cache:
+  src-workdir:

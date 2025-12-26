@@ -17,6 +17,7 @@ set "PROJECT_DIR=%CD%"
 call :CHECK_DIR "src_profiles"
 call :CHECK_DIR "custom_files"
 call :CHECK_DIR "firmware_output"
+call :CHECK_DIR "custom_packages"
 
 :: === 2. ПРОВЕРКА НАЛИЧИЯ ПРОФИЛЕЙ ===
 if not exist "src_profiles\*.conf" (
