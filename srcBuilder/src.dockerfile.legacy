@@ -1,4 +1,4 @@
-#file: srcBuilder\src.dockerfile.legacy
+#file: srcBuilder\src.dockerfile.legacy v0.1
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 # Зависимости для старых версий OpenWrt (Python 2)

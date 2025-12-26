@@ -1,4 +1,4 @@
-#file: srcBuilder/src.dockerfile
+#file: srcBuilder/src.dockerfile v1.0
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 # Установка зависимостей + CURL + SUDO

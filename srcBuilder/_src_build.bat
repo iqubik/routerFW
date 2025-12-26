@@ -30,7 +30,7 @@ if not exist "src_profiles\*.conf" (
 :MENU
 cls
 echo ========================================
-echo  OpenWrt SOURCE Builder v0.1 (iqubik)
+echo  OpenWrt SOURCE Builder v0.9 (iqubik)
 echo ========================================
 echo.
 echo Обнаруженные Source-профили:
