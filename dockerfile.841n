@@ -1,13 +1,10 @@
 # file dockerfile.841n
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
-# Устанавливаем зависимости для OpenWrt 18.06
 RUN apt-get update && apt-get install -y \
 	python3 build-essential python2.7 libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip xz-utils ca-certificates \
 	&& update-ca-certificates \
 	&& ln -sf /usr/bin/python2.7 /usr/bin/python \
 	&& rm -rf /var/lib/apt/lists/*
-# Копируем минимальный конфиг OpenSSL, чтобы избежать ошибок DSO
 COPY openssl.cnf /etc/ssl/openssl.cnf
-# Создаем рабочую папку внутри контейнера
 WORKDIR /builder_workspace
