@@ -1,0 +1,141 @@
+# file: docker-compose.yaml V1.1
+services:
+  builder-openwrt:
+    build: .
+    environment:
+      - CONF_FILE=${SELECTED_CONF}
+    volumes:
+      - imagebuilder-cache:/cache
+      - ipk-cache:/builder_workspace/dl
+      - ./custom_packages:/input_packages
+      - ${HOST_FILES_DIR}:/overlay_files
+      - ${HOST_OUTPUT_DIR}:/output
+      - ./profiles:/profiles
+      - ./openssl.cnf:/openssl.cnf
+    command: &build_script |
+      /bin/bash -c "
+      set -e
+      if [ ! -f \"/profiles/$$CONF_FILE\" ]; then
+        echo \"FATAL: Profile /profiles/$$CONF_FILE not found!\"
+        exit 1
+      fi
+      # === КОНВЕРТАЦИЯ CRLF -> LF ===
+      echo \"[INIT] Normalizing config line endings...\"
+      tr -d '\\r' < \"/profiles/$$CONF_FILE\" > /tmp/clean_config.env
+      source /tmp/clean_config.env
+      # === ЗАСЕКАЕМ ВРЕМЯ ===
+      START_TIME=$$(date +%s)
+      TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
+      # --- 1. КЭШИРОВАНИЕ ---
+      ARCHIVE_NAME=$$(basename \"$$IMAGEBUILDER_URL\")
+      CACHE_FILE=\"/cache/$$ARCHIVE_NAME\"
+      if [ ! -f \"$$CACHE_FILE\" ]; then
+        echo \"[CACHE MISS] Downloading $$ARCHIVE_NAME...\"
+        wget -q \"$$IMAGEBUILDER_URL\" -O \"$$CACHE_FILE\"
+      else
+        echo \"[CACHE HIT] Using $$ARCHIVE_NAME\"
+      fi
+      echo \"Extracting...\"
+      if echo \"$$IMAGEBUILDER_URL\" | grep -q '.zst$$'; then
+          tar -I zstd -xf \"$$CACHE_FILE\" --strip-components=1
+      else
+          tar -xJf \"$$CACHE_FILE\" --strip-components=1
+      fi
+      # --- 2. РАСШИРЕННЫЕ ВОЗМОЖНОСТИ ---
+      if [ -f /openssl.cnf ]; then
+         echo \"Applying OpenSSL Fix to /builder/shared-workdir/...\"
+         mkdir -p /builder/shared-workdir/build/staging_dir/host/etc/ssl
+         cp /openssl.cnf /builder/shared-workdir/build/staging_dir/host/etc/ssl/openssl.cnf
+      fi
+      # Копируем кастомные IPK
+      [ -d /input_packages ] && cp /input_packages/*.ipk packages/ 2>/dev/null || true
+      #fix для древних сборок
+      export SOURCE_DATE_EPOCH=$$(date +%s)
+      # === ИЗМЕНЕНИЕ РАЗМЕРА РАЗДЕЛОВ ===
+      # RootFS Size
+      if [ -n \"$$ROOTFS_SIZE\" ]; then
+        echo \"[CONFIG] Setting RootFS size to $$ROOTFS_SIZE MB...\"
+        touch .config
+        sed -i '/CONFIG_TARGET_ROOTFS_PARTSIZE/d' .config
+        echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$ROOTFS_SIZE\" >> .config
+      else
+        echo \"[CONFIG] Using default RootFS size\"
+      fi
+      # Kernel Size
+      if [ -n \"$$KERNEL_SIZE\" ]; then
+        echo \"[CONFIG] Setting Kernel size to $$KERNEL_SIZE MB...\"
+        touch .config
+        sed -i '/CONFIG_TARGET_KERNEL_PARTSIZE/d' .config
+        echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$KERNEL_SIZE\" >> .config
+      else
+        echo \"[CONFIG] Using default KernelFS size\"
+      fi
+      # === РЕПОЗИТОРИИ И КЛЮЧИ ===
+      if [ -n \"$$CUSTOM_KEYS\" ]; then
+         echo \"[REPO] Downloading custom keys...\"
+         for key_url in $$CUSTOM_KEYS; do
+             echo \"   -> $$key_url\"
+             wget -q \"$$key_url\" -P keys/
+             key_filename=$$(basename \"$$key_url\")
+             key_id=$${key_filename%.*}
+             if [ \"$$key_filename\" != \"$$key_id\" ]; then
+                 cp \"keys/$$key_filename\" \"keys/$$key_id\"
+             fi
+         done
+      fi
+      if [ -n \"$$CUSTOM_REPOS\" ]; then
+         echo \"[REPO] Adding custom repositories...\"
+         sed -i '/fantastic_/d' repositories.conf
+         clean_repos=$$(echo "$$CUSTOM_REPOS" | sed 's# src/gz#\\nsrc/gz#g')
+         echo \"$$clean_repos\" >> repositories.conf
+         echo \"--- Repositories list: ---\"
+         cat repositories.conf
+         echo \"--------------------------\"
+      fi
+      # --- 3. СБОРКА ---
+      echo \"Starting make image for $$TARGET_PROFILE...\"
+      MAKE_ARGS=\"PROFILE=\\\"$$TARGET_PROFILE\\\" FILES=\\\"/overlay_files\\\" PACKAGES=\\\"$$PKGS\\\"\"
+      if [ -n \"$$EXTRA_IMAGE_NAME\" ]; then
+          MAKE_ARGS=\"$$MAKE_ARGS EXTRA_IMAGE_NAME=\\\"$$EXTRA_IMAGE_NAME\\\"\"
+      fi
+      if [ -n \"$$DISABLED_SERVICES\" ]; then
+          MAKE_ARGS=\"$$MAKE_ARGS DISABLED_SERVICES=\\\"$$DISABLED_SERVICES\\\"\"
+      fi
+      echo \"Running: make image ...\"
+      eval make image $$MAKE_ARGS
+      # --- 4. СОХРАНЕНИЕ ---
+      echo \"Saving artifacts...\"
+      TARGET_DIR=\"/output/$$TIMESTAMP\"
+      mkdir -p \"$$TARGET_DIR\"
+      find bin/targets -type f -not -path \"*/packages/*\" | while read f; do
+          cp \"$$f\" \"$$TARGET_DIR/\"
+      done
+      # --- 5. РАСЧЕТ ВРЕМЕНИ ---
+      END_TIME=$$(date +%s)
+      ELAPSED=$$((END_TIME - START_TIME))
+      echo \"\"
+      echo \"============================================================\"
+      echo \"=== Сборка $$PROFILE_NAME завершена за $${ELAPSED}с.\"
+      echo \"=== Файлы сохранены в: firmware_output/imagebuilder/$$PROFILE_NAME/$$TIMESTAMP\"
+      echo \"============================================================\"
+      "
+
+  builder-oldwrt:
+    build:
+      context: .
+      dockerfile: dockerfile.841n
+    environment:
+      - CONF_FILE=${SELECTED_CONF}
+    volumes:
+      - imagebuilder-cache:/cache
+      - ipk-cache:/builder_workspace/dl
+      - ./custom_packages:/input_packages
+      - ${HOST_FILES_DIR}:/overlay_files
+      - ${HOST_OUTPUT_DIR}:/output
+      - ./profiles:/profiles
+      - ./openssl.cnf:/openssl.cnf
+    command: *build_script
+
+volumes:
+  imagebuilder-cache:
+  ipk-cache:
