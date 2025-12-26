@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     build-essential clang flex bison g++ gawk \
     gcc-multilib g++-multilib gettext git libncurses-dev \
     libssl-dev python3-distutils python3-setuptools \
+    python3-pyelftools libelf-dev \
     rsync unzip zlib1g-dev file wget time \
     swig xsltproc \
     curl ca-certificates ssl-cert sudo \
