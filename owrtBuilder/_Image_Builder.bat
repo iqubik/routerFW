@@ -46,10 +46,8 @@ for %%f in (profiles\*.conf) do (
     if not exist "custom_files\!p_id!" (
         mkdir "custom_files\!p_id!"
     )
-
     :: Вызываем безопасную функцию для создания скрипта прав
-    call :CREATE_PERMS_SCRIPT "!p_id!"
-    
+    call :CREATE_PERMS_SCRIPT "!p_id!"    
     echo    [!count!] %%~nxf
 )
 

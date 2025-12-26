@@ -42,10 +42,12 @@ for %%f in (profiles\*.conf) do (
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
     
+    :: Создаем папку профиля, если нет
     if not exist "custom_files\!p_id!" (
         mkdir "custom_files\!p_id!"
     )
-    
+    :: Вызываем безопасную функцию для создания скрипта прав
+    call :CREATE_PERMS_SCRIPT "!p_id!"    
     echo    [!count!] %%~nxf
 )
 
@@ -136,6 +138,15 @@ exit /b
 :: =========================================================
 ::  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 :: =========================================================
+:CREATE_PERMS_SCRIPT
+set "P_ID=%~1"
+set "PERM_FILE=custom_files\%P_ID%\etc\uci-defaults\99-permissions.sh"
+if exist "%PERM_FILE%" exit /b
+rem echo    [AUTO] Создание 99-permissions.sh для %P_ID%...
+powershell -Command "[System.IO.Directory]::CreateDirectory('custom_files\%P_ID%\etc\uci-defaults')" >nul 2>&1
+set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJZYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJZYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJZYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
+powershell -Command "[IO.File]::WriteAllBytes('%PERM_FILE%', [Convert]::FromBase64String('%B64%'))"
+exit /b
 
 :EXTRACT_RESOURCES
 for %%F in ("docker-compose-src.yaml" "src.dockerfile" "src.dockerfile.legacy" "openssl.cnf") do (
