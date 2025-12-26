@@ -1,4 +1,4 @@
-# file: docker-compose.yaml V1.0
+# file: docker-compose.yaml V1.1
 services:
   builder-openwrt:
     build: .
@@ -116,7 +116,7 @@ services:
       echo \"\"
       echo \"============================================================\"
       echo \"=== Сборка $$PROFILE_NAME завершена за $${ELAPSED}с.\"
-      echo \"=== Файлы сохранены в: firmware_output/$$PROFILE_NAME/$$TIMESTAMP\"
+      echo \"=== Файлы сохранены в: firmware_output/imagebuilder/$$PROFILE_NAME/$$TIMESTAMP\"
       echo \"============================================================\"
       "
 

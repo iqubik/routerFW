@@ -1,7 +1,6 @@
 #file: srcBuilder/src.dockerfile v1.0
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
-# Установка зависимостей + CURL + SUDO
 RUN apt-get update && apt-get install -y \
     build-essential clang flex bison g++ gawk \
     gcc-multilib g++-multilib gettext git libncurses-dev \
@@ -10,13 +9,8 @@ RUN apt-get update && apt-get install -y \
     swig xsltproc \
     curl ca-certificates ssl-cert sudo \
     && rm -rf /var/lib/apt/lists/*
-# Создаем пользователя build
 RUN useradd -m -u 1000 -s /bin/bash build
-# Создаем рабочую папку и dl заранее
 WORKDIR /home/build/openwrt
 RUN mkdir -p dl && chown -R build:build /home/build/openwrt
-# OpenSSL Config
 COPY --chown=build:build openssl.cnf /home/build/openssl.cnf
 ENV OPENSSL_CONF=/home/build/openssl.cnf
-# Важно: НЕ переключаемся на USER build здесь, чтобы Entrypoint мог стартовать от root
-# USER build

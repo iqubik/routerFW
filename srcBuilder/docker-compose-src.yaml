@@ -1,11 +1,9 @@
-# file: srcBuilder\docker-compose-src.yaml v0.9
-
+# file: srcBuilder\docker-compose-src.yaml v1.0
 services:
   builder-src-openwrt:
     build:
       context: .
       dockerfile: src.dockerfile
-    # ЗАПУСКАЕМСЯ ОТ ROOT, ЧТОБЫ ПОЧИНИТЬ ПРАВА НА ТОМА
     user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
@@ -31,8 +29,6 @@ services:
       cat << 'EOF' > /tmp/build_script.sh      
       set -e
       export HOME=/home/build
-      
-      # Вычисляем ID профиля из имени файла конфига (для красивого лога в конце)
       PROFILE_ID=$$(basename \"$$CONF_FILE\" .conf)
 
       # === 0. Setup Environment ===
@@ -64,14 +60,12 @@ services:
       echo \"[GIT] Fetching $$SRC_BRANCH...\"
       git fetch origin \"$$SRC_BRANCH\"
       
-      echo \"[GIT] Checkout/Reset to $$SRC_BRANCH...\"
-      # Отключаем лишний шум в логах
+      echo \"[GIT] Checkout/Reset to $$SRC_BRANCH...\"      
       git config --global advice.detachedHead false
       git checkout -f \"FETCH_HEAD\"
       git reset --hard \"FETCH_HEAD\"
 
-      # === FIX: SWITCH TO GITHUB MIRRORS ===
-      # Сервер openwrt.org часто падает (503), меняем на GitHub
+      # === SWITCH TO GITHUB MIRRORS ===      
       if [ -f feeds.conf.default ]; then
           echo \"[FIX] Switching feeds to GitHub mirrors...\"
           sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
@@ -100,8 +94,6 @@ services:
       echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}_DEVICE_$$SRC_DEVICE=y\" >> .config
       
       # Добавляем пользовательские пакеты из SRC_PACKAGES
-      # Логика: если пакет начинается с '-', это # CONFIG_PACKAGE_x is not set
-      # Иначе CONFIG_PACKAGE_x=y
       for pkg in $$SRC_PACKAGES; do
           if [[ \"$$pkg\" == -* ]]; then
               clean_pkg=\"$${pkg#-}\"
@@ -111,8 +103,7 @@ services:
           fi
       done
       
-      # Apply LUCI default (если пользователь не указал его сам)
-      # ВАЖНО: Кавычки экранированы \", чтобы bash -c их не съел
+      # Apply LUCI default (если пользователь не указал его сам)      
       if ! grep -q \"CONFIG_PACKAGE_luci=y\" .config; then
           echo \"CONFIG_PACKAGE_luci=y\" >> .config
       fi
@@ -141,13 +132,11 @@ services:
       
       # === 5. DOWNLOAD ===
       echo \"[DOWNLOAD] Downloading sources to cache...\"
-      mkdir -p dl
-      # Пробуем скачать молча. Если ошибка — повторяем с подробным выводом (V=s) и останавливаемся
+      mkdir -p dl      
       make download || (echo \"[ERROR] Download failed! Retrying with logging...\" && make download V=s && exit 1)
       
       # === 6. BUILD ===
-      echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"
-      # Пытаемся собрать многопоточно, при ошибке - однопоточно с логами
+      echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"      
       make -j$$(nproc) || (echo \"[ERROR] Multicore build failed. Retrying single core V=s...\" && make -j1 V=s)
       
       # === 7. ARTIFACTS ===
@@ -167,7 +156,7 @@ services:
       echo \"\"
       echo \"============================================================\"
       echo \"=== Сборка $$PROFILE_NAME завершена за $${ELAPSED}с.\"
-      echo \"=== Образы: firmware_output/$$PROFILE_ID/$$TIMESTAMP\"
+      echo \"=== Образы: firmware_output/sourcebuilder/$$PROFILE_ID/$$TIMESTAMP\"
       echo \"============================================================\"
       EOF
       

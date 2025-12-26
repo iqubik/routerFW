@@ -122,14 +122,14 @@ IF DEFINED IS_LEGACY (
     set "BUILDER_SERVICE=builder-src-openwrt"
 )
 
-if not exist "firmware_output\%PROFILE_ID%" (
-    mkdir "firmware_output\%PROFILE_ID%"
+if not exist "firmware_output\sourcebuilder\%PROFILE_ID%" (
+    mkdir "firmware_output\sourcebuilder\%PROFILE_ID%"
 )
 
 echo [LAUNCH] Запуск контейнера сборки для: %PROFILE_ID%...
 echo [DEBUG] Ветка Git: !SRC_BRANCH_VAL! (Legacy: !IS_LEGACY!)
 
-START "SrcBuild: %PROFILE_ID%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=./firmware_output/%PROFILE_ID%&& docker-compose -f docker-compose-src.yaml -p srcbuild_%PROFILE_ID% up --build --force-recreate --remove-orphans %BUILDER_SERVICE% & echo. & echo === WORK FINISHED === & pause"
+START "SrcBuild: %PROFILE_ID%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/%PROFILE_ID%&& docker-compose -f docker-compose-src.yaml -p srcbuild_%PROFILE_ID% up --build --force-recreate --remove-orphans %BUILDER_SERVICE% & echo. & echo === WORK FINISHED === & pause"
 
 exit /b
 

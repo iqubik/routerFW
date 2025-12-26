@@ -128,14 +128,14 @@ IF DEFINED IS_LEGACY (
     set "BUILDER_SERVICE=builder-openwrt"
 )
 
-if not exist "firmware_output\%PROFILE_ID%" (
-    mkdir "firmware_output\%PROFILE_ID%"
+if not exist "firmware_output\imagebuilder\%PROFILE_ID%" (
+    mkdir "firmware_output\imagebuilder\%PROFILE_ID%"
 )
 
 echo [LAUNCH] Запуск окна для: %PROFILE_ID%...
 echo [DEBUG] URL определен как: !URL_CLEAN!
 
-START "Build: %PROFILE_ID%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=./firmware_output/%PROFILE_ID%&& docker-compose -p build_%PROFILE_ID% up --build --force-recreate --remove-orphans %BUILDER_SERVICE% & echo. & echo === WORK FINISHED === & pause"
+START "Build: %PROFILE_ID%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=./firmware_output/imagebuilder/%PROFILE_ID%&& docker-compose -p build_%PROFILE_ID% up --build --force-recreate --remove-orphans %BUILDER_SERVICE% & echo. & echo === WORK FINISHED === & pause"
 
 exit /b
 
