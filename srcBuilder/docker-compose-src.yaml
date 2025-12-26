@@ -11,7 +11,7 @@ services:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - ./src_profiles:/profiles
-      - ./custom_packages:/input_packages
+      - ./src_packages:/input_packages
       - ${HOST_FILES_DIR}:/overlay_files
       - ${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
@@ -178,7 +178,7 @@ services:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - ./src_profiles:/profiles
-      - ./custom_packages:/input_packages
+      - ./src_packages:/input_packages
       - ${HOST_FILES_DIR}:/overlay_files
       - ${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
