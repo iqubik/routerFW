@@ -1,0 +1,144 @@
+# file: srcBuilder\docker-compose-src.yaml
+services:
+  builder-src-openwrt:
+    build:
+      context: .
+      dockerfile: src.dockerfile
+    user: "build"
+    environment:
+      - CONF_FILE=${SELECTED_CONF}
+    volumes:
+      - src-dl-cache:/home/build/openwrt/dl
+      - ./src_profiles:/profiles
+      - ./custom_packages:/input_packages
+      - ${HOST_FILES_DIR}:/overlay_files
+      - ${HOST_OUTPUT_DIR}:/output
+      - ./openssl.cnf:/openssl.cnf
+    command: &src_build_script |
+      /bin/bash -c "
+      set -e
+      # === 0. Setup Environment ===
+      if [ ! -f \"/profiles/$$CONF_FILE\" ]; then
+        echo \"FATAL: Profile /profiles/$$CONF_FILE not found!\"
+        exit 1
+      fi
+      
+      # Fix CRLF
+      tr -d '\\r' < \"/profiles/$$CONF_FILE\" > /tmp/clean_config.env
+      source /tmp/clean_config.env
+      
+      echo \"==================================================\"
+      echo \"   OpenWrt SOURCE Builder for $$PROFILE_NAME\"
+      echo \"==================================================\"
+      
+      START_TIME=$$(date +%s)
+      TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
+      
+      # === 1. GIT CLONE / CHECKOUT ===
+      # Если папка пуста (первый запуск в эфемерном контейнере), клонируем
+      if [ ! -d \".git\" ]; then
+          echo \"[GIT] Cloning $$SRC_REPO...\"
+          git clone \"$$SRC_REPO\" .
+      fi
+      
+      echo \"[GIT] Checkout $$SRC_BRANCH...\"
+      git checkout \"$$SRC_BRANCH\"
+      git pull origin \"$$SRC_BRANCH\" || true
+      
+      # === 2. FEEDS ===
+      echo \"[FEEDS] Updating and Installing feeds...\"
+      ./scripts/feeds update -a
+      ./scripts/feeds install -a
+      
+      # === 3. CONFIGURATION ===
+      echo \"[CONFIG] Generating .config...\"
+      rm -f .config
+      
+      # Базовая конфигурация Target
+      echo \"CONFIG_TARGET_$$SRC_TARGET=y\" >> .config
+      echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}=y\" >> .config
+      echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}_DEVICE_$$SRC_DEVICE=y\" >> .config
+      
+      # Добавляем пользовательские пакеты из SRC_PACKAGES
+      # Логика: если пакет начинается с '-', это # CONFIG_PACKAGE_x is not set
+      # Иначе CONFIG_PACKAGE_x=y
+      for pkg in $$SRC_PACKAGES; do
+          if [[ \"$$pkg\" == -* ]]; then
+              clean_pkg=\"$${pkg#-}\"
+              echo \"# CONFIG_PACKAGE_$$clean_pkg is not set\" >> .config
+          else
+              echo \"CONFIG_PACKAGE_$$pkg=y\" >> .config
+          fi
+      done
+      
+      # Apply LUCI default
+      echo \"CONFIG_PACKAGE_luci=y\" >> .config
+      
+      # Sizes
+      if [ -n \"$$SRC_ROOTFS_SIZE\" ]; then
+        echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$SRC_ROOTFS_SIZE\" >> .config
+      fi
+      if [ -n \"$$SRC_KERNEL_SIZE\" ]; then
+        echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$SRC_KERNEL_SIZE\" >> .config
+      fi
+
+      # Expand config to full dependency tree
+      make defconfig
+      
+      # === 4. CUSTOM FILES ===
+      if [ -d \"/overlay_files\" ] && [ \"$$(ls -A /overlay_files)\" ]; then
+          echo \"[FILES] Copying overlay files...\"
+          mkdir -p files
+          cp -r /overlay_files/* files/
+      fi
+      
+      # === 5. DOWNLOAD ===
+      echo \"[DOWNLOAD] Downloading sources to cache...\"
+      # Создаем dl папку если нет (хотя она маунтится)
+      mkdir -p dl
+      make download
+      
+      # === 6. BUILD ===
+      echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"
+      # Пытаемся собрать многопоточно, при ошибке - однопоточно с логами
+      make -j$$(nproc) || (echo \"[ERROR] Multicore build failed. Retrying single core V=s...\" && make -j1 V=s)
+      
+      # === 7. ARTIFACTS ===
+      echo \"[SAVE] Saving artifacts...\"
+      TARGET_DIR=\"/output/$$TIMESTAMP\"
+      mkdir -p \"$$TARGET_DIR\"
+      
+      # Ищем файлы в bin/targets
+      find bin/targets/$$SRC_TARGET/$$SRC_SUBTARGET -maxdepth 2 -type f \( -name \"*.bin\" -o -name \"*.img\" -o -name \"*.iso\" \) -exec cp {} \"$$TARGET_DIR/\" \;
+      
+      # Сохраняем итоговый конфиг для справки
+      cp .config \"$$TARGET_DIR/build.config\"
+      
+      END_TIME=$$(date +%s)
+      ELAPSED=$$((END_TIME - START_TIME))
+      
+      echo \"\"
+      echo \"============================================================\"
+      echo \"=== Сборка $$PROFILE_NAME завершена за $${ELAPSED}с.\"
+      echo \"=== Образы: firmware_output/$$PROFILE_ID/$$TIMESTAMP\"
+      echo \"============================================================\"
+      "
+
+  builder-src-oldwrt:
+    build:
+      context: .
+      dockerfile: src.dockerfile.legacy
+    user: "build"
+    environment:
+      - CONF_FILE=${SELECTED_CONF}
+    volumes:
+      - src-dl-cache:/home/build/openwrt/dl
+      - ./src_profiles:/profiles
+      - ./custom_packages:/input_packages
+      - ${HOST_FILES_DIR}:/overlay_files
+      - ${HOST_OUTPUT_DIR}:/output
+      - ./openssl.cnf:/openssl.cnf
+    command: *src_build_script
+
+volumes:
+  src-dl-cache:
