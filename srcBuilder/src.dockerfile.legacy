@@ -1,15 +1,30 @@
-#file: srcBuilder\src.dockerfile.legacy v0.1
+# file: srcBuilder/src.dockerfile.legacy
 FROM ubuntu:18.04
+
+# Отключаем интерактивность, чтобы apt не задавал вопросов
 ENV DEBIAN_FRONTEND=noninteractive
-# Зависимости для старых версий OpenWrt (Python 2)
+
+# 1. Обновляем сертификаты и ставим базовые утилиты (включая sudo и curl)
+# Ubuntu 18.04 старая, поэтому важно обновить ca-certificates
 RUN apt-get update && apt-get install -y \
     build-essential ccache ecj fastjar file g++ gawk \
     gettext git java-propose-classpath libelf-dev libncurses5-dev \
     libncursesw5-dev libssl-dev python python2.7-dev python3 unzip wget \
     rsync subversion swig time xsltproc zlib1g-dev \
+    curl ca-certificates ssl-cert sudo \
     && rm -rf /var/lib/apt/lists/*
+
+# 2. Создаем пользователя build
 RUN useradd -m -u 1000 -s /bin/bash build
-USER build
+
+# 3. Подготавливаем рабочую папку и права
 WORKDIR /home/build/openwrt
+RUN mkdir -p dl && chown -R build:build /home/build/openwrt
+
+# 4. OpenSSL Fix для старых систем (очень важно для Python 2 и старых wget)
 COPY --chown=build:build openssl.cnf /home/build/openssl.cnf
 ENV OPENSSL_CONF=/home/build/openssl.cnf
+
+# ВАЖНО: Мы НЕ переключаемся на USER build здесь.
+# Контейнер должен стартовать от root, чтобы docker-compose скрипт мог починить права на тома.
+# USER build

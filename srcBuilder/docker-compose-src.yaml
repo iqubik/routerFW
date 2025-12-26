@@ -156,7 +156,7 @@ services:
       mkdir -p \"$$TARGET_DIR\"
       
       # Ищем файлы в bin/targets
-      find bin/targets/$$SRC_TARGET/$$SRC_SUBTARGET -maxdepth 2 -type f \\( -name \"*.bin\" -o -name \"*.img\" -o -name \"*.iso\" \\) -exec cp {} \"$$TARGET_DIR/\" \\;
+      find bin/targets/$$SRC_TARGET/$$SRC_SUBTARGET -type f -not -path \"*/packages/*\" -exec cp {} \"$$TARGET_DIR/\" \\;
       
       # Сохраняем итоговый конфиг для справки
       cp .config \"$$TARGET_DIR/build.config\"
