@@ -14,30 +14,30 @@ call :EXTRACT_RESOURCES
 set "PROJECT_DIR=%CD%"
 
 :: === 1. ИНИЦИАЛИЗАЦИЯ ПАПОК ===
-call :CHECK_DIR "src_profiles"
+call :CHECK_DIR "profiles"
 call :CHECK_DIR "custom_files"
 call :CHECK_DIR "firmware_output"
 call :CHECK_DIR "src_packages"
 
 :: === 2. ПРОВЕРКА НАЛИЧИЯ ПРОФИЛЕЙ ===
-if not exist "src_profiles\*.conf" (
+if not exist "profiles\*.conf" (
     echo.
-    echo [INIT] Папка 'src_profiles' пуста. Создаю пример профиля...
+    echo [INIT] Папка 'profiles' пуста. Создаю пример профиля...
     call :CREATE_EXAMPLE_PROFILE
-    echo [INFO] Файл 'src_profiles\example_source_mt7621.conf' создан.
+    echo [INFO] Файл 'profiles\example_source_mt7621.conf' создан.
 )
 
 :MENU
 cls
 echo ========================================
-echo  OpenWrt SOURCE Builder v0.9 (iqubik)
+echo  OpenWrt SOURCE Builder v1.0 (iqubik)
 echo ========================================
 echo.
 echo Обнаруженные Source-профили:
 echo.
 
 set count=0
-for %%f in (src_profiles\*.conf) do (
+for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
@@ -101,7 +101,7 @@ echo [PROCESSING] Профиль: %CONF_FILE%
 echo ----------------------------------------------------
 
 set "SRC_BRANCH_VAL="
-for /f "usebackq tokens=2 delims==" %%a in (`type "src_profiles\%CONF_FILE%" ^| findstr "SRC_BRANCH"`) do (
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "SRC_BRANCH"`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
     for /f "tokens=* delims= " %%b in ("!VAL!") do set "SRC_BRANCH_VAL=%%b"
@@ -151,7 +151,7 @@ if not exist "%~1" mkdir "%~1"
 exit /b
 
 :CREATE_EXAMPLE_PROFILE
-set "FN=src_profiles\example_source_mt7621.conf"
+set "FN=profiles\example_source_mt7621.conf"
 (
     echo # === Example Source Profile for Xiaomi 4A Gigabit ===
     echo PROFILE_NAME="xiaomi_4a_src"

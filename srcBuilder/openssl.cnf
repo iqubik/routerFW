@@ -1,4 +1,4 @@
-# file: srcBuilder\openssl.cnf
+# file: openssl.cnf
 openssl_conf = default_conf_section
 [default_conf_section]
 ssl_conf = ssl_sect
