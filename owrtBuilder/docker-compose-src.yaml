@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.0
+# file: srcBuilder\docker-compose-src.yaml v1.1
 services:
   builder-src-openwrt:
     build:
@@ -91,7 +91,7 @@ services:
       # Базовая конфигурация Target
       echo \"CONFIG_TARGET_$$SRC_TARGET=y\" >> .config
       echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}=y\" >> .config
-      echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}_DEVICE_$$SRC_DEVICE=y\" >> .config
+      echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}_DEVICE_$$TARGET_PROFILE=y\" >> .config
       
       # Добавляем пользовательские пакеты из SRC_PACKAGES
       for pkg in $$SRC_PACKAGES; do
@@ -109,12 +109,12 @@ services:
       fi
       
       # Sizes
-      if [ -n \"$$SRC_ROOTFS_SIZE\" ]; then
-        echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$SRC_ROOTFS_SIZE\" >> .config
+      if [ -n \"$$ROOTFS_SIZE\" ]; then
+        echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$ROOTFS_SIZE\" >> .config
       fi
 
-      if [ -n \"$$SRC_KERNEL_SIZE\" ]; then
-        echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$SRC_KERNEL_SIZE\" >> .config
+      if [ -n \"$$KERNEL_SIZE\" ]; then
+        echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$KERNEL_SIZE\" >> .config
       fi
 
       echo \"[DEBUG] Showing generated SEED .config:\"
