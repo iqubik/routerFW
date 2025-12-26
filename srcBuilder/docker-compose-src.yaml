@@ -34,17 +34,32 @@ services:
       START_TIME=$$(date +%s)
       TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
       
-      # === 1. GIT CLONE / CHECKOUT ===
-      # Если папка пуста (первый запуск в эфемерном контейнере), клонируем
+      # === 1. GIT SETUP ===
       if [ ! -d \".git\" ]; then
-          echo \"[GIT] Cloning $$SRC_REPO...\"
-          git clone \"$$SRC_REPO\" .
+          echo \"[GIT] Initializing repo in non-empty dir...\"
+          # Убираем надоедливое предупреждение о ветке master/main
+          git config --global init.defaultBranch master
+          git init
+          git remote add origin \"$$SRC_REPO\"
       fi
       
-      echo \"[GIT] Checkout $$SRC_BRANCH...\"
-      git checkout \"$$SRC_BRANCH\"
-      git pull origin \"$$SRC_BRANCH\" || true
+      echo \"[GIT] Fetching $$SRC_BRANCH...\"
+      git fetch origin \"$$SRC_BRANCH\"
       
+      echo \"[GIT] Checkout/Reset to $$SRC_BRANCH...\"
+      # Отключаем лишний шум в логах
+      git config --global advice.detachedHead false
+      git checkout -f \"FETCH_HEAD\"
+      git reset --hard \"FETCH_HEAD\"
+
+      # === FIX: SWITCH TO GITHUB MIRRORS ===
+      # Сервер openwrt.org часто падает (503), меняем на GitHub
+      if [ -f feeds.conf.default ]; then
+          echo \"[FIX] Switching feeds to GitHub mirrors...\"
+          sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
+          sed -i 's|https://git.openwrt.org/project/|https://github.com/openwrt/|g' feeds.conf.default
+      fi
+
       # === 2. FEEDS ===
       echo \"[FEEDS] Updating and Installing feeds...\"
       ./scripts/feeds update -a
@@ -94,9 +109,9 @@ services:
       
       # === 5. DOWNLOAD ===
       echo \"[DOWNLOAD] Downloading sources to cache...\"
-      # Создаем dl папку если нет (хотя она маунтится)
       mkdir -p dl
-      make download
+      # Пробуем скачать молча. Если ошибка — повторяем с подробным выводом (V=s) и останавливаемся
+      make download || (echo \"[ERROR] Download failed! Retrying with logging...\" && make download V=s && exit 1)      
       
       # === 6. BUILD ===
       echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"
