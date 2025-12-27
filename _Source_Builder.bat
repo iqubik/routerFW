@@ -60,16 +60,6 @@ if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
 if %num_choice% gtr %count% goto INVALID
 if %num_choice% lss 1 goto INVALID
 
-:SWITCH_TO_IMAGE
-if exist "_Image_Builder.bat" (
-    start "" "_Image_Builder.bat"
-    exit
-) else (
-    echo [ERROR] Файл _Image_Builder.bat не найден!
-    pause
-    goto MENU
-)
-
 :: === ОДИНОЧНАЯ СБОРКА ===
 set "SELECTED_CONF=!profile[%choice%]!"
 call :BUILD_ROUTINE "%SELECTED_CONF%"
@@ -94,6 +84,16 @@ goto MENU
 echo Неверный выбор!
 pause
 goto MENU
+
+:SWITCH_TO_IMAGE
+if exist "_Image_Builder.bat" (
+    start "" "_Image_Builder.bat"
+    exit
+) else (
+    echo [ERROR] Файл _Image_Builder.bat не найден!
+    pause
+    goto MENU
+)
 
 :: =========================================================
 ::  ПОДПРОГРАММА СБОРКИ
