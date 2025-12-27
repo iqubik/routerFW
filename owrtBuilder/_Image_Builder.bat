@@ -19,18 +19,10 @@ call :CHECK_DIR "custom_packages"
 call :CHECK_DIR "custom_files"
 call :CHECK_DIR "firmware_output"
 
-:: === 2. ПРОВЕРКА НАЛИЧИЯ ПРОФИЛЕЙ ===
-if not exist "profiles\*.conf" (
-    echo.
-    echo [INIT] Папка 'profiles' пуста. Создаю пример профиля...
-    call :CREATE_EXAMPLE_PROFILE
-    echo [INFO] Файл 'profiles\example_841n.conf' создан.
-)
-
 :MENU
 cls
 echo ========================================
-echo  OpenWrt Smart Builder v4.2 (iqubik)
+echo  OpenWrt IMAGE Builder v4.3 (iqubik)
 echo ========================================
 echo.
 echo Обнаруженные профили:
@@ -46,8 +38,10 @@ for %%f in (profiles\*.conf) do (
     if not exist "custom_files\!p_id!" (
         mkdir "custom_files\!p_id!"
     )
+
     :: Вызываем безопасную функцию для создания скрипта прав
-    call :CREATE_PERMS_SCRIPT "!p_id!"    
+    call :CREATE_PERMS_SCRIPT "!p_id!"
+    
     echo    [!count!] %%~nxf
 )
 
@@ -126,7 +120,9 @@ IF DEFINED IS_LEGACY (
     set "BUILDER_SERVICE=builder-openwrt"
 )
 
+:: Создаем структуру папок: firmware_output -> imagebuilder -> имя_профиля
 if not exist "firmware_output\imagebuilder\%PROFILE_ID%" (
+    if not exist "firmware_output\imagebuilder" mkdir "firmware_output\imagebuilder"
     mkdir "firmware_output\imagebuilder\%PROFILE_ID%"
 )
 
@@ -142,25 +138,30 @@ exit /b
 :: =========================================================
 
 :EXTRACT_RESOURCES
-for %%F in ("docker-compose.yaml" "dockerfile" "dockerfile.841n" "openssl.cnf") do (
+:: Создаем папку profiles заранее
+if not exist "profiles" mkdir "profiles"
+
+for %%F in (
+    "docker-compose.yaml"
+    "dockerfile"
+    "dockerfile.841n"
+    "openssl.cnf"
+    "profiles\giga_24105_main_full.conf"
+    "profiles\giga_24105_rep_full.conf"
+    "profiles\nanopi_r5c_full.conf"
+    "profiles\tplink_841n_v9_190710_full.conf"
+    "profiles\zbt_wr8305rt_22037_full.conf"
+    "profiles\xiaomi_4a_gigabit_2305_full.conf"
+) do (
     if not exist "%%~F" (
         echo [INIT] Извлечение %%~F...
-        powershell -Command "$ext = '%%~F'; $content = Get-Content '%~f0'; $start = $false; $b64 = ''; foreach($line in $content){ if($line -match 'BEGIN_B64_ ' + $ext){ $start = $true; continue }; if($line -match 'END_B64_ ' + $ext){ $start = $false; break }; if($start){ $b64 += $line.Trim() } }; if($b64){ [IO.File]::WriteAllBytes($ext, [Convert]::FromBase64String($b64)) }"
+        powershell -Command "$ext = '%%~F'; $content = Get-Content '%~f0'; $start = $false; $b64 = ''; foreach($line in $content){ if($line -match 'BEGIN_B64_ ' + [Regex]::Escape($ext)){ $start = $true; continue }; if($line -match 'END_B64_ ' + [Regex]::Escape($ext)){ $start = $false; break }; if($start){ $b64 += $line.Trim() } }; if($b64){ [IO.File]::WriteAllBytes($ext, [Convert]::FromBase64String($b64)) }"
     )
 )
 exit /b
 
 :CHECK_DIR
 if not exist "%~1" mkdir "%~1"
-exit /b
-
-:CREATE_EXAMPLE_PROFILE
-if not exist "custom_files\example_841n" mkdir "custom_files\example_841n"
-if not exist "custom_files\giga" mkdir "custom_files\giga"
-if not exist "custom_files\nanopi-r5c" mkdir "custom_files\nanopi-r5c"
-powershell -Command "$text = \"# === Example Profile for TL-WR841N v9 ===`nPROFILE_NAME=`\"example_841n`\"`nTARGET_PROFILE=`\"tl-wr841-v9`\"`nIMAGEBUILDER_URL=`\"https://downloads.openwrt.org/releases/19.07.9/targets/ar71xx/tiny/openwrt-imagebuilder-19.07.9-ar71xx-tiny.Linux-x86_64.tar.xz`\"`nPKGS=`\"luci-base luci-mod-admin-full luci-theme-bootstrap luci-i18n-base-ru luci-i18n-opkg-ru uhttpd luci-app-firewall libiwinfo-lua relayd luci-proto-relay iw rpcd-mod-rrdns opkg -luci -iw-full -luci-proto-ipv6 -luci-proto-ppp -ipv6 -kmod-ipv6 -ip6tables -kmod-ip6tables -odhcp6c -odhcpd-ipv6only -libip6tc -ppp -ppp-mod-pppoe -kmod-ppp -kmod-pppoe -kmod-pppox -kmod-slhc -kmod-lib-crc-ccitt -luci-app-ntpc -luci-i18n-ntpc-ru -ntpclient -libpthread -librt -uboot-envtools -kmod-nf-conntrack6 -kmod-usb-core -kmod-usb2`\"\"; [IO.File]::WriteAllText('profiles\example_841n.conf', $text)"
-powershell -Command "$text = \"# === Example Profile for SmartBox Giga ===`nPROFILE_NAME=`\"giga`\"`nTARGET_PROFILE=`\"beeline_smartbox-giga`\"`nIMAGEBUILDER_URL=`\"https://mirror-03.infra.openwrt.org/releases/24.10.4/targets/ramips/mt7621/openwrt-imagebuilder-24.10.4-ramips-mt7621.Linux-x86_64.tar.zst`\"`nPKGS=`\"wpad-openssl coreutils bzip2 tar unzip gzip grep sed gawk shadow-utils bind-host knot-host drill e2fsprogs tcpdump fdisk cfdisk ca-certificates libustream-openssl kmod-mtd-rw ip-full vnstat batctl-full arp-scan arp-scan-database curl openssh-sftp-server mc htop screen wget-ssl iw-full iftop bash nano coreutils-ls block-mount kmod-usb3 kmod-usb2 kmod-usb-uhci kmod-usb-ohci kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-exfat kmod-fs-ntfs3 kmod-fs-vfat kmod-fs-netfs kmod-fs-ksmbd kmod-fs-smbfs-common luci luci-compat luci-proto-batman-adv luci-proto-vxlan luci-app-nlbwmon luci-app-firewall luci-app-commands luci-app-statistics luci-app-ttyd luci-app-attendedsysupgrade luci-app-wol luci-app-transmission luci-app-ksmbd luci-app-minidlna luci-app-adblock-fast luci-app-package-manager collectd-mod-ping luci-i18n-base-ru luci-i18n-commands-ru luci-i18n-firewall-ru luci-i18n-ksmbd-ru luci-i18n-minidlna-ru luci-i18n-statistics-ru luci-i18n-ttyd-ru luci-i18n-usteer-ru luci-i18n-wol-ru luci-i18n-attendedsysupgrade-ru luci-i18n-transmission-ru luci-i18n-adblock-fast-ru luci-i18n-filemanager-ru luci-i18n-package-manager-ru kmod-nls-utf8 opkg kmod-nls-cp1251 kmod-nls-cp866 -wpad-basic-mbedtls -iw -ca-bundle -libustream-mbedtls`\"\"; [IO.File]::WriteAllText('profiles\giga.conf', $text)"
-powershell -Command "$text = \"# === Example Profile for nanopi-r5c ===`nPROFILE_NAME=`\"nanopi-r5c`\"`nTARGET_PROFILE=`\"friendlyarm_nanopi-r5c`\"`nIMAGEBUILDER_URL=`\"https://downloads.openwrt.org/releases/24.10.5/targets/rockchip/armv8/openwrt-imagebuilder-24.10.5-rockchip-armv8.Linux-x86_64.tar.zst`\"`nPKGS=`\"base-files blkid block-mount bmon ca-bundle ca-certificates collectd-mod-thermal -dnsmasq dnsmasq-full dropbear e2fsprogs ethtool-full fdisk firewall4 fstools htop hwclock i2c-tools iftop ip-full irqbalance kmod-ata-ahci-platform kmod-gpio-button-hotplug kmod-nft-offload kmod-r8125-rss kmod-sdhci kmod-tcp-bbr kmod-usb2 kmod-usb3 libc libgcc libustream-mbedtls logd lm-sensors lsblk luci luci-app-irqbalance luci-app-nlbwmon luci-app-statistics luci-app-upnp luci-i18n-base-ru luci-i18n-firewall-ru luci-i18n-irqbalance-ru luci-i18n-nlbwmon-ru luci-i18n-package-manager-ru luci-i18n-statistics-ru luci-i18n-ttyd-ru luci-i18n-upnp-ru miniupnpd-nftables mkf2fs mmc-utils mtd netifd nftables odhcp6c odhcpd-ipv6only openssl-util opkg parted partx-utils ppp ppp-mod-pppoe procd-ujail smartmontools uboot-envtools uci uclient-fetch urandom-seed urngd usbutils wget-ssl alwaysonline`\"`nROOTFS_SIZE=`\"512`\"`nKERNEL_SIZE=`\"64`\"`nEXTRA_IMAGE_NAME=`\"v2-stable`\"`nDISABLED_SERVICES=`\"transmission-daemon minidlna`\"`nCUSTOM_KEYS=`\"https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub`\"`nCUSTOM_REPOS=`\"src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/aarch64_generic/luci`nsrc/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/aarch64_generic/packages`nsrc/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/aarch64_generic/special`\"\"; [System.IO.Directory]::CreateDirectory('profiles'); [IO.File]::WriteAllText('profiles\nanopi-r5c.conf', $text)"
 exit /b
 
 :CREATE_PERMS_SCRIPT
@@ -189,3 +190,29 @@ IyBmaWxlIGRvY2tlcmZpbGUuODQxbgpGUk9NIHVidW50dToxOC4wNApFTlYgREVCSUFOX0ZST05URU5E
 :: BEGIN_B64_ openssl.cnf
 IyBmaWxlOiBvcGVuc3NsLmNuZgpvcGVuc3NsX2NvbmYgPSBkZWZhdWx0X2NvbmZfc2VjdGlvbgpbZGVmYXVsdF9jb25mX3NlY3Rpb25d
 :: END_B64_ openssl.cnf
+
+:: === ПРОФИЛИ ===
+
+:: BEGIN_B64_ profiles\giga_24105_main_full.conf
+IyA9PT0gUHJvZmlsZSBmb3IgYmVlbGluZV9zbWFydGJveC1naWdhIE1BSU4gKE9wZW5XcnQgMjQuMTAuNSkgPT09CgpQUk9GSUxFX05BTUU9Im1haW5HaWdhMjQxMDUiClRBUkdFVF9QUk9GSUxFPSJiZWVsaW5lX3NtYXJ0Ym94LWdpZ2EiCgpDT01NT05fTElTVD0id3BhZC1vcGVuc3NsIGNvcmV1dGlscyBiemlwMiB0YXIgdW56aXAgZ3ppcCBncmVwIHNlZCBnYXdrIHNoYWRvdy11dGlscyBiaW5kLWhvc3Qga25vdC1ob3N0IGRyaWxsIGUyZnNwcm9ncyB0Y3BkdW1wIGZkaXNrIGNmZGlzayBjYS1jZXJ0aWZpY2F0ZXMgbGlidXN0cmVhbS1vcGVuc3NsIGttb2QtbXRkLXJ3IFwKaXAtZnVsbCB2bnN0YXQgYmF0Y3RsLWZ1bGwgYXJwLXNjYW4gYXJwLXNjYW4tZGF0YWJhc2UgY3VybCBvcGVuc3NoLXNmdHAtc2VydmVyIG1jIGh0b3Agc2NyZWVuIHdnZXQtc3NsIGl3LWZ1bGwgaWZ0b3AgZmFzdGZldGNoIGJhc2ggbmFubyBjb3JldXRpbHMtbHMgXApibG9jay1tb3VudCBrbW9kLXVzYjMga21vZC11c2IyIGttb2QtdXNiLXVoY2kga21vZC11c2Itb2hjaSBrbW9kLXVzYi1zdG9yYWdlIGttb2QtdXNiLXN0b3JhZ2UtdWFzIGttb2QtZnMtZXh0NCBrbW9kLWZzLWV4ZmF0IGttb2QtZnMtbnRmczMga21vZC1mcy12ZmF0IGttb2QtZnMtbmV0ZnMga21vZC1mcy1rc21iZCBrbW9kLWZzLXNtYmZzLWNvbW1vbiBcCmx1Y2kgbHVjaS1jb21wYXQgbHVjaS10aGVtZS1hcmdvbiBsdWNpLWFwcC1hcmdvbi1jb25maWcgbHVjaS1wcm90by1iYXRtYW4tYWR2IGx1Y2ktcHJvdG8tdnhsYW4gbHVjaS1hcHAtbmxid21vbiBcCmx1Y2ktYXBwLWZpcmV3YWxsIGx1Y2ktYXBwLWNvbW1hbmRzIGx1Y2ktYXBwLWNwdS1zdGF0dXMgbHVjaS1hcHAtaW50ZXJuZXQtZGV0ZWN0b3IgbHVjaS1hcHAtc3RhdGlzdGljcyBsdWNpLWFwcC10dHlkIGx1Y2ktYXBwLXphcHJldCBsdWNpLWFwcC1hdHRlbmRlZHN5c3VwZ3JhZGUgbHVjaS1hcHAtd29sIGx1Y2ktYXBwLXRyYW5zbWlzc2lvbiBsdWNpLWFwcC1rc21iZCBsdWNpLWFwcC1taW5pZGxuYSBsdWNpLWFwcC1wYWNrYWdlLW1hbmFnZXIgY29sbGVjdGQtbW9kLXBpbmcgXApsdWNpLWkxOG4tYmFzZS1ydSBsdWNpLWkxOG4tY29tbWFuZHMtcnUgbHVjaS1pMThuLWNwdS1zdGF0dXMtcnUgbHVjaS1pMThuLWZpcmV3YWxsLXJ1IGx1Y2ktaTE4bi1pbnRlcm5ldC1kZXRlY3Rvci1ydSBsdWNpLWkxOG4ta3NtYmQtcnUgbHVjaS1pMThuLW1pbmlkbG5hLXJ1IGx1Y2ktaTE4bi1zdGF0aXN0aWNzLXJ1IGx1Y2ktaTE4bi10dHlkLXJ1IGx1Y2ktaTE4bi11c3RlZXItcnUgbHVjaS1pMThuLXdvbC1ydSBsdWNpLWkxOG4tYXR0ZW5kZWRzeXN1cGdyYWRlLXJ1IGx1Y2ktaTE4bi10cmFuc21pc3Npb24tcnUgbHVjaS1pMThuLWZpbGVtYW5hZ2VyLXJ1IGx1Y2ktaTE4bi1wYWNrYWdlLW1hbmFnZXItcnUga21vZC1ubHMtdXRmOCBvcGtnIGttb2QtbmxzLWNwMTI1MSBrbW9kLW5scy1jcDg2NiBcCi13cGFkLWJhc2ljLW1iZWR0bHMgLWl3IC1jYS1idW5kbGUgLWxpYnVzdHJlYW0tbWJlZHRscyBldGh0b29sLWZ1bGwiCgojID09PSBJTUFHRSBCVUlMREVSIENPTkZJRwpJTUFHRUJVSUxERVJfVVJMPSJodHRwczovL2Rvd25sb2Fkcy5vcGVud3J0Lm9yZy9yZWxlYXNlcy8yNC4xMC41L3RhcmdldHMvcmFtaXBzL210NzYyMS9vcGVud3J0LWltYWdlYnVpbGRlci0yNC4xMC41LXJhbWlwcy1tdDc2MjEuTGludXgteDg2XzY0LnRhci56c3QiClBLR1M9IiRDT01NT05fTElTVCIKRVhUUkFfSU1BR0VfTkFNRT0ibWFpbiIKQ1VTVE9NX0tFWVM9Imh0dHBzOi8vZmFudGFzdGljLXBhY2thZ2VzLmdpdGh1Yi5pby9yZWxlYXNlcy8yNC4xMC81M2ZmMmI2NjcyMjQzZDI4LnB1YiIKQ1VTVE9NX1JFUE9TPSJzcmMvZ3ogZmFudGFzdGljX2x1Y2kgaHR0cHM6Ly9mYW50YXN0aWMtcGFja2FnZXMuZ2l0aHViLmlvL3JlbGVhc2VzLzI0LjEwL3BhY2thZ2VzL21pcHNlbF8yNGtjL2x1Y2kKc3JjL2d6IGZhbnRhc3RpY19wYWNrYWdlcyBodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvcGFja2FnZXMvbWlwc2VsXzI0a2MvcGFja2FnZXMKc3JjL2d6IGZhbnRhc3RpY19zcGVjaWFsIGh0dHBzOi8vZmFudGFzdGljLXBhY2thZ2VzLmdpdGh1Yi5pby9yZWxlYXNlcy8yNC4xMC9wYWNrYWdlcy9taXBzZWxfMjRrYy9zcGVjaWFsIgojRElTQUJMRURfU0VSVklDRVM9InRyYW5zbWlzc2lvbi1kYWVtb24gbWluaWRsbmEiCgojID09PSBTT1VSQ0UgQlVJTERFUiBDT05GSUcKU1JDX1JFUE89Imh0dHBzOi8vZ2l0aHViLmNvbS9vcGVud3J0L29wZW53cnQuZ2l0IgpTUkNfQlJBTkNIPSJ2MjQuMTAuNSIKU1JDX1RBUkdFVD0icmFtaXBzIgpTUkNfU1VCVEFSR0VUPSJtdDc2MjEiClNSQ19QQUNLQUdFUz0iJFBLR1MiCgojID09PSBFeHRyYSBjb25maWcgb3B0aW9ucwojUk9PVEZTX1NJWkU9IjUxMiIKI0tFUk5FTF9TSVpFPSI2NCI=
+:: END_B64_ profiles\giga_24105_main_full.conf
+
+:: BEGIN_B64_ profiles\giga_24105_rep_full.conf
+IyA9PT0gUHJvZmlsZSBmb3IgYmVlbGluZV9zbWFydGJveC1naWdhIFJFUEVBVEVSIChPcGVuV3J0IDI0LjEwLjUpID09PQoKUFJPRklMRV9OQU1FPSJyZXBHaWdhMjQxMDUiClRBUkdFVF9QUk9GSUxFPSJiZWVsaW5lX3NtYXJ0Ym94LWdpZ2EiCgpDT01NT05fTElTVD0id3BhZC1vcGVuc3NsIG9wZW5zc2gtc2Z0cC1zZXJ2ZXIgYnppcDIgdGFyIHVuemlwIGd6aXAga21vZC1tdGQtcncgaXAtZnVsbCBiYXRjdGwtZnVsbCBcCmN1cmwgaHRvcCBtYyBnYXdrIHNlZCBncmVwIGFycC1zY2FuIGFycC1zY2FuLWRhdGFiYXNlIGJsb2NrLW1vdW50IG9wZW5zc2gtY2xpZW50LXV0aWxzIHRjcGR1bXAgY2EtY2VydGlmaWNhdGVzIFwKaXctZnVsbCB3Z2V0LXNzbCBpZnRvcCBiaW5kLWhvc3Qga25vdC1ob3N0IGRyaWxsIGxpYnVzdHJlYW0tb3BlbnNzbCBmYXN0ZmV0Y2ggYmFzaCBuYW5vIGNvcmV1dGlscy1scyBsdWNpIGx1Y2ktY29tcGF0IFwKbHVjaS10aGVtZS1hcmdvbiBsdWNpLWFwcC1hcmdvbi1jb25maWcgc2NyZWVuIGx1Y2ktcHJvdG8tYmF0bWFuLWFkdiBsdWNpLXByb3RvLXZ4bGFuIGx1Y2ktYXBwLWF0dGVuZGVkc3lzdXBncmFkZSBcCmx1Y2ktYXBwLWNvbW1hbmRzIGx1Y2ktYXBwLWNwdS1zdGF0dXMgbHVjaS1hcHAtc3RhdGlzdGljcyBsdWNpLWFwcC10dHlkIGx1Y2ktYXBwLWlwZXJmMyBjb2xsZWN0ZC1tb2QtcGluZyBsdWNpLWkxOG4tYmFzZS1ydSBcCmx1Y2ktaTE4bi1hdHRlbmRlZHN5c3VwZ3JhZGUtcnUgbHVjaS1pMThuLWNvbW1hbmRzLXJ1IGx1Y2ktaTE4bi1jcHUtc3RhdHVzLXJ1IGx1Y2ktaTE4bi1maXJld2FsbC1ydSBsdWNpLWkxOG4tc3RhdGlzdGljcy1ydSBcCmx1Y2ktaTE4bi10dHlkLXJ1IGx1Y2ktaTE4bi11c3RlZXItcnUgbHVjaS1pMThuLXBhY2thZ2UtbWFuYWdlci1ydSBrbW9kLW5scy11dGY4IG9wa2cga21vZC1ubHMtY3AxMjUxIGttb2QtbmxzLWNwODY2IFwKLXdwYWQtYmFzaWMtbWJlZHRscyAtaXcgLWNhLWJ1bmRsZSAtbGlidXN0cmVhbS1tYmVkdGxzIGV0aHRvb2wtZnVsbCIKCiMgPT09IElNQUdFIEJVSUxERVIgQ09ORklHCklNQUdFQlVJTERFUl9VUkw9Imh0dHBzOi8vZG93bmxvYWRzLm9wZW53cnQub3JnL3JlbGVhc2VzLzI0LjEwLjUvdGFyZ2V0cy9yYW1pcHMvbXQ3NjIxL29wZW53cnQtaW1hZ2VidWlsZGVyLTI0LjEwLjUtcmFtaXBzLW10NzYyMS5MaW51eC14ODZfNjQudGFyLnpzdCIKUEtHUz0iJENPTU1PTl9MSVNUIgpFWFRSQV9JTUFHRV9OQU1FPSJyZXBlYXRlciIKQ1VTVE9NX0tFWVM9Imh0dHBzOi8vZmFudGFzdGljLXBhY2thZ2VzLmdpdGh1Yi5pby9yZWxlYXNlcy8yNC4xMC81M2ZmMmI2NjcyMjQzZDI4LnB1YiIKQ1VTVE9NX1JFUE9TPSJzcmMvZ3ogZmFudGFzdGljX2x1Y2kgaHR0cHM6Ly9mYW50YXN0aWMtcGFja2FnZXMuZ2l0aHViLmlvL3JlbGVhc2VzLzI0LjEwL3BhY2thZ2VzL21pcHNlbF8yNGtjL2x1Y2kKc3JjL2d6IGZhbnRhc3RpY19wYWNrYWdlcyBodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvcGFja2FnZXMvbWlwc2VsXzI0a2MvcGFja2FnZXMKc3JjL2d6IGZhbnRhc3RpY19zcGVjaWFsIGh0dHBzOi8vZmFudGFzdGljLXBhY2thZ2VzLmdpdGh1Yi5pby9yZWxlYXNlcy8yNC4xMC9wYWNrYWdlcy9taXBzZWxfMjRrYy9zcGVjaWFsIgojRElTQUJMRURfU0VSVklDRVM9InRyYW5zbWlzc2lvbi1kYWVtb24gbWluaWRsbmEiCgojID09PSBTT1VSQ0UgQlVJTERFUiBDT05GSUcKU1JDX1JFUE89Imh0dHBzOi8vZ2l0aHViLmNvbS9vcGVud3J0L29wZW53cnQuZ2l0IgpTUkNfQlJBTkNIPSJ2MjQuMTAuNSIKU1JDX1RBUkdFVD0icmFtaXBzIgpTUkNfU1VCVEFSR0VUPSJtdDc2MjEiClNSQ19QQUNLQUdFUz0iJFBLR1MiCgojID09PSBFeHRyYSBjb25maWcgb3B0aW9ucwojUk9PVEZTX1NJWkU9IjUxMiIKI0tFUk5FTF9TSVpFPSI2NCI=
+:: END_B64_ profiles\giga_24105_rep_full.conf
+
+:: BEGIN_B64_ profiles\nanopi_r5c_full.conf
+IyA9PT0gUHJvZmlsZSBmb3IgbmFub3BpLXI1YyAoT3BlbldydCAyNC4xMC41KSA9PT0KClBST0ZJTEVfTkFNRT0ibmFub3BpLXI1YyIKVEFSR0VUX1BST0ZJTEU9ImZyaWVuZGx5YXJtX25hbm9waS1yNWMiCgpDT01NT05fTElTVD0iYmFzZS1maWxlcyBibGtpZCBibG9jay1tb3VudCBibW9uIGNhLWJ1bmRsZSBjYS1jZXJ0aWZpY2F0ZXMgY29sbGVjdGQtbW9kLXRoZXJtYWwgLWRuc21hc3EgZG5zbWFzcS1mdWxsIGRyb3BiZWFyIGUyZnNwcm9ncyBldGh0b29sLWZ1bGwgZmRpc2sgZmlyZXdhbGw0IGZzdG9vbHMgaHRvcCBod2Nsb2NrIGkyYy10b29scyBpZnRvcCBpcC1mdWxsIGlycWJhbGFuY2Uga21vZC1hdGEtYWhjaS1wbGF0Zm9ybSBrbW9kLWdwaW8tYnV0dG9uLWhvdHBsdWcga21vZC1uZnQtb2ZmbG9hZCBrbW9kLXI4MTI1LXJzcyBrbW9kLXNkaGNpIGttb2QtdGNwLWJiciBrbW9kLXVzYjIga21vZC11c2IzIGxpYmMgbGliZ2NjIGxpYnVzdHJlYW0tbWJlZHRscyBsb2dkIGxtLXNlbnNvcnMgbHNibGsgbHVjaSBsdWNpLWFwcC1pcnFiYWxhbmNlIGx1Y2ktYXBwLW5sYndtb24gbHVjaS1hcHAtc3RhdGlzdGljcyBsdWNpLWFwcC11cG5wIGx1Y2ktaTE4bi1iYXNlLXJ1IGx1Y2ktaTE4bi1maXJld2FsbC1ydSBsdWNpLWkxOG4taXJxYmFsYW5jZS1ydSBsdWNpLWkxOG4tbmxid21vbi1ydSBsdWNpLWkxOG4tcGFja2FnZS1tYW5hZ2VyLXJ1IGx1Y2ktaTE4bi1zdGF0aXN0aWNzLXJ1IGx1Y2ktaTE4bi10dHlkLXJ1IGx1Y2ktaTE4bi11cG5wLXJ1IG1pbml1cG5wZC1uZnRhYmxlcyBta2YyZnMgbW1jLXV0aWxzIG10ZCBuZXRpZmQgbmZ0YWJsZXMgb2RoY3A2YyBvZGhjcGQtaXB2Nm9ubHkgb3BlbnNzbC11dGlsIG9wa2cgcGFydGVkIHBhcnR4LXV0aWxzIHBwcCBwcHAtbW9kLXBwcG9lIHByb2NkLXVqYWlsIHNtYXJ0bW9udG9vbHMgdWJvb3QtZW52dG9vbHMgdWNpIHVjbGllbnQtZmV0Y2ggdXJhbmRvbS1zZWVkIHVybmdkIHVzYnV0aWxzIHdnZXQtc3NsIGFsd2F5c29ubGluZSIKCiMgPT09IElNQUdFIEJVSUxERVIgQ09ORklHCklNQUdFQlVJTERFUl9VUkw9Imh0dHBzOi8vZG93bmxvYWRzLm9wZW53cnQub3JnL3JlbGVhc2VzLzI0LjEwLjUvdGFyZ2V0cy9yb2NrY2hpcC9hcm12OC9vcGVud3J0LWltYWdlYnVpbGRlci0yNC4xMC41LXJvY2tjaGlwLWFybXY4LkxpbnV4LXg4Nl82NC50YXIuenN0IgpQS0dTPSIkQ09NTU9OX0xJU1QiCiNFWFRSQV9JTUFHRV9OQU1FPSJtYWluIgpDVVNUT01fS0VZUz0iaHR0cHM6Ly9mYW50YXN0aWMtcGFja2FnZXMuZ2l0aHViLmlvL3JlbGVhc2VzLzI0LjEwLzUzZmYyYjY2NzIyNDNkMjgucHViIgpDVVNUT01fUkVQT1M9InNyYy9neiBmYW50YXN0aWNfbHVjaSBodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvcGFja2FnZXMvYWFyY2g2NF9nZW5lcmljL2x1Y2kKc3JjL2d6IGZhbnRhc3RpY19wYWNrYWdlcyBodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvcGFja2FnZXMvYWFyY2g2NF9nZW5lcmljL3BhY2thZ2VzCnNyYy9neiBmYW50YXN0aWNfc3BlY2lhbCBodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvcGFja2FnZXMvYWFyY2g2NF9nZW5lcmljL3NwZWNpYWwiCiNESVNBQkxFRF9TRVJWSUNFUz0idHJhbnNtaXNzaW9uLWRhZW1vbiBtaW5pZGxuYSIKCiMgPT09IFNPVVJDRSBCVUlMREVSIENPTkZJRwpTUkNfUkVQTz0iaHR0cHM6Ly9naXRodWIuY29tL29wZW53cnQvb3BlbndydC5naXQiClNSQ19CUkFOQ0g9InYyNC4xMC41IgpTUkNfVEFSR0VUPSJyb2NrY2hpcCIKU1JDX1NVQlRBUkdFVD0iYXJtdjgiClNSQ19QQUNLQUdFUz0iJFBLR1MiCgojID09PSBFeHRyYSBjb25maWcgb3B0aW9ucwojUk9PVEZTX1NJWkU9IjUxMiIKI0tFUk5FTF9TSVpFPSI2NCI=
+:: END_B64_ profiles\nanopi_r5c_full.conf
+
+:: BEGIN_B64_ profiles\tplink_841n_v9_190710_full.conf
+IyA9PT0gUHJvZmlsZSBmb3IgVEwtV1I4NDFOIHY5IChMZWdhY3kgMTkuMDcuMTApID09PQoKUFJPRklMRV9OQU1FPSI4NDFuLXY5LTE5MDcxMC1mdWxsIgpUQVJHRVRfUFJPRklMRT0idGwtd3I4NDEtdjkiCgpDT01NT05fTElTVD0ibHVjaS1iYXNlIGx1Y2ktbW9kLWFkbWluLWZ1bGwgbHVjaS10aGVtZS1ib290c3RyYXAgbHVjaS1pMThuLWJhc2UtcnUgbHVjaS1pMThuLW9wa2ctcnUgXAp1aHR0cGQgbHVjaS1hcHAtZmlyZXdhbGwgbGliaXdpbmZvLWx1YSByZWxheWQgbHVjaS1wcm90by1yZWxheSBpdyBycGNkLW1vZC1ycmRucyBvcGtnIFwKLWx1Y2kgLWl3LWZ1bGwgLWx1Y2ktcHJvdG8taXB2NiAtbHVjaS1wcm90by1wcHAgLWlwdjYgLWttb2QtaXB2NiAtaXA2dGFibGVzIC1rbW9kLWlwNnRhYmxlcyAtb2RoY3A2YyAtb2RoY3BkLWlwdjZvbmx5IC1saWJpcDZ0YyBcCi1wcHAgLXBwcC1tb2QtcHBwb2UgLWttb2QtcHBwIC1rbW9kLXBwcG9lIC1rbW9kLXBwcG94IC1rbW9kLXNsaGMgLWttb2QtbGliLWNyYy1jY2l0dCBcCi1sdWNpLWFwcC1udHBjIC1sdWNpLWkxOG4tbnRwYy1ydSAtbnRwY2xpZW50IFwKLWxpYnB0aHJlYWQgLWxpYnJ0IC11Ym9vdC1lbnZ0b29scyAta21vZC1uZi1jb25udHJhY2s2IFwKLWttb2QtdXNiLWNvcmUgLWttb2QtdXNiMiIKCiMgPT09IElNQUdFIEJVSUxERVIgQ09ORklHCklNQUdFQlVJTERFUl9VUkw9Imh0dHBzOi8vZG93bmxvYWRzLm9wZW53cnQub3JnL3JlbGVhc2VzLzE5LjA3LjEwL3RhcmdldHMvYXI3MXh4L3Rpbnkvb3BlbndydC1pbWFnZWJ1aWxkZXItMTkuMDcuMTAtYXI3MXh4LXRpbnkuTGludXgteDg2XzY0LnRhci54eiIKUEtHUz0iJENPTU1PTl9MSVNUIgojRVhUUkFfSU1BR0VfTkFNRT0idjItc3RhYmxlIgojRElTQUJMRURfU0VSVklDRVM9InRyYW5zbWlzc2lvbi1kYWVtb24gbWluaWRsbmEiCgojID09PSBTT1VSQ0UgQlVJTERFUiBDT05GSUcKU1JDX1JFUE89Imh0dHBzOi8vZ2l0aHViLmNvbS9vcGVud3J0L29wZW53cnQuZ2l0IgpTUkNfQlJBTkNIPSJ2MTkuMDcuMTAiClNSQ19UQVJHRVQ9ImFyNzF4eCIKU1JDX1NVQlRBUkdFVD0idGlueSIKU1JDX1BBQ0tBR0VTPSIkUEtHUyIKCiMgPT09IEV4dHJhIGNvbmZpZyBvcHRpb25zCiNST09URlNfU0laRT0iIgojS0VSTkVMX1NJWkU9IiIK
+:: END_B64_ profiles\tplink_841n_v9_190710_full.conf
+
+:: BEGIN_B64_ profiles\zbt_wr8305rt_22037_full.conf
+IyA9PT0gUHJvZmlsZSBmb3IgemJ0LXdyODMwNXJ0IChPcGVuV3J0IDIyLjAzLjA3KSA9PT0KClBST0ZJTEVfTkFNRT0iemJ0LXdyODMwNXJ0IgpUQVJHRVRfUFJPRklMRT0iemJ0bGlua196YnQtd3I4MzA1cnQiCgpDT01NT05fTElTVD0iYmFzZS1maWxlcyBidXN5Ym94IGNhLWJ1bmRsZSBkbnNtYXNxIGRyb3BiZWFyIGZpcmV3YWxsNCBmc3Rvb2xzIGttb2QtZ3Bpby1idXR0b24taG90cGx1ZyBcCmttb2QtbGVkcy1ncGlvIGttb2QtbmZ0LW9mZmxvYWQga21vZC1ydDI4MDAtc29jIGxpYmMgbGliZ2NjIGxpYnVzdHJlYW0td29sZnNzbCBsb2dkIG10ZCBuZXRpZmQgbmZ0YWJsZXMgXApvZGhjcDZjIG9kaGNwZC1pcHY2b25seSBvcGtnIHBwcCBwcHAtbW9kLXBwcG9lIHByb2NkIHByb2NkLXNlY2NvbXAgcHJvY2QtdWphaWwgc3djb25maWcgdWNpIHVjbGllbnQtZmV0Y2ggXAp1cmFuZG9tLXNlZWQgdXJuZ2Qgd3BhZC1iYXNpYy13b2xmc3NsIGttb2QtdXNiMiBrbW9kLXVzYi1vaGNpIGx1Y2kgbHVjaS1hcHAtemFwcmV0IgoKIyA9PT0gSU1BR0UgQlVJTERFUiBDT05GSUcKSU1BR0VCVUlMREVSX1VSTD0iaHR0cHM6Ly9kb3dubG9hZHMub3BlbndydC5vcmcvcmVsZWFzZXMvMjIuMDMuNy90YXJnZXRzL3JhbWlwcy9tdDc2MjAvb3BlbndydC1pbWFnZWJ1aWxkZXItMjIuMDMuNy1yYW1pcHMtbXQ3NjIwLkxpbnV4LXg4Nl82NC50YXIueHoiClBLR1M9IiRDT01NT05fTElTVCIKI0VYVFJBX0lNQUdFX05BTUU9InYyLXN0YWJsZSIKI0RJU0FCTEVEX1NFUlZJQ0VTPSJ0cmFuc21pc3Npb24tZGFlbW9uIG1pbmlkbG5hIgojQ1VTVE9NX0tFWVM9Imh0dHBzOi8vZmFudGFzdGljLXBhY2thZ2VzLmdpdGh1Yi5pby9yZWxlYXNlcy8yNC4xMC81M2ZmMmI2NjcyMjQzZDI4LnB1YiIKI0NVU1RPTV9SRVBPUz0ic3JjL2d6IGZhbnRhc3RpY19sdWNpIGh0dHBzOi8vZmFudGFzdGljLXBhY2thZ2VzLmdpdGh1Yi5pby9yZWxlYXNlcy8yNC4xMC9wYWNrYWdlcy9hYXJjaDY0X2dlbmVyaWMvbHVjaQojc3JjL2d6IGZhbnRhc3RpY19wYWNrYWdlcyBodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvcGFja2FnZXMvYWFyY2g2NF9nZW5lcmljL3BhY2thZ2VzCiNzcmMvZ3ogZmFudGFzdGljX3NwZWNpYWwgaHR0cHM6Ly9mYW50YXN0aWMtcGFja2FnZXMuZ2l0aHViLmlvL3JlbGVhc2VzLzI0LjEwL3BhY2thZ2VzL2FhcmNoNjRfZ2VuZXJpYy9zcGVjaWFsIgoKIyA9PT0gU09VUkNFIEJVSUxERVIgQ09ORklHClNSQ19SRVBPPSJodHRwczovL2dpdGh1Yi5jb20vb3BlbndydC9vcGVud3J0LmdpdCIKU1JDX0JSQU5DSD0idjIyLjAzLjciClNSQ19UQVJHRVQ9InJhbWlwcyIKU1JDX1NVQlRBUkdFVD0ibXQ3NjIwIgpTUkNfUEFDS0FHRVM9IiRQS0dTIgoKIyA9PT0gRXh0cmEgY29uZmlnIG9wdGlvbnMKI1JPT1RGU19TSVpFPSI1MTIiCiNLRVJORUxfU0laRT0iNjQi
+:: END_B64_ profiles\zbt_wr8305rt_22037_full.conf
+
+:: BEGIN_B64_ profiles\xiaomi_4a_gigabit_2305_full.conf
+IyA9PT0gUHJvZmlsZSBmb3IgWGlhb21pIDRBIEdpZ2FiaXQgKE9wZW5XcnQgMjMuMDUuNikgPT09CgpQUk9GSUxFX05BTUU9InhpYW9taV80YSIKVEFSR0VUX1BST0ZJTEU9InhpYW9taV9taS1yb3V0ZXItNGEtZ2lnYWJpdCIKCkNPTU1PTl9MSVNUPSJsdWNpIHVodHRwZCBvcGVuc3NoLXNmdHAtc2VydmVyIGh0b3AiCgojID09PSBJTUFHRSBCVUlMREVSIENPTkZJRwpJTUFHRUJVSUxERVJfVVJMPSJodHRwczovL2Rvd25sb2Fkcy5vcGVud3J0Lm9yZy9yZWxlYXNlcy8yMy4wNS42L3RhcmdldHMvcmFtaXBzL210NzYyMS9vcGVud3J0LWltYWdlYnVpbGRlci0yMy4wNS42LXJhbWlwcy1tdDc2MjEuTGludXgteDg2XzY0LnRhci54eiIKUEtHUz0iJENPTU1PTl9MSVNUIgojRVhUUkFfSU1BR0VfTkFNRT0ibWFpbiIKI0NVU1RPTV9LRVlTPSJodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvNTNmZjJiNjY3MjI0M2QyOC5wdWIiCiNDVVNUT01fUkVQT1M9InNyYy9neiBmYW50YXN0aWNfbHVjaSBodHRwczovL2ZhbnRhc3RpYy1wYWNrYWdlcy5naXRodWIuaW8vcmVsZWFzZXMvMjQuMTAvcGFja2FnZXMvYWFyY2g2NF9nZW5lcmljL2x1Y2kKI3NyYy9neiBmYW50YXN0aWNfcGFja2FnZXMgaHR0cHM6Ly9mYW50YXN0aWMtcGFja2FnZXMuZ2l0aHViLmlvL3JlbGVhc2VzLzI0LjEwL3BhY2thZ2VzL2FhcmNoNjRfZ2VuZXJpYy9wYWNrYWdlcwojc3JjL2d6IGZhbnRhc3RpY19zcGVjaWFsIGh0dHBzOi8vZmFudGFzdGljLXBhY2thZ2VzLmdpdGh1Yi5pby9yZWxlYXNlcy8yNC4xMC9wYWNrYWdlcy9hYXJjaDY0X2dlbmVyaWMvc3BlY2lhbCIKI0RJU0FCTEVEX1NFUlZJQ0VTPSJ0cmFuc21pc3Npb24tZGFlbW9uIG1pbmlkbG5hIgoKIyA9PT0gU09VUkNFIEJVSUxERVIgQ09ORklHClNSQ19SRVBPPSJodHRwczovL2dpdGh1Yi5jb20vb3BlbndydC9vcGVud3J0LmdpdCIKU1JDX0JSQU5DSD0idjIzLjA1LjYiClNSQ19UQVJHRVQ9InJhbWlwcyIKU1JDX1NVQlRBUkdFVD0ibXQ3NjIxIgpTUkNfUEFDS0FHRVM9IiRQS0dTIgoKIyA9PT0gRXh0cmEgY29uZmlnIG9wdGlvbnMKI1JPT1RGU19TSVpFPSI1MTIiCiNLRVJORUxfU0laRT0iNjQiCg==
+:: END_B64_ profiles\xiaomi_4a_gigabit_2305_full.conf
