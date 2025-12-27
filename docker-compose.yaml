@@ -19,10 +19,17 @@ services:
         echo \"FATAL: Profile /profiles/$$CONF_FILE not found!\"
         exit 1
       fi
-      # === КОНВЕРТАЦИЯ CRLF -> LF ===
-      echo \"[INIT] Normalizing config line endings...\"
-      tr -d '\\r' < \"/profiles/$$CONF_FILE\" > /tmp/clean_config.env
+      # === КОНВЕРТАЦИЯ CRLF -> LF И УДАЛЕНИЕ BOM ===
+      echo \"[INIT] Normalizing config...\"
+      # Используем двойные слэши \\xEF, чтобы YAML и Bash передали их в sed корректно
+      cat \"/profiles/$$CONF_FILE\" | sed '1s/^\\xEF\\xBB\\xBF//' | tr -d '\\r' > /tmp/clean_config.env
       source /tmp/clean_config.env
+
+      # Проверка на ошибки парсинга
+      if [ -z \"$$IMAGEBUILDER_URL\" ]; then
+         echo \"[ERROR] IMAGEBUILDER_URL is empty! Config was not parsed correctly.\"
+         exit 1
+      fi
       # === ЗАСЕКАЕМ ВРЕМЯ ===
       START_TIME=$$(date +%s)
       TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)

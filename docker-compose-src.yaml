@@ -37,9 +37,15 @@ services:
         exit 1
       fi
       
-      # Fix CRLF
-      tr -d '\\r' < \"/profiles/$$CONF_FILE\" > /tmp/clean_config.env
+      # === КОНВЕРТАЦИЯ CRLF -> LF И УДАЛЕНИЕ BOM ===
+      echo \"[INIT] Normalizing config...\"
+      cat \"/profiles/$$CONF_FILE\" | sed '1s/^\\xEF\\xBB\\xBF//' | tr -d '\\r' > /tmp/clean_config.env
       source /tmp/clean_config.env
+
+      if [ -z \"$$SRC_REPO\" ]; then
+         echo \"[ERROR] SRC_REPO is empty! Config was not parsed correctly.\"
+         exit 1
+      fi
       
       echo \"==================================================\"
       echo \"   OpenWrt SOURCE Builder for $$PROFILE_NAME\"
