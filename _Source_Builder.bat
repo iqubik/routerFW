@@ -45,18 +45,30 @@ for %%f in (profiles\*.conf) do (
 )
 
 echo.
-rem echo    [A] Собрать ВСЕ профили (Параллельно)
+echo    [A] Собрать ВСЕ профили (Параллельно)
+echo    [S] Переключиться на IMAGE Builder
 echo    [0] Выход
 echo.
 set /p choice="Выберите опцию: "
 
 if /i "%choice%"=="0" exit /b
 if /i "%choice%"=="A" goto BUILD_ALL
+if /i "%choice%"=="S" goto SWITCH_TO_IMAGE
 
 set /a num_choice=%choice% 2>nul
 if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
 if %num_choice% gtr %count% goto INVALID
 if %num_choice% lss 1 goto INVALID
+
+:SWITCH_TO_IMAGE
+if exist "_Image_Builder.bat" (
+    start "" "_Image_Builder.bat"
+    exit
+) else (
+    echo [ERROR] Файл _Image_Builder.bat не найден!
+    pause
+    goto MENU
+)
 
 :: === ОДИНОЧНАЯ СБОРКА ===
 set "SELECTED_CONF=!profile[%choice%]!"
