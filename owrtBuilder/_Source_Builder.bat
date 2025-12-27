@@ -52,7 +52,7 @@ for %%f in (profiles\*.conf) do (
 )
 
 echo.
-echo    [A] Собрать ВСЕ профили (Параллельно)
+rem echo    [A] Собрать ВСЕ профили (Параллельно)
 echo    [0] Выход
 echo.
 set /p choice="Выберите опцию: "
