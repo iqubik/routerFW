@@ -23,7 +23,7 @@ call :CHECK_DIR "custom_packages"
 :MENU
 cls
 echo ========================================
-echo  OpenWrt SOURCE Builder v1.2 (iqubik)
+echo  OpenWrt SOURCE Builder v1.3 (iqubik)
 echo ========================================
 echo.
 echo Обнаруженные Source-профили:
@@ -47,6 +47,7 @@ for %%f in (profiles\*.conf) do (
 echo.
 echo    [A] Собрать ВСЕ профили (Параллельно)
 echo    [S] Переключиться на IMAGE Builder
+echo    [R] Обновить список профилей
 echo    [0] Выход
 echo.
 set /p choice="Выберите опцию: "
@@ -54,6 +55,7 @@ set /p choice="Выберите опцию: "
 if /i "%choice%"=="0" exit /b
 if /i "%choice%"=="A" goto BUILD_ALL
 if /i "%choice%"=="S" goto SWITCH_TO_IMAGE
+if /i "%choice%"=="R" goto MENU
 
 set /a num_choice=%choice% 2>nul
 if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
