@@ -7,7 +7,7 @@ if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles"
 function Show-Header($Text) {
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  OpenWrt Profile Creator (v0.93 iqubik)" -ForegroundColor Cyan
+    Write-Host "  OpenWrt UNIVERSAL Profile Creator (v1.0 iqubik)" -ForegroundColor Cyan
     Write-Host "  $Text" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     Write-Host ""
@@ -17,7 +17,6 @@ try {
     # --- ШАГ 1: ВЫБОР РЕЛИЗА ---
     Show-Header "Шаг 1: Выбор релиза"
     
-    # Косметика: Ссылка на TOH
     Write-Host "Не знаете параметры своего роутера?" -ForegroundColor Gray
     Write-Host "Найдите его в OpenWrt Table of Hardware (ToH):"
     Write-Host "http://openwrt.org/toh/start" -ForegroundColor Blue
@@ -36,12 +35,8 @@ try {
 
     # --- ШАГ 2: ВЫБОР TARGET ---
     Show-Header "Шаг 2: Выбор Target ($selectedRelease)"
-    # Косметика: подсказка по TARGET
-    Write-Host "Не знаете TARGET своего роутера?" -ForegroundColor Gray
-    Write-Host "Найдите его на странице роутера в графе HARDWARE - TARGET" -ForegroundColor Blue
-    Write-Host "Или внутри ссылки на любую доступную прошивку" -ForegroundColor Red
-    Write-Host "Пример: smartbox giga часть ссылки: -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Blue
-    Write-Host "Для  beeline  giga  внутри  ссылки: -ramips-****************************-" -ForegroundColor Red    
+    Write-Host "Пример: внутри ссылки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
+    Write-Host "TARGET здесь: ramips" -ForegroundColor Blue
     Write-Host "--------------------------------------------------------------------------`n"
     
     $targetUrl = if ($selectedRelease -eq "snapshots") { "http://downloads.openwrt.org/snapshots/targets/" } else { "$baseUrl$selectedRelease/targets/" }
@@ -57,12 +52,8 @@ try {
 
     # --- ШАГ 3: ВЫБОР SUBTARGET ---
     Show-Header "Шаг 3: Выбор Subtarget"
-    # Косметика: подсказка по CPU
-    Write-Host "Не знаете CPU своего роутера?" -ForegroundColor Gray
-    Write-Host "Найдите его на странице роутера в графе HARDWARE - CPU" -ForegroundColor Blue
-    Write-Host "Или внутри ссылки на любую доступную прошивку" -ForegroundColor Red
-    Write-Host "Пример: smartbox giga часть ссылки: -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Blue
-    Write-Host "Для  beeline  giga  внутри  ссылки: -******-mt7621-*********************-" -ForegroundColor Red
+    Write-Host "Пример: внутри ссылки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
+    Write-Host "SUBTARGET здесь: mt7621" -ForegroundColor Blue
     Write-Host "--------------------------------------------------------------------------`n"
     $subUrl = "$targetUrl$selectedTarget/"
     $html = (Invoke-WebRequest -Uri $subUrl -UseBasicParsing).Content
@@ -82,13 +73,8 @@ try {
 
     # --- ШАГ 4: ВЫБОР МОДЕЛИ ---
     Show-Header "Шаг 4: Выбор модели"
-    # Косметика: подсказка по Модели
-    Write-Host "Не знаете точное название модели своего роутера?" -ForegroundColor Gray
-    Write-Host "Найдите его на странице роутера внутри ссылки на любую доступную прошивку" -ForegroundColor Blue
-    Write-Host "Пример: smartbox giga часть ссылки: -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Blue
-    Write-Host "Для  beeline  giga  внутри  ссылки: -******-******-beeline_smartbox-giga-" -ForegroundColor Red
+    Write-Host "Загрузка profiles.json..." -ForegroundColor Gray
     
-    Write-Host "--------------------------------------------------------------------------`n"
     $finalFolderUrl = "$targetUrl$selectedTarget/$selectedSubtarget/"
     $data = Invoke-RestMethod -Uri "$($finalFolderUrl)profiles.json"    
     
@@ -113,33 +99,66 @@ try {
         throw "Не удалось найти файл ImageBuilder в папке $finalFolderUrl"
     }
 
-    # --- ШАГ 6: СОХРАНЕНИЕ ---
-    Show-Header "Шаг 6: Сохранение профиля"
-    $pkgs = Read-Host "Введите пакеты (через пробел)"
-    $profileName = Read-Host "Введите имя конфига (например: giga)"
-    if ([string]::IsNullOrWhiteSpace($profileName)) { $profileName = "default" }
+    # --- ШАГ 6: ГЕНЕРАЦИЯ УНИВЕРСАЛЬНОГО ПРОФИЛЯ ---
+    Show-Header "Шаг 6: Финализация"
+    $pkgs = Read-Host "Введите пакеты (через пробел, можно из буфера)"
+    $profileName = Read-Host "Введите имя конфига (без пробелов, например: my_router)"
+    if ([string]::IsNullOrWhiteSpace($profileName)) { $profileName = "new_profile" }
 
     $confPath = "profiles\$profileName.conf"
     
+    # Определяем ветку git (тег)
+    if ($selectedRelease -eq "snapshots") {
+        $gitBranch = "master"
+    } else {
+        $gitBranch = "v$selectedRelease"
+    }
+
+    # Формируем контент.
+    # Используем ` перед $ там, где переменная должна остаться в файле (для Bash),
+    # и без ` там, где PowerShell должен подставить значение сейчас.
     $content = @"
+# === Profile for $targetProfile (OpenWrt $selectedRelease) ===
+
 PROFILE_NAME="$profileName"
 TARGET_PROFILE="$targetProfile"
+
+COMMON_LIST="$pkgs"
+
+# === IMAGE BUILDER CONFIG
 IMAGEBUILDER_URL="$ibUrl"
-PKGS="$pkgs"
+PKGS="`$COMMON_LIST"
+#EXTRA_IMAGE_NAME="custom"
+#CUSTOM_KEYS=""
+#CUSTOM_REPOS=""
+#DISABLED_SERVICES=""
+
+# === SOURCE BUILDER CONFIG
+SRC_REPO="https://github.com/openwrt/openwrt.git"
+SRC_BRANCH="$gitBranch"
+SRC_TARGET="$selectedTarget"
+SRC_SUBTARGET="$selectedSubtarget"
+SRC_PACKAGES="`$PKGS"
+
+# === Extra config options
+#ROOTFS_SIZE="512"
+#KERNEL_SIZE="64"
 "@
     
-    $content | Out-File -FilePath $confPath -Encoding ascii -Force
+    # Сохраняем в UTF8 (на случай кириллицы в комментариях)
+    $content | Out-File -FilePath $confPath -Encoding utf8 -Force
     
-    Write-Host "`n[OK] Конфиг создан: $confPath" -ForegroundColor Green
-    Write-Host "Запуск сборщика _Image_Builder.bat..." -ForegroundColor Cyan
-    Start-Sleep -Seconds 2
-
-    # Запуск батника сборщика
-    if (Test-Path "_Image_Builder.bat") {
-        cmd.exe /c _Image_Builder.bat
-    } else {
-        Write-Host "`nПредупреждение: Файл _Image_Builder.bat не найден в текущей папке." -ForegroundColor Yellow
-        Pause
+    Write-Host "`n[OK] Универсальный профиль создан: $confPath" -ForegroundColor Green
+    Write-Host "--------------------------------------------------------"
+    Write-Host "Содержимое:" -ForegroundColor Gray
+    Write-Host $content -ForegroundColor Cyan
+    Write-Host "--------------------------------------------------------"
+    
+    Write-Host "Нажмите Enter, чтобы запустить SOURCE Builder, или закройте окно..." -ForegroundColor Yellow
+    Pause
+    
+    if (Test-Path "_Source_Builder.bat") {
+        cmd.exe /c _Source_Builder.bat
     }
 
 } catch {
