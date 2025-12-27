@@ -5,6 +5,7 @@
 
 # Config directories
 /custom_files/
+/custom_packages/
 /firmware_output/
 /bck/
 debug.md
