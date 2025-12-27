@@ -1,3 +1,0 @@
-# file: openssl.cnf
-openssl_conf = default_conf_section
-[default_conf_section]

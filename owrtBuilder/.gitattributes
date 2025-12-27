@@ -1,9 +1,0 @@
-# Принудительно использовать CRLF для батников (Windows формат)
-*.bat -text
-*.ps1 -text
-*.cmd -text
-
-# На всякий случай для других конфигов
-*.conf text eol=lf
-*.yaml text eol=lf
-Dockerfile text eol=lf
