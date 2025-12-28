@@ -25,7 +25,7 @@ call :CHECK_DIR "firmware_output"
 :MENU
 cls
 echo ========================================
-echo  OpenWrt IMAGE Builder v5.0 (iqubik)
+echo  OpenWrt IMAGE Builder v4.7 (iqubik)
 echo ========================================
 echo.
 echo Обнаруженные профили:
