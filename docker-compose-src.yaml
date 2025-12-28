@@ -83,6 +83,23 @@ services:
       ./scripts/feeds update -a
       ./scripts/feeds install -a
 
+      # === BUILD HOOKS (PRE-BUILD SCRIPT) ===
+      # Если в папке профиля есть hooks.sh, выполняем его для модификации исходников
+      if [ -f \"/overlay_files/hooks.sh\" ]; then
+          echo \"[HOOKS] Found hooks.sh! Executing custom source modifications...\"
+          # Делаем исполняемым
+          chmod +x /overlay_files/hooks.sh
+          # Запускаем внутри текущей папки (исходников OpenWrt)
+          /bin/bash /overlay_files/hooks.sh
+          
+          # Проверяем статус
+          if [ $$? -ne 0 ]; then
+              echo \"[ERROR] hooks.sh not found on profile folder\"
+              exit 1
+          fi
+          echo \"[HOOKS] Custom modifications applied successfully.\"
+      fi
+
       # === CUSTOM SOURCES ===
       # ВАЖНО: Сюда нужно класть ПАПКИ с исходниками (Makefile), а не .ipk файлы!
       if [ -d \"/input_packages\" ] && [ \"$$(ls -A /input_packages)\" ]; then
@@ -143,6 +160,7 @@ services:
           echo \"[FILES] Copying overlay files...\"
           mkdir -p files
           cp -r /overlay_files/* files/
+          rm -f files/hooks.sh
       fi
       
       # === 5. DOWNLOAD ===
