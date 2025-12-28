@@ -23,7 +23,7 @@ call :CHECK_DIR "custom_files"
 call :CHECK_DIR "firmware_output"
 
 :MENU
-rem cls
+cls
 echo ========================================
 echo  OpenWrt IMAGE Builder v5.0 (iqubik)
 echo ========================================

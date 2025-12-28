@@ -27,19 +27,24 @@ echo [UNPACKER] Готово.
 exit /b
 
 :DECODE_FILE
-    :: Проверяем, существует ли файл
+    :: 1. Проверяем, существует ли файл
     if exist "%~1" (
-        echo [UNPACKER] [SKIP] Файл '%~nx1' уже существует.
+        echo [INFO]  Файл уже существует, пропуск: %~nx1
         exit /b
     )
 
-    :: Создаем папку, если нужно
-    if not exist "%~dp1" md "%~dp1" 2>nul
+    :: 2. Создаем папку, если нужно
+    if not exist "%~dp1" (
+        echo [DEBUG] Папка отсутствует. Создаем: %~dp1
+        md "%~dp1" 2>nul
+    )
 
-    echo [UNPACKER] [WRITE] -> %~1
-
-    :: Распаковка через PowerShell
+    :: 3. Распаковка
+    echo [DEBUG] Распаковка файла: %~1
     powershell -Command "$ext = '%~1'; $content = Get-Content '%~f0'; $start = $false; $b64 = ''; foreach($line in $content){ if($line -match 'BEGIN_B64_ ' + [Regex]::Escape($ext)){ $start = $true; continue }; if($line -match 'END_B64_ ' + [Regex]::Escape($ext)){ $start = $false; break }; if($start){ $b64 += $line.Trim() } }; if($b64){ [IO.File]::WriteAllBytes($ext, [Convert]::FromBase64String($b64)) }"
+
+    :: 4. Проверка результата
+    if exist "%~1" ( echo [OK]   Успешно записан: %~nx1 ) else ( echo [ERR]  Не удалось создать: %~nx1 )
 exit /b
 
 :: =========================================================
