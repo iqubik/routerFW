@@ -123,6 +123,15 @@ services:
         echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$KERNEL_SIZE\" >> .config
       fi
 
+      # === EXTRA CONFIG (Disable devices / Low level options) ===
+      if [ -n \"$$SRC_EXTRA_CONFIG\" ]; then
+          echo \"[CONFIG] Applying extra config options (SRC_EXTRA_CONFIG)...\"
+          # Обрабатываем переменную как список строк
+          for opt in $$SRC_EXTRA_CONFIG; do
+              echo \"$$opt\" >> .config
+          done
+      fi
+
       echo \"[DEBUG] Showing generated SEED .config:\"
       echo \"----------------------------------------\"
       cat .config
