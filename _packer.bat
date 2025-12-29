@@ -150,17 +150,18 @@ if exist "%CERTUTIL_OUT%" del "%CERTUTIL_OUT%"
 echo.
 echo [PACKER] Создание резервной копии в ZIP...
 
-:: Получаем дату через PowerShell (формат ДД-ММ-ГГГГ_ЧЧ-ММ)
-:: Это работает надежнее, чем %DATE%, так как не зависит от региональных настроек
-for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "Get-Date -Format 'dd-MM-yyyy_HH-mm'"`) do set "ZIP_DATE=%%D"
+:: Получаем дату через PowerShell (формат ДД.ММ.ГГГГ_ЧЧ-ММ)
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "Get-Date -Format 'dd.MM.yyyy_HH-mm'"`) do set "ZIP_DATE=%%D"
 
-set "ZIP_NAME=_unpacker_!ZIP_DATE!.zip"
+:: Формируем имя по шаблону
+set "ZIP_NAME=routerFW_WinDockerBuilder_v!ZIP_DATE!.zip"
 
 :: Упаковываем _unpacker.bat в zip
 powershell -NoProfile -Command "Compress-Archive -Path '_unpacker.bat' -DestinationPath '!ZIP_NAME!' -Force"
 
 echo.
 echo ========================================
+echo  Готово! 
 echo  Файл обновлен: _unpacker.bat
 echo  Архив создан:  !ZIP_NAME!
 echo ========================================
