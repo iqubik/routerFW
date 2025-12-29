@@ -1,4 +1,4 @@
-# file: docker-compose.yaml V1.1
+# file: docker-compose.yaml V1.2
 services:
   builder-openwrt:
     build: .
@@ -99,8 +99,25 @@ services:
          cat repositories.conf
          echo \"--------------------------\"
       fi
+      # === ПОДГОТОВКА OVERLAY (Удаление hooks.sh) ===
+      echo \"[OVERLAY] Preparing custom files...\"
+      # 1. Создаем чистую временную папку
+      mkdir -p /tmp/clean_overlay
+      
+      # 2. Копируем туда файлы (флаг -a сохраняет права доступа, /. копирует и скрытые файлы)
+      if [ -d \"/overlay_files\" ]; then
+          cp -a /overlay_files/. /tmp/clean_overlay/ 2>/dev/null || true
+      fi
+      # 3. БЕЗОПАСНО удаляем hooks.sh и прочий мусор из копии
+      if [ -f \"/tmp/clean_overlay/hooks.sh\" ]; then
+          echo \"[OVERLAY] Removing hooks.sh from firmware build...\"
+          rm -f \"/tmp/clean_overlay/hooks.sh\"
+      fi
+      # Можно также удалить README или другие служебные файлы
+      rm -f \"/tmp/clean_overlay/README.md\"      
+
       # --- 3. СБОРКА ---
-      echo \"Starting make image for $$TARGET_PROFILE...\"
+      echo \"Starting make image for $$TARGET_PROFILE...\"      
       MAKE_ARGS=\"PROFILE=\\\"$$TARGET_PROFILE\\\" FILES=\\\"/overlay_files\\\" PACKAGES=\\\"$$PKGS\\\"\"
       if [ -n \"$$EXTRA_IMAGE_NAME\" ]; then
           MAKE_ARGS=\"$$MAKE_ARGS EXTRA_IMAGE_NAME=\\\"$$EXTRA_IMAGE_NAME\\\"\"
