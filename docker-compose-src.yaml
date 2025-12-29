@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.2
+# file: srcBuilder\docker-compose-src.yaml v1.4
 services:
   builder-src-openwrt:
     build:
@@ -42,6 +42,9 @@ services:
       cat \"/profiles/$$CONF_FILE\" | sed '1s/^\\xEF\\xBB\\xBF//' | tr -d '\\r' > /tmp/clean_config.env
       source /tmp/clean_config.env
 
+      # ВАЖНО: Экспортируем переменные, чтобы hooks.sh их видел
+      export SRC_REPO SRC_BRANCH SRC_TARGET SRC_SUBTARGET SRC_DEVICE PROFILE_NAME SRC_PACKAGES
+
       if [ -z \"$$SRC_REPO\" ]; then
          echo \"[ERROR] SRC_REPO is empty! Config was not parsed correctly.\"
          exit 1
@@ -84,13 +87,15 @@ services:
       ./scripts/feeds install -a
 
       # === BUILD HOOKS (PRE-BUILD SCRIPT) ===
+      # Если в папке профиля есть hooks.sh, выполняем его
       if [ -f \"/overlay_files/hooks.sh\" ]; then
-          echo \"[HOOKS] Found hooks.sh! Executing custom source modifications...\"
+          echo \"[HOOKS] Found hooks.sh! Sanitizing (CRLF -> LF) and executing...\"
           
-          # 1. Копируем во временную папку (fix for Windows permission error)
-          cp /overlay_files/hooks.sh /tmp/hooks.sh
+          # 1. Читаем файл, удаляем Windows-спецсимволы (\r) и сохраняем чистую копию в /tmp
+          # Это делает скрипт устойчивым к редактированию в Notepad/VSCode под Windows
+          tr -d '\\r' < \"/overlay_files/hooks.sh\" > /tmp/hooks.sh
           
-          # 2. Делаем исполняемым (теперь это безопасно, т.к. файл внутри Linux)
+          # 2. Делаем исполняемым
           chmod +x /tmp/hooks.sh
           
           # 3. Запускаем
