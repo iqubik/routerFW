@@ -10,7 +10,7 @@ chcp 65001 >nul
 
 cls
 echo ========================================
-echo  OpenWrt Universal Packer (v1.5)
+echo  OpenWrt Universal Packer (v1.6)
 echo ========================================
 echo.
 
@@ -146,9 +146,23 @@ move /Y "%NEW_UNPACKER_FILE%" "_unpacker.bat" > nul
 if exist "%B64_BLOCK_FILE%" del "%B64_BLOCK_FILE%"
 if exist "%CERTUTIL_OUT%" del "%CERTUTIL_OUT%"
 
+:: === 7. Создание ZIP архива ===
+echo.
+echo [PACKER] Создание резервной копии в ZIP...
+
+:: Получаем дату через PowerShell (формат ДД-ММ-ГГГГ_ЧЧ-ММ)
+:: Это работает надежнее, чем %DATE%, так как не зависит от региональных настроек
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "Get-Date -Format 'dd-MM-yyyy_HH-mm'"`) do set "ZIP_DATE=%%D"
+
+set "ZIP_NAME=_unpacker_!ZIP_DATE!.zip"
+
+:: Упаковываем _unpacker.bat в zip
+powershell -NoProfile -Command "Compress-Archive -Path '_unpacker.bat' -DestinationPath '!ZIP_NAME!' -Force"
+
 echo.
 echo ========================================
-echo  Готово!
+echo  Файл обновлен: _unpacker.bat
+echo  Архив создан:  !ZIP_NAME!
 echo ========================================
 echo.
 pause
