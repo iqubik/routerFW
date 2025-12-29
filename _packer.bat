@@ -1,5 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
+cls
+chcp 65001 >nul
 
 :: =========================================================
 ::  Упаковщик общих ресурсов в _unpacker.bat
@@ -56,6 +58,8 @@ echo [PACKER] Создание логики распаковщика (с про�
 :: Пишем заголовок
 echo @echo off> "%NEW_UNPACKER_FILE%"
 echo setlocal enabledelayedexpansion>> "%NEW_UNPACKER_FILE%"
+echo cls>> "%NEW_UNPACKER_FILE%"
+echo chcp 65001 ^>nul>> "%NEW_UNPACKER_FILE%"
 echo.>> "%NEW_UNPACKER_FILE%"
 echo :: =========================================================>> "%NEW_UNPACKER_FILE%"
 echo ::  Универсальный распаковщик общих ресурсов>> "%NEW_UNPACKER_FILE%"
