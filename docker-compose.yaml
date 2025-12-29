@@ -19,6 +19,7 @@ services:
         echo \"FATAL: Profile /profiles/$$CONF_FILE not found!\"
         exit 1
       fi
+
       # === КОНВЕРТАЦИЯ CRLF -> LF И УДАЛЕНИЕ BOM ===
       echo \"[INIT] Normalizing config...\"
       # Используем двойные слэши \\xEF, чтобы YAML и Bash передали их в sed корректно
@@ -30,9 +31,11 @@ services:
          echo \"[ERROR] IMAGEBUILDER_URL is empty! Config was not parsed correctly.\"
          exit 1
       fi
+
       # === ЗАСЕКАЕМ ВРЕМЯ ===
       START_TIME=$$(date +%s)
       TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
+
       # --- 1. КЭШИРОВАНИЕ ---
       ARCHIVE_NAME=$$(basename \"$$IMAGEBUILDER_URL\")
       CACHE_FILE=\"/cache/$$ARCHIVE_NAME\"
@@ -48,16 +51,19 @@ services:
       else
           tar -xJf \"$$CACHE_FILE\" --strip-components=1
       fi
+
       # --- 2. РАСШИРЕННЫЕ ВОЗМОЖНОСТИ ---
       if [ -f /openssl.cnf ]; then
          echo \"Applying OpenSSL Fix to /builder/shared-workdir/...\"
          mkdir -p /builder/shared-workdir/build/staging_dir/host/etc/ssl
          cp /openssl.cnf /builder/shared-workdir/build/staging_dir/host/etc/ssl/openssl.cnf
       fi
+
       # Копируем кастомные IPK
       [ -d /input_packages ] && cp /input_packages/*.ipk packages/ 2>/dev/null || true
       #fix для древних сборок
       export SOURCE_DATE_EPOCH=$$(date +%s)
+
       # === ИЗМЕНЕНИЕ РАЗМЕРА РАЗДЕЛОВ ===
       # RootFS Size
       if [ -n \"$$ROOTFS_SIZE\" ]; then
@@ -68,6 +74,7 @@ services:
       else
         echo \"[CONFIG] Using default RootFS size\"
       fi
+
       # Kernel Size
       if [ -n \"$$KERNEL_SIZE\" ]; then
         echo \"[CONFIG] Setting Kernel size to $$KERNEL_SIZE MB...\"
@@ -77,6 +84,7 @@ services:
       else
         echo \"[CONFIG] Using default KernelFS size\"
       fi
+
       # === РЕПОЗИТОРИИ И КЛЮЧИ ===
       if [ -n \"$$CUSTOM_KEYS\" ]; then
          echo \"[REPO] Downloading custom keys...\"
@@ -108,6 +116,7 @@ services:
       if [ -d \"/overlay_files\" ]; then
           cp -a /overlay_files/. /tmp/clean_overlay/ 2>/dev/null || true
       fi
+
       # 3. БЕЗОПАСНО удаляем hooks.sh и прочий мусор из копии
       if [ -f \"/tmp/clean_overlay/hooks.sh\" ]; then
           echo \"[OVERLAY] Removing hooks.sh from firmware build...\"
@@ -127,6 +136,7 @@ services:
       fi
       echo \"Running: make image ...\"
       eval make image $$MAKE_ARGS
+
       # --- 4. СОХРАНЕНИЕ ---
       echo \"Saving artifacts...\"
       TARGET_DIR=\"/output/$$TIMESTAMP\"
@@ -134,6 +144,7 @@ services:
       find bin/targets -type f -not -path \"*/packages/*\" | while read f; do
           cp \"$$f\" \"$$TARGET_DIR/\"
       done
+
       # --- 5. РАСЧЕТ ВРЕМЕНИ ---
       END_TIME=$$(date +%s)
       ELAPSED=$$((END_TIME - START_TIME))
