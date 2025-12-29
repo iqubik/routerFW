@@ -84,17 +84,21 @@ services:
       ./scripts/feeds install -a
 
       # === BUILD HOOKS (PRE-BUILD SCRIPT) ===
-      # Если в папке профиля есть hooks.sh, выполняем его для модификации исходников
       if [ -f \"/overlay_files/hooks.sh\" ]; then
           echo \"[HOOKS] Found hooks.sh! Executing custom source modifications...\"
-          # Делаем исполняемым
-          chmod +x /overlay_files/hooks.sh
-          # Запускаем внутри текущей папки (исходников OpenWrt)
-          /bin/bash /overlay_files/hooks.sh
+          
+          # 1. Копируем во временную папку (fix for Windows permission error)
+          cp /overlay_files/hooks.sh /tmp/hooks.sh
+          
+          # 2. Делаем исполняемым (теперь это безопасно, т.к. файл внутри Linux)
+          chmod +x /tmp/hooks.sh
+          
+          # 3. Запускаем
+          /bin/bash /tmp/hooks.sh
           
           # Проверяем статус
           if [ $$? -ne 0 ]; then
-              echo \"[ERROR] hooks.sh not found on profile folder\"
+              echo \"[ERROR] hooks.sh failed!\"
               exit 1
           fi
           echo \"[HOOKS] Custom modifications applied successfully.\"

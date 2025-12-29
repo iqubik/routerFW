@@ -1,5 +1,25 @@
 #!/bin/sh
 
+# ==============================================================================
+#  OpenWrt Universal Diagnostic Tool
+#  Version: v1.7 (Audited Edition)
+#  Description: Generates a comprehensive system health report in Markdown.
+#               Designed for debugging network, wireless, and routing issues.
+#               Automatically sanitizes passwords, keys, and sensitive data.
+# ==============================================================================
+#
+#  TABLE OF CONTENTS:
+#  1. SYSTEM & HARDWARE ....... Board info, Uptime, Load averages, RAM, Storage
+#  2. INTERFACES (L1/L2) ...... Link speed/duplex, DSA/VLAN config, Port errors
+#  3. ROUTING & CONNECTIVITY .. Routing table, ARP, Ping/DNS/HTTP checks, VPN rules
+#  4. FIREWALL & TRAFFIC ...... Flow Offloading (HW/SW), Conntrack, NFT counters
+#  5. PROCESSES & PACKAGES .... Installed packages, Service status, Top CPU consumers
+#  6. WIRELESS HEALTH ......... Signal stats, Channel utilization (Survey), Mesh info
+#  7. CONFIGURATION ........... Sanitized UCI exports (network, wireless, firewall, etc.)
+#  8. LOGS .................... Critical Kernel errors (dmesg) and System logs
+#
+# ==============================================================================
+
 # === CONFIG ===
 [ -f /proc/sys/kernel/hostname ] && HOST=$(cat /proc/sys/kernel/hostname) || HOST="OpenWrt"
 LOG="/tmp/diag_${HOST}.md"
