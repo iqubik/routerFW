@@ -26,54 +26,121 @@
 #    exit 1 -> Критическая ошибка, немедленно остановить сборку.
 # ==============================================================================
 
-# 1. Определяем цвета для красивого вывода (опционально)
+# 1. Настройка окружения и цветов
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}[HOOK] >>> Запуск сценария hooks.sh...${NC}"
+# Вспомогательные функции логгирования
+log() { echo -e "${CYAN}[HOOK]${NC} $1"; }
+warn() { echo -e "${YELLOW}[HOOK] WARNING: $1${NC}"; }
+err()  { echo -e "${RED}[HOOK] ERROR: $1${NC}"; }
 
-# 2. Определяем цель (файл, который будем менять)
-# Ищем любой файл README (README, README.md и т.д.)
+log ">>> Запуск сценария hooks.sh..."
+
+# ==============================================================================
+# БЛОК 1: Демонстрационный пример (Автограф в README)
+# ==============================================================================
+# Этот блок показывает, как безопасно модифицировать файл.
+
 TARGET_FILE=$(find . -maxdepth 1 -name "README*" | head -n 1)
 
 if [ -z "$TARGET_FILE" ]; then
-    echo -e "${RED}[HOOK] Ошибка: Файл README не найден! Создаем новый.${NC}"
+    warn "Файл README не найден! Создаем новый."
     TARGET_FILE="README.md"
     touch "$TARGET_FILE"
 fi
 
-echo -e "[HOOK] Целевой файл: ${TARGET_FILE}"
-
-# 3. Подготавливаем данные для внесения
 TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
-SIGNATURE="Build processed by SourceBuilder on $TIMESTAMP"
+SIGNATURE="Build processed by SourceBuilder"
 
-# 4. Вносим изменения (добавляем строку в конец файла)
-echo "Appending signature to $TARGET_FILE..."
-echo "" >> "$TARGET_FILE"
-echo "--- $SIGNATURE ---" >> "$TARGET_FILE"
-
-# 5. ВАЛИДАЦИЯ (Проверка результата)
-# Самая важная часть: проверяем, применились ли изменения
-if grep -q "$SIGNATURE" "$TARGET_FILE"; then
-    echo -e "${GREEN}[HOOK] УСПЕХ: Автограф успешно добавлен в $TARGET_FILE${NC}"
-    echo "       Содержимое последней строки:"
-    tail -n 1 "$TARGET_FILE"
+# Проверка на идемпотентность (чтобы не дублировать строки при повторном запуске)
+if grep -Fq "$SIGNATURE" "$TARGET_FILE"; then
+    log "Автограф уже присутствует в $TARGET_FILE. Пропускаем."
 else
-    echo -e "${RED}[HOOK] ПРОВАЛ: Не удалось изменить файл $TARGET_FILE${NC}"
-    # Возвращаем код ошибки, чтобы остановить сборку (если это критично)
-    exit 1
+    log "Добавляем автограф в $TARGET_FILE..."
+    echo "" >> "$TARGET_FILE"
+    echo "--- $SIGNATURE on $TIMESTAMP ---" >> "$TARGET_FILE"
+    
+    # Валидация
+    if grep -Fq "$SIGNATURE" "$TARGET_FILE"; then
+        echo -e "${GREEN}       УСПЕХ: README обновлен.${NC}"
+    else
+        err "Не удалось записать в файл!"
+        exit 1
+    fi
 fi
 
-# 6. Пример условной логики (закомментирован)
-# if [ "$SRC_TARGET" == "ramips" ]; then
-#     echo "[HOOK] Обнаружена архитектура ramips, применяем спец. патчи..."
-#     # sed -i ...
-# fi
+# ==============================================================================
+# БЛОК 2: Vermagic Hack (Синхронизация хэша ядра с официальным)
+# ==============================================================================
+# Позволяет устанавливать kmod-пакеты из официального репозитория.
+# Работает только для релизов (TAGS), для SNAPSHOT/Master пропускается.
 
-echo -e "${YELLOW}[HOOK] >>> Сценарий завершен корректно.${NC}"
+log ">>> Проверка необходимости Vermagic Hack..."
 
-# Всегда возвращаем 0 в конце, если всё прошло хорошо
+# 1. Очистка версии (убираем 'v' в начале)
+CLEAN_VER=$(echo "$SRC_BRANCH" | sed 's/^v//')
+
+# 2. Проверка условий (безопасность)
+if [[ "$CLEAN_VER" == *"SNAPSHOT"* ]] || [[ "$CLEAN_VER" == *"master"* ]]; then
+    warn "Сборка SNAPSHOT или Master. Подмена Vermagic невозможна."
+    warn "Пропускаем этот шаг."
+else
+    log "Целевая версия: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)"
+
+    # 3. Формирование URL манифеста
+    MANIFEST_URL="https://downloads.openwrt.org/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/openwrt-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+    
+    log "Скачиваем манифест: $MANIFEST_URL"
+    MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+    CURL_EXIT=$?
+
+    if [ $CURL_EXIT -ne 0 ] || [ -z "$MANIFEST_DATA" ]; then
+        err "Не удалось скачать манифест (Код ошибки curl: $CURL_EXIT)."
+        err "Проверьте интернет или правильность версии/таргета в профиле."
+        # Если критично совпадение с репо - расскоментируйте exit 1
+        # exit 1 
+    else
+        # 4. Извлечение хэша
+        # Ищем строку вида: "kernel - 5.15.x-1-HASH"
+        KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | sed -E 's/.*-([0-9a-f]{32})/\1/')
+
+        # Валидация хэша (строго 32 hex символа)
+        if [[ ! "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
+            err "Получен некорректный хэш: '$KERNEL_HASH'"
+            exit 1
+        else
+            echo -e "${GREEN}       Официальный Vermagic Hash: $KERNEL_HASH${NC}"
+
+            # 5. Патчинг include/kernel-defaults.mk
+            TARGET_MK="include/kernel-defaults.mk"
+            
+            if [ -f "$TARGET_MK" ]; then
+                log "Применяем патч к $TARGET_MK..."
+                
+                # Заменяем вычисление хэша $(MKHASH) md5 на жесткий echo ХЭШ
+                sed -i "s/\$(MKHASH) md5/echo $KERNEL_HASH/g" "$TARGET_MK"
+                
+                # Проверка
+                if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
+                    echo -e "${GREEN}       УСПЕХ: Makefile модифицирован. Ядро соберется с официальным хэшем.${NC}"
+                else
+                    err "Sed выполнился, но замена не найдена в файле."
+                    exit 1
+                fi
+            else
+                err "Файл $TARGET_MK не найден. Структура исходников изменилась?"
+                exit 1
+            fi
+        fi
+    fi
+fi
+
+# ==============================================================================
+# ФИНАЛ
+# ==============================================================================
+log ">>> Сценарий hooks.sh завершен корректно."
 exit 0
