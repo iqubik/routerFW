@@ -47,21 +47,20 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo ==========================================================
-echo  OpenWrt UNIFIED Builder v5.5 (Original Logic)
+echo  OpenWrt UNIFIED Builder v5.6 (Complete)
 echo  Текущий режим: [%MODE_TITLE%]
 echo ==========================================================
 echo.
 echo Все обнаруженные профили:
 echo.
 
-:: === ЦИКЛ СКАНИРОВАНИЯ (КАК В ОРИГИНАЛЕ) ===
 :: Убраны все фильтры findstr, чтобы избежать ошибки "drive specified"
 for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
     
-    :: Создаем папку (как в оригинале)
+    :: Создаем папку
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
     call :CREATE_PERMS_SCRIPT "!p_id!"
     
@@ -71,6 +70,7 @@ for %%f in (profiles\*.conf) do (
 echo.
 echo    [A] Собрать ВСЕ (Параллельно)
 echo    [M] Переключить режим на %OPPOSITE_MODE%
+echo    [W] Profile Wizard (Создать профиль)
 echo    [R] Обновить список
 echo    [0] Выход
 echo.
@@ -79,6 +79,7 @@ set /p choice="Ваш выбор: "
 if /i "%choice%"=="0" exit /b
 if /i "%choice%"=="R" goto MENU
 if /i "%choice%"=="M" goto SWITCH_MODE
+if /i "%choice%"=="W" goto WIZARD
 if /i "%choice%"=="A" goto BUILD_ALL
 
 set /a num_choice=%choice% 2>nul
@@ -116,6 +117,23 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "BUILD_MODE=SOURCE"
 ) else (
     set "BUILD_MODE=IMAGE"
+)
+goto MENU
+
+:WIZARD
+cls
+echo ==========================================
+echo  ЗАПУСК МАСТЕРА СОЗДАНИЯ ПРОФИЛЯ
+echo ==========================================
+echo.
+if exist "create_profile.ps1" (
+    powershell -ExecutionPolicy Bypass -File "create_profile.ps1"
+    echo.
+    echo Мастер завершил работу.
+    pause
+) else (
+    echo [ERROR] Файл create_profile.ps1 не найден!
+    pause
 )
 goto MENU
 
