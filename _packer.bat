@@ -161,7 +161,6 @@ powershell -NoProfile -Command "Compress-Archive -Path '_unpacker.bat' -Destinat
 
 echo.
 echo ========================================
-echo  Готово! 
 echo  Файл обновлен: _unpacker.bat
 echo  Архив создан:  !ZIP_NAME!
 echo ========================================
