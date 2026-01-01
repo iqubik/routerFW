@@ -225,4 +225,4 @@ CONFIG_TARGET_ROOTFS_PARTSIZE=256"
 *   `scripts\hooks.sh` — Пример Pre-build Hook с патчем VerMagic.
 *   `scripts\diag.sh` — Создает обезличенный отчет о системе для диагностики.
 *   `scripts\upgrade.sh` — Аналог `apt upgrade` для роутера (обновляет все пакеты).
-*   `create_profile.ps1` — Помощник для создания профиля (парсит сайт OpenWrt и создает конфиг).
+*   `scripts\packager.sh` — Скрипт позволяющий получить список пакетов установленных в системе отфильтровав autoinstalled.
