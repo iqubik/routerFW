@@ -36,12 +36,12 @@ set "COMMON_FILES=!COMMON_FILES! "scripts\diag.sh""
 set "COMMON_FILES=!COMMON_FILES! "scripts\hooks.sh""
 set "COMMON_FILES=!COMMON_FILES! "scripts\upgrade.sh""
 set "COMMON_FILES=!COMMON_FILES! "scripts\packager.sh""
-rem set "COMMON_FILES=!COMMON_FILES! "_run_create_profile.bat""
 set "COMMON_FILES=!COMMON_FILES! "create_profile.ps1""
-rem set "COMMON_FILES=!COMMON_FILES! "_Source_Builder.bat""
-rem set "COMMON_FILES=!COMMON_FILES! "_Image_Builder.bat""
 set "COMMON_FILES=!COMMON_FILES! "README.md""
 set "COMMON_FILES=!COMMON_FILES! "_Builder.bat""
+rem set "COMMON_FILES=!COMMON_FILES! "_Source_Builder.bat""
+rem set "COMMON_FILES=!COMMON_FILES! "_Image_Builder.bat""
+rem set "COMMON_FILES=!COMMON_FILES! "_run_create_profile.bat""
 
 :: Временные файлы
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"
@@ -78,6 +78,9 @@ for %%F in (%COMMON_FILES%) do (
 :: Завершение работы распаковщика
 echo.>> "%NEW_UNPACKER_FILE%"
 echo echo [UNPACKER] Готово.>> "%NEW_UNPACKER_FILE%"
+echo echo ===================================>> "%NEW_UNPACKER_FILE%"
+echo echo Можно запускать _Builder.bat>> "%NEW_UNPACKER_FILE%"
+echo echo ===================================>> "%NEW_UNPACKER_FILE%"
 echo exit /b>> "%NEW_UNPACKER_FILE%"
 echo.>> "%NEW_UNPACKER_FILE%"
 

@@ -141,7 +141,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 goto MENU
 
 :: =========================================================
-::  NEW CLEANUP MENU (AUDIT IMPLEMENTATION)
+::  NEW CLEANUP MENU (FLAT LOGIC FIX)
 :: =========================================================
 :CLEAN_MENU
 cls
@@ -152,27 +152,32 @@ echo ==========================================================
 echo  Docker Project Name Prefix: %DIR_NAME%
 echo.
 
-if "%BUILD_MODE%"=="IMAGE" (
-    echo    [1] Очистить кэш ImageBuilder (SDK)
-    echo        (Удалит скачанные архивы SDK, заставит скачать свежие)
-    echo.
-    echo    [2] Очистить кэш пакетов (.ipk)
-    echo        (Удалит скачанные пакеты opkg)
-    echo.
-    echo    [3] ПОЛНЫЙ СБРОС (SDK + Пакеты)
-) else (
-    echo    [1] SOFT CLEAN (Рекомендуется)
-    echo        (Выполняет 'make clean'. Удаляет бинарники, но 
-    echo         ОСТАВЛЯЕТ TOOLCHAIN и исходники. Сборка будет быстрой)
-    echo.
-    echo    [2] HARD RESET (ВНИМАНИЕ! УДАЛЕНИЕ РАБОЧЕЙ ПАПКИ)
-    echo        (Удаляет весь том src-workdir. Включая TOOLCHAIN и GIT.
-    echo         Следующая сборка займет 1-2 часа)
-    echo.
-    echo    [3] Очистить кэш исходников (dl)
-    echo        (Удаляет том src-dl-cache. Безопасно, но придется качать снова)
-)
+:: --- БЛОК ОТОБРАЖЕНИЯ ---
+if "%BUILD_MODE%"=="SOURCE" goto VIEW_SRC_MENU
 
+:VIEW_IMG_MENU
+echo    [1] Очистить кэш ImageBuilder (SDK)
+echo        (Удалит скачанные архивы SDK, заставит скачать свежие)
+echo.
+echo    [2] Очистить кэш пакетов (.ipk)
+echo        (Удалит скачанные пакеты opkg)
+echo.
+echo    [3] ПОЛНЫЙ СБРОС (SDK + Пакеты)
+goto VIEW_COMMON
+
+:VIEW_SRC_MENU
+echo    [1] SOFT CLEAN (Рекомендуется)
+echo        (Выполняет 'make clean'. Удаляет бинарники, но 
+echo         ОСТАВЛЯЕТ TOOLCHAIN и исходники. Сборка будет быстрой)
+echo.
+echo    [2] HARD RESET (ВНИМАНИЕ! УДАЛЕНИЕ РАБОЧЕЙ ПАПКИ)
+echo        (Удаляет весь том src-workdir. Включая TOOLCHAIN и GIT.
+echo         Следующая сборка займет 1-2 часа)
+echo.
+echo    [3] Очистить кэш исходников (dl)
+echo        (Удаляет том src-dl-cache. Безопасно, но придется качать снова)
+
+:VIEW_COMMON
 echo.
 echo    [9] Prune Docker (Удалить все остановленные контейнеры и висячие тома)
 echo    [0] Назад в меню
@@ -188,70 +193,92 @@ if "%clean_choice%"=="9" (
     goto CLEAN_MENU
 )
 
-:: Логика очистки для IMAGE MODE
-if "%BUILD_MODE%"=="IMAGE" (
-    if "%clean_choice%"=="1" (
-        echo [CLEAN] Удаление тома imagebuilder-cache...
-        docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul || echo Том не найден или уже удален.
-        pause
-        goto CLEAN_MENU
-    )
-    if "%clean_choice%"=="2" (
-        echo [CLEAN] Удаление тома ipk-cache...
-        docker volume rm %DIR_NAME%_ipk-cache 2>nul || echo Том не найден или уже удален.
-        pause
-        goto CLEAN_MENU
-    )
-    if "%clean_choice%"=="3" (
-        echo [CLEAN] Удаление ВСЕХ томов ImageBuilder...
-        docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul
-        docker volume rm %DIR_NAME%_ipk-cache 2>nul
-        echo Готово.
-        pause
-        goto CLEAN_MENU
-    )
-)
-
-:: Логика очистки для SOURCE MODE
-if "%BUILD_MODE%"=="SOURCE" (
-    if "%clean_choice%"=="1" (
-        echo.
-        echo [CLEAN] Запуск контейнера для выполнения make clean...
-        echo Пожалуйста, подождите...
-        :: Используем docker-compose run для выполнения команды внутри контекста томов
-        docker-compose -f docker-compose-src.yaml run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found - nothing to clean'; fi"
-        echo.
-        echo [INFO] Toolchain НЕ БЫЛ затронут.
-        pause
-        goto CLEAN_MENU
-    )
-    if "%clean_choice%"=="2" (
-        echo.
-        echo [WARNING] Вы собираетесь удалить ТОМ С РАБОЧЕЙ ДИРЕКТОРИЕЙ.
-        echo Это удалит скомпилированный Toolchain.
-        echo Вы уверены?
-        set /p confirm="Введите YES для подтверждения: "
-        if /i "!confirm!"=="YES" (
-            echo [CLEAN] Удаление тома src-workdir...
-            docker-compose -f docker-compose-src.yaml down -v
-            :: Дополнительная страховка, если docker-compose down не удалил внешний том
-            docker volume rm %DIR_NAME%_src-workdir 2>nul
-            echo Том удален. Следующая сборка начнется с нуля.
-        ) else (
-            echo Отмена.
-        )
-        pause
-        goto CLEAN_MENU
-    )
-    if "%clean_choice%"=="3" (
-        echo [CLEAN] Удаление кэша загрузок (dl)...
-        docker volume rm %DIR_NAME%_src-dl-cache 2>nul || echo Том не найден.
-        pause
-        goto CLEAN_MENU
-    )
-)
-
+:: --- ЛОГИКА ВЫПОЛНЕНИЯ (БЕЗ ВЛОЖЕННЫХ IF) ---
+:: Сначала определяем режим и отправляем в нужную секцию
+if "%BUILD_MODE%"=="IMAGE" goto LOGIC_IMG
+if "%BUILD_MODE%"=="SOURCE" goto LOGIC_SRC
 goto INVALID
+
+:: === ЛОГИКА IMAGE ===
+:LOGIC_IMG
+if "%clean_choice%"=="1" (
+    echo [CLEAN] Удаление тома imagebuilder-cache...
+    docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul || echo Том не найден или уже удален.
+    pause
+    goto CLEAN_MENU
+)
+if "%clean_choice%"=="2" (
+    echo [CLEAN] Удаление тома ipk-cache...
+    docker volume rm %DIR_NAME%_ipk-cache 2>nul || echo Том не найден или уже удален.
+    pause
+    goto CLEAN_MENU
+)
+if "%clean_choice%"=="3" (
+    echo [CLEAN] Удаление ВСЕХ томов ImageBuilder...
+    docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul
+    docker volume rm %DIR_NAME%_ipk-cache 2>nul
+    echo Готово.
+    pause
+    goto CLEAN_MENU
+)
+goto INVALID
+
+:: === ЛОГИКА SOURCE ===
+:LOGIC_SRC
+if "%clean_choice%"=="1" goto SRC_OPT_1
+if "%clean_choice%"=="2" goto SRC_OPT_2
+if "%clean_choice%"=="3" goto SRC_OPT_3
+goto INVALID
+
+:SRC_OPT_1
+echo.
+echo [CLEAN] Запуск контейнера для выполнения make clean...
+echo Пожалуйста, подождите...
+
+:: === FIX: Задаем временные переменные, чтобы Docker мог прочитать YAML ===
+set "SELECTED_CONF=dummy"
+set "HOST_FILES_DIR=./custom_files"
+set "HOST_OUTPUT_DIR=./firmware_output"
+
+:: Теперь переменные заполнены, и ошибка invalid spec исчезнет
+docker-compose -f docker-compose-src.yaml run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found - nothing to clean'; fi"
+
+echo.
+echo [INFO] Toolchain НЕ БЫЛ затронут.
+pause
+goto CLEAN_MENU
+
+:SRC_OPT_2
+echo.
+echo [WARNING] Вы собираетесь удалить ТОМ С РАБОЧЕЙ ДИРЕКТОРИЕЙ.
+echo Это удалит скомпилированный Toolchain.
+echo Вы уверены?
+set /p confirm="Введите YES для подтверждения: "
+if /i "!confirm!"=="YES" (
+    echo [CLEAN] Удаление тома src-workdir...
+    
+    :: === FIX: Задаем временные переменные для корректного down ===
+    set "SELECTED_CONF=dummy"
+    set "HOST_FILES_DIR=./custom_files"
+    set "HOST_OUTPUT_DIR=./firmware_output"
+    
+    docker-compose -f docker-compose-src.yaml down -v
+    
+    :: Дочищаем том, если compose его не зацепил
+    docker volume rm %DIR_NAME%_src-workdir 2>nul
+    
+    echo Том удален. Следующая сборка начнется с нуля.
+) else (
+    echo Отмена.
+)
+pause
+goto CLEAN_MENU
+
+:SRC_OPT_3
+echo [CLEAN] Удаление кэша загрузок (dl)...
+docker volume rm %DIR_NAME%_src-dl-cache 2>nul || echo Том не найден.
+pause
+goto CLEAN_MENU
 
 :WIZARD
 cls
