@@ -68,7 +68,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.0 https://github.com/iqubik/routerFW
+echo  OpenWrt FW Builder v3.1 https://github.com/iqubik/routerFW
 echo  Текущий режим: [%MODE_TITLE%]
 echo =================================================================
 echo.
@@ -94,8 +94,11 @@ echo    [W] Profile Wizard (Создать профиль)
 echo    [R] Обновить список
 echo    [0] Выход
 echo.
+set "choice="
 set /p choice="Ваш выбор: "
 
+:: Если нажали Enter (пусто), просто обновляем меню
+if "%choice%"=="" goto MENU
 if /i "%choice%"=="0" exit /b
 if /i "%choice%"=="R" goto MENU
 if /i "%choice%"=="M" goto SWITCH_MODE
@@ -190,8 +193,10 @@ echo.
 echo    [9] Prune Docker (Глобальная очистка мусора Docker)
 echo    [0] Назад в главное меню
 echo.
+set "clean_choice="
 set /p clean_choice="Ваш выбор: "
 
+if "%clean_choice%"=="" goto CLEAN_MENU
 if "%clean_choice%"=="0" goto MENU
 if "%clean_choice%"=="9" (
     echo.
@@ -243,8 +248,10 @@ echo    [A] ДЛЯ ВСЕХ ПРОФИЛЕЙ (Глобальная очистк�
 echo    [0] Отмена
 echo.
 
+set "p_choice="
 set /p p_choice="Выберите профиль или A: "
 
+if "%p_choice%"=="" goto SELECT_PROFILE_FOR_CLEAN
 if /i "%p_choice%"=="0" goto CLEAN_MENU
 if /i "%p_choice%"=="A" (
     set "TARGET_PROFILE_ID=ALL"
@@ -268,7 +275,10 @@ echo Цель:    %TARGET_PROFILE_NAME%
 echo.
 if "%TARGET_PROFILE_ID%"=="ALL" echo ВНИМАНИЕ: Это удалит данные для ВСЕХ профилей!
 echo.
+set "confirm="
 set /p confirm="Введите YES для подтверждения: "
+
+:: Если нажали Enter или ввели не YES - отмена
 if /i not "!confirm!"=="YES" goto CLEAN_MENU
 
 color 0E
@@ -315,10 +325,52 @@ if "%P_ID%"=="ALL" (
 )
 exit /b
 
+:: --- ХЕЛПЕР ДЛЯ СНЯТИЯ БЛОКИРОВОК (Удаление контейнеров) ---
+:HELPER_RELEASE_LOCKS
+set "P_ID=%~1"
+
+:: Настройка заглушек для docker-compose
+set "SELECTED_CONF=dummy"
+set "HOST_FILES_DIR=./custom_files"
+set "HOST_OUTPUT_DIR=./firmware_output"
+
+if "%P_ID%"=="ALL" goto REL_ALL
+goto REL_SINGLE
+
+:REL_ALL
+echo   [LOCK] Снятие блокировок со всех контейнеров (удаление)...
+if "%BUILD_MODE%"=="IMAGE" goto REL_ALL_IMG
+goto REL_ALL_SRC
+
+:REL_ALL_IMG
+for /f "tokens=*" %%c in ('docker ps -aq -f "name=builder-openwrt"') do docker rm -f %%c >nul 2>&1
+for /f "tokens=*" %%c in ('docker ps -aq -f "name=builder-oldwrt"') do docker rm -f %%c >nul 2>&1
+exit /b
+
+:REL_ALL_SRC
+for /f "tokens=*" %%c in ('docker ps -aq -f "name=builder-src"') do docker rm -f %%c >nul 2>&1
+exit /b
+
+:REL_SINGLE
+echo   [LOCK] Освобождение контейнера профиля %P_ID%...
+if "%BUILD_MODE%"=="IMAGE" goto REL_SINGLE_IMG
+goto REL_SINGLE_SRC
+
+:REL_SINGLE_IMG
+set "PROJ_NAME=build_%P_ID%"
+:: Используем !PROJ_NAME! так как enabledelayedexpansion включено
+docker-compose -p !PROJ_NAME! down >nul 2>&1
+exit /b
+
+:REL_SINGLE_SRC
+set "PROJ_NAME=srcbuild_%P_ID%"
+docker-compose -f docker-compose-src.yaml -p !PROJ_NAME! down >nul 2>&1
+exit /b
+
 :: --- SOURCE ACTIONS ---
 
 :EXEC_SRC_SOFT
-:: Soft Clean (make clean) требует запуска контейнера, поэтому логика сложнее
+:: Soft Clean требует наличия контейнера, поэтому здесь мы НЕ вызываем RELEASE_LOCKS
 if "%TARGET_PROFILE_ID%"=="ALL" (
     echo [ERROR] Soft Clean не поддерживается для режима ALL.
     echo Это займет слишком много времени. Выполняйте по одному.
@@ -338,18 +390,21 @@ pause
 goto CLEAN_MENU
 
 :EXEC_SRC_WORK
+call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-workdir" "%TARGET_PROFILE_ID%"
 echo [INFO] Рабочая директория очищена. Исходники (DL) сохранены.
 pause
 goto CLEAN_MENU
 
 :EXEC_SRC_DL
+call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-dl-cache" "%TARGET_PROFILE_ID%"
 echo [INFO] Кэш загрузок очищен.
 pause
 goto CLEAN_MENU
 
 :EXEC_SRC_CCACHE
+call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-ccache" "%TARGET_PROFILE_ID%"
 echo [INFO] Кэш компилятора очищен.
 pause
@@ -357,7 +412,7 @@ goto CLEAN_MENU
 
 :EXEC_SRC_ALL
 echo [CLEAN] Полный сброс SourceBuilder для %TARGET_PROFILE_ID%...
-:: Если один профиль - гасим его контейнеры
+:: Здесь используем down -v (или принудительное удаление), так как чистим всё
 if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "PROJ_NAME=srcbuild_%TARGET_PROFILE_ID%"
     :: Переменные-заглушки
@@ -366,10 +421,11 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "HOST_OUTPUT_DIR=./firmware_output"
     docker-compose -f docker-compose-src.yaml -p !PROJ_NAME! down -v >nul 2>&1
 ) else (
-    :: Если ALL - пытаемся убить всех, у кого в имени builder-src
-    for /f "tokens=*" %%c in ('docker ps -q -f "name=builder-src"') do docker kill %%c >nul 2>&1
+    :: Сначала убиваем контейнеры
+    call :HELPER_RELEASE_LOCKS "ALL"
 )
 
+:: Дочищаем тома, если что-то осталось
 call :HELPER_DEL_VOLUME "src-workdir" "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-dl-cache" "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-ccache" "%TARGET_PROFILE_ID%"
@@ -380,12 +436,16 @@ goto CLEAN_MENU
 :: --- IMAGE ACTIONS ---
 
 :EXEC_IMG_SDK
+:: Сначала освобождаем контейнер, иначе том занят
+call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "imagebuilder-cache" "%TARGET_PROFILE_ID%"
 echo [INFO] SDK очищен.
 pause
 goto CLEAN_MENU
 
 :EXEC_IMG_IPK
+:: Сначала освобождаем контейнер
+call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "ipk-cache" "%TARGET_PROFILE_ID%"
 echo [INFO] Кэш IPK пакетов очищен.
 pause
@@ -400,8 +460,7 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "HOST_OUTPUT_DIR=./firmware_output"
     docker-compose -p !PROJ_NAME! down -v >nul 2>&1
 ) else (
-    for /f "tokens=*" %%c in ('docker ps -q -f "name=builder-openwrt"') do docker kill %%c >nul 2>&1
-    for /f "tokens=*" %%c in ('docker ps -q -f "name=builder-oldwrt"') do docker kill %%c >nul 2>&1
+    call :HELPER_RELEASE_LOCKS "ALL"
 )
 
 call :HELPER_DEL_VOLUME "imagebuilder-cache" "%TARGET_PROFILE_ID%"

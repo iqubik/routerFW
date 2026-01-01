@@ -1,4 +1,4 @@
-# file: docker-compose.yaml V1.2
+# file: docker-compose.yaml V1.41
 services:
   builder-openwrt:
     build: .
@@ -20,7 +20,16 @@ services:
         exit 1
       fi
 
-      # === КОНВЕРТАЦИЯ CRLF -> LF И УДАЛЕНИЕ BOM ===
+      # === 0. ПОВЫШЕНИЕ СТАБИЛЬНОСТИ СЕТИ (FIX FRAGILITY) ===
+      # Создаем глобальный конфиг wgetrc, который подхватит OPKG внутри make image
+      echo \"tries = 5\" > ~/.wgetrc
+      echo \"timeout = 20\" >> ~/.wgetrc
+      echo \"retry_connrefused = on\" >> ~/.wgetrc
+      echo \"waitretry = 2\" >> ~/.wgetrc
+      # Иногда бывают проблемы с SSL на старых образах, опционально:
+      # echo \"check_certificate = off\" >> ~/.wgetrc
+
+      # === 1. ПОДГОТОВКА КОНФИГА ===
       echo \"[INIT] Normalizing config...\"
       # Используем двойные слэши \\xEF, чтобы YAML и Bash передали их в sed корректно
       cat \"/profiles/$$CONF_FILE\" | sed '1s/^\\xEF\\xBB\\xBF//' | tr -d '\\r' > /tmp/clean_config.env
@@ -36,25 +45,47 @@ services:
       START_TIME=$$(date +%s)
       TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
 
-      # --- 1. КЭШИРОВАНИЕ ---
+      # --- 2. СКАЧИВАНИЕ SDK (АТОМАРНОЕ) ---
       ARCHIVE_NAME=$$(basename \"$$IMAGEBUILDER_URL\")
       CACHE_FILE=\"/cache/$$ARCHIVE_NAME\"
-      if [ ! -f \"$$CACHE_FILE\" ]; then
-        echo \"[CACHE MISS] Downloading $$ARCHIVE_NAME...\"
-        wget -q \"$$IMAGEBUILDER_URL\" -O \"$$CACHE_FILE\"
+      TEMP_CACHE_FILE=\"/cache/$$ARCHIVE_NAME.tmp\"
+
+      # Функция ожидания, если другой контейнер уже качает файл
+      wait_for_download() {
+          echo \"[CACHE BUSY] Another build is downloading SDK. Waiting...\"
+          while [ -f \"$$TEMP_CACHE_FILE\" ]; do
+              sleep 5
+          done
+          if [ ! -f \"$$CACHE_FILE\" ]; then return 1; fi
+      }
+
+      if [ ! -f \"$$CACHE_FILE\" ]; then        
+          if [ -f \"$$TEMP_CACHE_FILE\" ]; then
+              wait_for_download || echo \"[CACHE RETRY] Neighbor failed, downloading...\"
+          fi
+          
+          if [ ! -f \"$$CACHE_FILE\" ]; then
+              echo \"[CACHE MISS] Downloading $$ARCHIVE_NAME...\"
+              # Используем dot:giga для чистоты логов + параметры надежности
+              wget --progress=dot:giga --tries=5 --timeout=20 --retry-connrefused -O \"$$TEMP_CACHE_FILE\" \"$$IMAGEBUILDER_URL\"
+              mv \"$$TEMP_CACHE_FILE\" \"$$CACHE_FILE\"
+          else
+             echo \"[CACHE HIT] File appeared after wait: $$ARCHIVE_NAME\"
+          fi
       else
         echo \"[CACHE HIT] Using $$ARCHIVE_NAME\"
       fi
+
       echo \"Extracting...\"
       if echo \"$$IMAGEBUILDER_URL\" | grep -q '.zst$$'; then
-          tar -I zstd -xf \"$$CACHE_FILE\" --strip-components=1
+          tar -I zstd -xf \"$$CACHE_FILE\" --strip-components=1 2>/dev/null || true
       else
-          tar -xJf \"$$CACHE_FILE\" --strip-components=1
+          tar -xJf \"$$CACHE_FILE\" --strip-components=1 2>/dev/null || true
       fi
 
-      # --- 2. РАСШИРЕННЫЕ ВОЗМОЖНОСТИ ---
+      # --- 3. ПОДГОТОВКА ОКРУЖЕНИЯ ---
       if [ -f /openssl.cnf ]; then
-         echo \"Applying OpenSSL Fix to /builder/shared-workdir/...\"
+         echo \"Applying OpenSSL Fix...\"
          mkdir -p /builder/shared-workdir/build/staging_dir/host/etc/ssl
          cp /openssl.cnf /builder/shared-workdir/build/staging_dir/host/etc/ssl/openssl.cnf
       fi
@@ -85,19 +116,21 @@ services:
         echo \"[CONFIG] Using default KernelFS size\"
       fi
 
-      # === РЕПОЗИТОРИИ И КЛЮЧИ ===
+      # --- 4. ЗАГРУЗКА КЛЮЧЕЙ И РЕПОЗИТОРИЕВ ---
       if [ -n \"$$CUSTOM_KEYS\" ]; then
          echo \"[REPO] Downloading custom keys...\"
          for key_url in $$CUSTOM_KEYS; do
              echo \"   -> $$key_url\"
-             wget -q \"$$key_url\" -P keys/
+             wget -q --tries=5 --timeout=15 --retry-connrefused \"$$key_url\" -P keys/ || echo \"[WARN] Failed to download key: $$key_url\"
+             
              key_filename=$$(basename \"$$key_url\")
              key_id=$${key_filename%.*}
-             if [ \"$$key_filename\" != \"$$key_id\" ]; then
+             if [ -f \"keys/$$key_filename\" ] && [ \"$$key_filename\" != \"$$key_id\" ]; then
                  cp \"keys/$$key_filename\" \"keys/$$key_id\"
              fi
          done
       fi
+      
       if [ -n \"$$CUSTOM_REPOS\" ]; then
          echo \"[REPO] Adding custom repositories...\"
          sed -i '/fantastic_/d' repositories.conf
@@ -109,7 +142,8 @@ services:
       fi
       # === ПОДГОТОВКА OVERLAY (Удаление hooks.sh) ===
       echo \"[OVERLAY] Preparing custom files...\"
-      # 1. Создаем чистую временную папку
+
+      # --- 5. OVERLAY ---
       mkdir -p /tmp/clean_overlay
       
       # 2. Копируем туда файлы (флаг -a сохраняет права доступа, /. копирует и скрытые файлы)
@@ -124,20 +158,44 @@ services:
       fi
       # Можно также удалить README или другие служебные файлы
       rm -f \"/tmp/clean_overlay/README.md\"      
-
       # --- 3. СБОРКА ---
+      # --- 6. ЗАПУСК СБОРКИ (С ПОВТОРОМ ПРИ СБОЕ) ---
       echo \"Starting make image for $$TARGET_PROFILE...\"      
       MAKE_ARGS=\"PROFILE=\\\"$$TARGET_PROFILE\\\" FILES=\\\"/overlay_files\\\" PACKAGES=\\\"$$PKGS\\\"\"
-      if [ -n \"$$EXTRA_IMAGE_NAME\" ]; then
-          MAKE_ARGS=\"$$MAKE_ARGS EXTRA_IMAGE_NAME=\\\"$$EXTRA_IMAGE_NAME\\\"\"
+      
+      if [ -n \"$$EXTRA_IMAGE_NAME\" ]; then MAKE_ARGS=\"$$MAKE_ARGS EXTRA_IMAGE_NAME=\\\"$$EXTRA_IMAGE_NAME\\\"\"; fi
+      if [ -n \"$$DISABLED_SERVICES\" ]; then MAKE_ARGS=\"$$MAKE_ARGS DISABLED_SERVICES=\\\"$$DISABLED_SERVICES\\\"\"; fi
+      
+      # === ЦИКЛ RETRY ===
+      MAX_RETRIES=3
+      COUNT=1
+      SUCCESS=0
+      
+      while [ $$COUNT -le $$MAX_RETRIES ]; do
+          echo \"--------------------------------------------------\"
+          echo \"[BUILD] Attempt $$COUNT of $$MAX_RETRIES...\"
+          echo \"--------------------------------------------------\"
+          
+          # Запускаем make. Если успешно - выходим из цикла (break)
+          if eval make image $$MAKE_ARGS; then
+              SUCCESS=1
+              break
+          else
+              echo \"[WARN] Build failed!\"
+              # Проверяем, не была ли это ошибка сети (код 255 или 2 часто бывает при сбоях opkg)
+              echo \"[RETRY] Cleaning temporary build files and retrying in 5 seconds...\"
+              sleep 5
+              # Опционально: можно сделать make clean, но для ImageBuilder это не обязательно
+              COUNT=$$((COUNT+1))
+          fi
+      done
+      
+      if [ $$SUCCESS -eq 0 ]; then
+          echo \"[FATAL] Build failed after $$MAX_RETRIES attempts.\"
+          exit 1
       fi
-      if [ -n \"$$DISABLED_SERVICES\" ]; then
-          MAKE_ARGS=\"$$MAKE_ARGS DISABLED_SERVICES=\\\"$$DISABLED_SERVICES\\\"\"
-      fi
-      echo \"Running: make image ...\"
-      eval make image $$MAKE_ARGS
 
-      # --- 4. СОХРАНЕНИЕ ---
+      # --- 7. СОХРАНЕНИЕ ---
       echo \"Saving artifacts...\"
       TARGET_DIR=\"/output/$$TIMESTAMP\"
       mkdir -p \"$$TARGET_DIR\"

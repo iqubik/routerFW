@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.5
+# file: srcBuilder\docker-compose-src.yaml v1.6
 services:
   builder-src-openwrt:
     build:
@@ -17,16 +17,24 @@ services:
       - ${HOST_FILES_DIR}:/overlay_files
       - ${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
+
     command: &src_build_script |
       /bin/bash -c "
       set -e
       echo '[INIT] Checking volume permissions...'
-      # Используем $$(...) чтобы docker-compose не пытался интерпретировать переменную
+      
+      # 1. Исправление прав для рабочей папки
       if [ \"$$(stat -c '%U' /home/build/openwrt)\" != \"build\" ]; then
           echo \"[INIT] First run detected: Fixing ownership of workdir...\"
           chown -R build:build /home/build/openwrt
       fi
-      
+
+      # 2. FIX: Исправление прав для CCACHE (Иначе компилятор не сможет писать кэш и упадет)
+      if [ -d \"/ccache\" ] && [ \"$$(stat -c '%U' /ccache)\" != \"build\" ]; then
+          echo \"[INIT] Fixing ownership of /ccache volume...\"
+          chown -R build:build /ccache
+      fi
+
       # Создаем скрипт сборки внутри контейнера
       cat << 'EOF' > /tmp/build_script.sh      
       set -e
