@@ -77,6 +77,7 @@
 *   `firmware_output/` — Склад готовых прошивок.
     *   `imagebuilder/` — результаты быстрой сборки.
     *   `sourcebuilder/` — результаты компиляции (включая buildinfo, manifest и json).
+*   `scripts/` — Папка с полезными скриптами.
 
 ---
 

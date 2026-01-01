@@ -1,8 +1,8 @@
-# file: srcBuilder/src.dockerfile.legacy
+# file: srcBuilder/src.dockerfile.legacy v1.1
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
-    build-essential patch bzip2 flex bison g++ gawk \
+    build-essential ccache patch bzip2 flex bison g++ gawk \
     gettext git subversion rsync unzip wget curl file \
     ccache ecj fastjar java-propose-classpath \
     libelf-dev libncurses5-dev libncursesw5-dev libssl-dev zlib1g-dev \

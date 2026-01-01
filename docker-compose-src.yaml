@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.4
+# file: srcBuilder\docker-compose-src.yaml v1.5
 services:
   builder-src-openwrt:
     build:
@@ -7,9 +7,11 @@ services:
     user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
+      - CCACHE_DIR=/ccache
     volumes:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
+      - src-ccache:/ccache
       - ./profiles:/profiles
       - ./src_packages:/input_packages
       - ${HOST_FILES_DIR}:/overlay_files
@@ -118,7 +120,8 @@ services:
 
       # === 3. CONFIGURATION ===
       echo \"[CONFIG] Generating .config...\"
-      rm -f .config
+      rm -f .config      
+      echo \"CONFIG_CCACHE=y\" >> .config
       
       # Базовая конфигурация Target
       echo \"CONFIG_TARGET_$$SRC_TARGET=y\" >> .config
@@ -219,6 +222,7 @@ services:
     volumes:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
+      - src-ccache:/ccache
       - ./profiles:/profiles
       - ./src_packages:/input_packages
       - ${HOST_FILES_DIR}:/overlay_files
@@ -229,3 +233,4 @@ services:
 volumes:
   src-dl-cache:
   src-workdir:
+  src-ccache:

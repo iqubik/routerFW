@@ -68,7 +68,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt UNIFIED Builder v5.7 https://github.com/iqubik/routerFW
+echo  OpenWrt FW Builder v3.0 https://github.com/iqubik/routerFW
 echo  Текущий режим: [%MODE_TITLE%]
 echo =================================================================
 echo.
@@ -128,7 +128,7 @@ for /L %%i in (1,1,%count%) do (
     set "CURRENT_CONF=!profile[%%i]!"
     call :BUILD_ROUTINE "!CURRENT_CONF!"
 )
-echo === Окна запущены ===
+echo === Процессы запущены ===
 pause
 goto MENU
 
@@ -141,7 +141,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 goto MENU
 
 :: =========================================================
-::  NEW CLEANUP MENU (FLAT LOGIC FIX)
+::  NEW CLEANUP WIZARD (GRANULAR CONTROL)
 :: =========================================================
 :CLEAN_MENU
 cls
@@ -149,38 +149,46 @@ color 0E
 echo ==========================================================
 echo  МЕНЮ ОЧИСТКИ И ОБСЛУЖИВАНИЯ [%BUILD_MODE%]
 echo ==========================================================
-echo  Docker Project Name Prefix: %DIR_NAME%
+echo.
+echo  Выберите тип данных для очистки:
 echo.
 
-:: --- БЛОК ОТОБРАЖЕНИЯ ---
 if "%BUILD_MODE%"=="SOURCE" goto VIEW_SRC_MENU
 
 :VIEW_IMG_MENU
 echo    [1] Очистить кэш ImageBuilder (SDK)
-echo        (Удалит скачанные архивы SDK, заставит скачать свежие)
+echo        (Архив с ядрами и пакетами от OpenWrt)
 echo.
-echo    [2] Очистить кэш пакетов (.ipk)
-echo        (Удалит скачанные пакеты opkg)
+echo    [2] Очистить кэш пакетов (IPK)
+echo        (Папка dl/ с загруженными пакетами)
 echo.
-echo    [3] ПОЛНЫЙ СБРОС (SDK + Пакеты)
+echo    [3] FULL FACTORY RESET (Сброс проекта)
+echo        (Удалить все кэши для выбранного профиля)
 goto VIEW_COMMON
 
 :VIEW_SRC_MENU
-echo    [1] SOFT CLEAN (Рекомендуется)
-echo        (Выполняет 'make clean'. Удаляет бинарники, но 
-echo         ОСТАВЛЯЕТ TOOLCHAIN и исходники. Сборка будет быстрой)
+echo    [1] SOFT CLEAN (make clean)
+echo        (Очистка бинарников внутри контейнера.
+echo         Сохраняет Toolchain, удаляет собранную прошивку)
 echo.
-echo    [2] HARD RESET (ВНИМАНИЕ! УДАЛЕНИЕ РАБОЧЕЙ ПАПКИ)
-echo        (Удаляет весь том src-workdir. Включая TOOLCHAIN и GIT.
-echo         Следующая сборка займет 1-2 часа)
+echo    [2] HARD RESET (Удалить src-workdir)
+echo        (Удаляет исходный код и Toolchain.
+echo         Используйте, если сломался компилятор или git)
 echo.
 echo    [3] Очистить кэш исходников (dl)
-echo        (Удаляет том src-dl-cache. Безопасно, но придется качать снова)
+echo        (Удаляет скачанные архивы исходного кода.
+echo         Безопасно удалять, если нужно освободить много места)
+echo.
+echo    [4] Очистить CCACHE
+echo        (Сброс кэша компилятора)
+echo.
+echo    [5] FULL FACTORY RESET (Сброс проекта)
+echo        (Удаляет абсолютно все данные для профиля)
 
 :VIEW_COMMON
 echo.
-echo    [9] Prune Docker (Удалить все остановленные контейнеры и висячие тома)
-echo    [0] Назад в меню
+echo    [9] Prune Docker (Глобальная очистка мусора Docker)
+echo    [0] Назад в главное меню
 echo.
 set /p clean_choice="Ваш выбор: "
 
@@ -193,90 +201,212 @@ if "%clean_choice%"=="9" (
     goto CLEAN_MENU
 )
 
-:: --- ЛОГИКА ВЫПОЛНЕНИЯ (БЕЗ ВЛОЖЕННЫХ IF) ---
-:: Сначала определяем режим и отправляем в нужную секцию
-if "%BUILD_MODE%"=="IMAGE" goto LOGIC_IMG
-if "%BUILD_MODE%"=="SOURCE" goto LOGIC_SRC
-goto INVALID
+:: --- НАСТРОЙКА ПАРАМЕТРОВ ОЧИСТКИ ---
+set "CLEAN_TYPE="
+set "CLEAN_DESC="
 
-:: === ЛОГИКА IMAGE ===
-:LOGIC_IMG
-if "%clean_choice%"=="1" (
-    echo [CLEAN] Удаление тома imagebuilder-cache...
-    docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul || echo Том не найден или уже удален.
-    pause
-    goto CLEAN_MENU
+if "%BUILD_MODE%"=="IMAGE" (
+    if "%clean_choice%"=="1" set "CLEAN_TYPE=IMG_SDK" & set "CLEAN_DESC=ImageBuilder Cache"
+    if "%clean_choice%"=="2" set "CLEAN_TYPE=IMG_IPK" & set "CLEAN_DESC=IPK Cache"
+    if "%clean_choice%"=="3" set "CLEAN_TYPE=IMG_ALL" & set "CLEAN_DESC=FULL RESET (Image)"
 )
-if "%clean_choice%"=="2" (
-    echo [CLEAN] Удаление тома ipk-cache...
-    docker volume rm %DIR_NAME%_ipk-cache 2>nul || echo Том не найден или уже удален.
-    pause
-    goto CLEAN_MENU
-)
-if "%clean_choice%"=="3" (
-    echo [CLEAN] Удаление ВСЕХ томов ImageBuilder...
-    docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul
-    docker volume rm %DIR_NAME%_ipk-cache 2>nul
-    echo Готово.
-    pause
-    goto CLEAN_MENU
-)
-goto INVALID
 
-:: === ЛОГИКА SOURCE ===
-:LOGIC_SRC
-if "%clean_choice%"=="1" goto SRC_OPT_1
-if "%clean_choice%"=="2" goto SRC_OPT_2
-if "%clean_choice%"=="3" goto SRC_OPT_3
-goto INVALID
+if "%BUILD_MODE%"=="SOURCE" (
+    if "%clean_choice%"=="1" set "CLEAN_TYPE=SRC_SOFT" & set "CLEAN_DESC=Soft Clean (make clean)"
+    if "%clean_choice%"=="2" set "CLEAN_TYPE=SRC_WORK" & set "CLEAN_DESC=Workdir (Toolchain)"
+    if "%clean_choice%"=="3" set "CLEAN_TYPE=SRC_DL"   & set "CLEAN_DESC=DL Cache"
+    if "%clean_choice%"=="4" set "CLEAN_TYPE=SRC_CCACHE" & set "CLEAN_DESC=CCache"
+    if "%clean_choice%"=="5" set "CLEAN_TYPE=SRC_ALL"  & set "CLEAN_DESC=FULL RESET (Source)"
+)
 
-:SRC_OPT_1
+if "%CLEAN_TYPE%"=="" goto INVALID
+goto SELECT_PROFILE_FOR_CLEAN
+
+:: =========================================================
+::  ВЫБОР ПРОФИЛЯ ДЛЯ ОЧИСТКИ
+:: =========================================================
+:SELECT_PROFILE_FOR_CLEAN
+cls
+echo ==========================================================
+echo  ОЧИСТКА: %CLEAN_DESC%
+echo ==========================================================
 echo.
-echo [CLEAN] Запуск контейнера для выполнения make clean...
-echo Пожалуйста, подождите...
-
-:: === FIX: Задаем временные переменные, чтобы Docker мог прочитать YAML ===
-set "SELECTED_CONF=dummy"
-set "HOST_FILES_DIR=./custom_files"
-set "HOST_OUTPUT_DIR=./firmware_output"
-
-:: Теперь переменные заполнены, и ошибка invalid spec исчезнет
-docker-compose -f docker-compose-src.yaml run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found - nothing to clean'; fi"
-
+echo  Для какого профиля выполнить очистку?
 echo.
-echo [INFO] Toolchain НЕ БЫЛ затронут.
+
+:: Выводим список профилей (используем массив из главного меню)
+for /L %%i in (1,1,%count%) do (
+    echo    [%%i] !profile[%%i]!
+)
+echo.
+echo    [A] ДЛЯ ВСЕХ ПРОФИЛЕЙ (Глобальная очистка)
+echo    [0] Отмена
+echo.
+
+set /p p_choice="Выберите профиль или A: "
+
+if /i "%p_choice%"=="0" goto CLEAN_MENU
+if /i "%p_choice%"=="A" (
+    set "TARGET_PROFILE_ID=ALL"
+    set "TARGET_PROFILE_NAME=ALL PROFILES"
+    goto CONFIRM_CLEAN
+)
+
+:: Проверка ввода числа
+set /a num_p_choice=%p_choice% 2>nul
+if %num_p_choice% gtr %count% goto SELECT_PROFILE_FOR_CLEAN
+if %num_p_choice% lss 1 goto SELECT_PROFILE_FOR_CLEAN
+
+set "TARGET_PROFILE_NAME=!profile[%p_choice%]!"
+set "TARGET_PROFILE_ID=!profile[%p_choice%]:.conf=!"
+
+:CONFIRM_CLEAN
+echo.
+if "%TARGET_PROFILE_ID%"=="ALL" color 0C
+echo Выбрано: %CLEAN_DESC%
+echo Цель:    %TARGET_PROFILE_NAME%
+echo.
+if "%TARGET_PROFILE_ID%"=="ALL" echo ВНИМАНИЕ: Это удалит данные для ВСЕХ профилей!
+echo.
+set /p confirm="Введите YES для подтверждения: "
+if /i not "!confirm!"=="YES" goto CLEAN_MENU
+
+color 0E
+echo.
+echo [CLEAN] Запуск процедуры...
+
+:: === МАРШРУТИЗАЦИЯ ВЫПОЛНЕНИЯ ===
+if "%CLEAN_TYPE%"=="SRC_SOFT" goto EXEC_SRC_SOFT
+if "%CLEAN_TYPE%"=="SRC_WORK" goto EXEC_SRC_WORK
+if "%CLEAN_TYPE%"=="SRC_DL"   goto EXEC_SRC_DL
+if "%CLEAN_TYPE%"=="SRC_CCACHE" goto EXEC_SRC_CCACHE
+if "%CLEAN_TYPE%"=="SRC_ALL"  goto EXEC_SRC_ALL
+
+if "%CLEAN_TYPE%"=="IMG_SDK"  goto EXEC_IMG_SDK
+if "%CLEAN_TYPE%"=="IMG_IPK"  goto EXEC_IMG_IPK
+if "%CLEAN_TYPE%"=="IMG_ALL"  goto EXEC_IMG_ALL
+
+goto CLEAN_MENU
+
+:: =========================================================
+::  ИСПОЛНИТЕЛЬНЫЕ БЛОКИ (EXECUTION)
+:: =========================================================
+
+:: --- ХЕЛПЕР ДЛЯ УДАЛЕНИЯ ТОМОВ ---
+:: %1 - Часть имени тома (например src-workdir)
+:: %2 - Профиль (или ALL)
+:HELPER_DEL_VOLUME
+set "V_TAG=%~1"
+set "P_ID=%~2"
+
+if "%P_ID%"=="ALL" (
+    echo   Поиск всех томов с меткой: %V_TAG%
+    for /f "tokens=*" %%v in ('docker volume ls -q -f "name=%V_TAG%"') do (
+        echo   Удаление: %%v
+        docker volume rm %%v >nul 2>&1
+    )
+) else (
+    echo   Поиск тома для профиля: %P_ID% ... %V_TAG%
+    :: Ищем том, который содержит И имя профиля, И тег типа
+    for /f "tokens=*" %%v in ('docker volume ls -q ^| findstr "%P_ID%" ^| findstr "%V_TAG%"') do (
+        echo   Удаление: %%v
+        docker volume rm %%v
+    )
+)
+exit /b
+
+:: --- SOURCE ACTIONS ---
+
+:EXEC_SRC_SOFT
+:: Soft Clean (make clean) требует запуска контейнера, поэтому логика сложнее
+if "%TARGET_PROFILE_ID%"=="ALL" (
+    echo [ERROR] Soft Clean не поддерживается для режима ALL.
+    echo Это займет слишком много времени. Выполняйте по одному.
+    pause
+    goto CLEAN_MENU
+)
+echo [CLEAN] Запуск контейнера %TARGET_PROFILE_ID% для make clean...
+:: Настраиваем переменные для docker-compose
+set "SELECTED_CONF=%TARGET_PROFILE_NAME%"
+set "HOST_FILES_DIR=./custom_files/%TARGET_PROFILE_ID%"
+set "HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/%TARGET_PROFILE_ID%"
+set "PROJ_NAME=srcbuild_%TARGET_PROFILE_ID%"
+
+:: Запускаем (добавляем CCACHE_DIR=dummy на всякий случай, если он не задан в yaml по умолчанию)
+docker-compose -f docker-compose-src.yaml -p %PROJ_NAME% run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found'; fi"
 pause
 goto CLEAN_MENU
 
-:SRC_OPT_2
-echo.
-echo [WARNING] Вы собираетесь удалить ТОМ С РАБОЧЕЙ ДИРЕКТОРИЕЙ.
-echo Это удалит скомпилированный Toolchain.
-echo Вы уверены?
-set /p confirm="Введите YES для подтверждения: "
-if /i "!confirm!"=="YES" (
-    echo [CLEAN] Удаление тома src-workdir...
-    
-    :: === FIX: Задаем временные переменные для корректного down ===
+:EXEC_SRC_WORK
+call :HELPER_DEL_VOLUME "src-workdir" "%TARGET_PROFILE_ID%"
+echo [INFO] Рабочая директория очищена. Исходники (DL) сохранены.
+pause
+goto CLEAN_MENU
+
+:EXEC_SRC_DL
+call :HELPER_DEL_VOLUME "src-dl-cache" "%TARGET_PROFILE_ID%"
+echo [INFO] Кэш загрузок очищен.
+pause
+goto CLEAN_MENU
+
+:EXEC_SRC_CCACHE
+call :HELPER_DEL_VOLUME "src-ccache" "%TARGET_PROFILE_ID%"
+echo [INFO] Кэш компилятора очищен.
+pause
+goto CLEAN_MENU
+
+:EXEC_SRC_ALL
+echo [CLEAN] Полный сброс SourceBuilder для %TARGET_PROFILE_ID%...
+:: Если один профиль - гасим его контейнеры
+if not "%TARGET_PROFILE_ID%"=="ALL" (
+    set "PROJ_NAME=srcbuild_%TARGET_PROFILE_ID%"
+    :: Переменные-заглушки
+    set "SELECTED_CONF=dummy"
+    set "HOST_FILES_DIR=./custom_files" 
+    set "HOST_OUTPUT_DIR=./firmware_output"
+    docker-compose -f docker-compose-src.yaml -p !PROJ_NAME! down -v >nul 2>&1
+) else (
+    :: Если ALL - пытаемся убить всех, у кого в имени builder-src
+    for /f "tokens=*" %%c in ('docker ps -q -f "name=builder-src"') do docker kill %%c >nul 2>&1
+)
+
+call :HELPER_DEL_VOLUME "src-workdir" "%TARGET_PROFILE_ID%"
+call :HELPER_DEL_VOLUME "src-dl-cache" "%TARGET_PROFILE_ID%"
+call :HELPER_DEL_VOLUME "src-ccache" "%TARGET_PROFILE_ID%"
+echo [INFO] Полная очистка завершена.
+pause
+goto CLEAN_MENU
+
+:: --- IMAGE ACTIONS ---
+
+:EXEC_IMG_SDK
+call :HELPER_DEL_VOLUME "imagebuilder-cache" "%TARGET_PROFILE_ID%"
+echo [INFO] SDK очищен.
+pause
+goto CLEAN_MENU
+
+:EXEC_IMG_IPK
+call :HELPER_DEL_VOLUME "ipk-cache" "%TARGET_PROFILE_ID%"
+echo [INFO] Кэш IPK пакетов очищен.
+pause
+goto CLEAN_MENU
+
+:EXEC_IMG_ALL
+echo [CLEAN] Полный сброс ImageBuilder для %TARGET_PROFILE_ID%...
+if not "%TARGET_PROFILE_ID%"=="ALL" (
+    set "PROJ_NAME=build_%TARGET_PROFILE_ID%"
     set "SELECTED_CONF=dummy"
     set "HOST_FILES_DIR=./custom_files"
     set "HOST_OUTPUT_DIR=./firmware_output"
-    
-    docker-compose -f docker-compose-src.yaml down -v
-    
-    :: Дочищаем том, если compose его не зацепил
-    docker volume rm %DIR_NAME%_src-workdir 2>nul
-    
-    echo Том удален. Следующая сборка начнется с нуля.
+    docker-compose -p !PROJ_NAME! down -v >nul 2>&1
 ) else (
-    echo Отмена.
+    for /f "tokens=*" %%c in ('docker ps -q -f "name=builder-openwrt"') do docker kill %%c >nul 2>&1
+    for /f "tokens=*" %%c in ('docker ps -q -f "name=builder-oldwrt"') do docker kill %%c >nul 2>&1
 )
-pause
-goto CLEAN_MENU
 
-:SRC_OPT_3
-echo [CLEAN] Удаление кэша загрузок (dl)...
-docker volume rm %DIR_NAME%_src-dl-cache 2>nul || echo Том не найден.
+call :HELPER_DEL_VOLUME "imagebuilder-cache" "%TARGET_PROFILE_ID%"
+call :HELPER_DEL_VOLUME "ipk-cache" "%TARGET_PROFILE_ID%"
+echo [INFO] Полная очистка завершена.
 pause
 goto CLEAN_MENU
 
@@ -315,7 +445,6 @@ echo.
 echo ----------------------------------------------------
 echo [PROCESSING] Профиль: %CONF_FILE%
 echo [MODE]       %BUILD_MODE%
-echo ----------------------------------------------------
 
 :: Внутри процедуры одиночный findstr работает стабильно
 :: 1. ИЗВЛЕЧЕНИЕ ПЕРЕМЕННОЙ
