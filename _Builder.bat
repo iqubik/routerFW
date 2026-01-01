@@ -91,7 +91,6 @@ echo    [A] Собрать ВСЕ (Параллельно)
 echo    [M] Переключить режим на %OPPOSITE_MODE%
 echo    [C] CLEAN / MAINTENANCE (Очистка кэша)
 echo    [W] Profile Wizard (Создать профиль)
-echo    [R] Обновить список
 echo    [0] Выход
 echo.
 set "choice="
