@@ -225,6 +225,6 @@ CONFIG_TARGET_ROOTFS_PARTSIZE=256"
 *   `scripts\etc\uci-defaults\99-permissions.sh` — Скрипт решающий проблему прав доступа dropbear SSH (автоматически создаётся в папках /custom_files)
 *   `scripts\hooks.sh` — Пример Pre-build Hook с патчем VerMagic.
 ##  Дополнительно:
-*   `scripts\diag.sh` — Создает обезличенный отчет о системе для диагностики.
+*   `scripts\diag.sh` — Создает обезличенный отчет о системе для общей диагностики устройств с помощью ИИ.
 *   `scripts\upgrade.sh` — Аналог `apt upgrade` для роутера (обновляет все пакеты).
 *   `scripts\packager.sh` — Скрипт позволяющий получить список пакетов установленных в системе отфильтровав autoinstalled.
