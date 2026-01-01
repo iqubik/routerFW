@@ -68,7 +68,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.1 https://github.com/iqubik/routerFW
+echo  OpenWrt FW Builder v3.2 https://github.com/iqubik/routerFW
 echo  Текущий режим: [%MODE_TITLE%]
 echo =================================================================
 echo.
@@ -532,6 +532,8 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "REL_OUT_PATH=./firmware_output/imagebuilder/%PROFILE_ID%"
     set "PROJ_NAME=build_%PROFILE_ID%"
     set "COMPOSE_ARG="
+    :: Назначаем заголовок окна для Image режима
+    set "WINDOW_TITLE=I: %PROFILE_ID%"
     
     if DEFINED IS_LEGACY (
         set "SERVICE_NAME=builder-oldwrt"
@@ -543,6 +545,8 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
     set "PROJ_NAME=srcbuild_%PROFILE_ID%"
     set "COMPOSE_ARG=-f docker-compose-src.yaml"
+    :: Назначаем заголовок окна для Source режима
+    set "WINDOW_TITLE=S: %PROFILE_ID%"
     
     if DEFINED IS_LEGACY (
         set "SERVICE_NAME=builder-src-oldwrt"
@@ -560,8 +564,9 @@ echo [LAUNCH] Запуск: %PROFILE_ID%
 echo [INFO]   Target: !TARGET_VAL!
 echo [INFO]   Service: %SERVICE_NAME%
 
-:: Запуск Docker (Используем оригинальные аргументы и пути с точкой ./)
-START "Build: %PROFILE_ID%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=%REL_OUT_PATH%&& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
+:: Запуск Docker
+:: Мы подставляем переменную "%WINDOW_TITLE%" в первые кавычки
+START "%WINDOW_TITLE%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=%REL_OUT_PATH%&& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
 
 exit /b
 
