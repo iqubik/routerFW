@@ -211,6 +211,7 @@ CONFIG_TARGET_ROOTFS_PARTSIZE=256"
 1.  Создайте файл `custom_files/ваш_профиль/hooks.sh`.
 2.  Пропишите в нем `sed` команды для замены адресов в `.dts` и размера в `Makefile`.
 3.  При запуске SourceBuilder применит патч к исходникам автоматически.
+4.  Образец такого кода лежит в `/scripts/hooks.sh`
 
 ### Q: Ошибка зависимостей (dnsmasq vs dnsmasq-full)
 **A:** Стандартная проблема. Один пакет требует `dnsmasq`, а вы ставите `dnsmasq-full`.
