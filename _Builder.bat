@@ -9,7 +9,7 @@ set "BUILD_MODE=IMAGE"
 
 echo [INIT] Проверка окружения...
 
-:: [AUDIT FIX] Проверка наличия Docker
+:: [AUDIT FIX] Проверка Docker
 docker --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Docker не обнаружен!
@@ -39,6 +39,7 @@ if exist _unpacker.bat (
 
 :: Запоминаем корень проекта
 set "PROJECT_DIR=%CD%"
+for %%I in (.) do set "DIR_NAME=%%~nxI"
 
 :: === 1. ИНИЦИАЛИЗАЦИЯ ПАПОК ===
 call :CHECK_DIR "profiles"
@@ -66,12 +67,12 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "TARGET_VAR=SRC_BRANCH"
 )
 
-echo ==========================================================
-echo  OpenWrt UNIFIED Builder v5.6 (Complete)
+echo =================================================================
+echo  OpenWrt UNIFIED Builder v5.7 https://github.com/iqubik/routerFW
 echo  Текущий режим: [%MODE_TITLE%]
-echo ==========================================================
+echo =================================================================
 echo.
-echo Все обнаруженные профили:
+echo Профили сборки:
 echo.
 
 :: === ЦИКЛ СКАНИРОВАНИЯ ===
@@ -79,17 +80,16 @@ for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
-    
     :: Создаем папку и права (Race condition исключен последовательным запуском)
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
     call :CREATE_PERMS_SCRIPT "!p_id!"
-    
     echo    [!count!] %%~nxf
 )
 
 echo.
 echo    [A] Собрать ВСЕ (Параллельно)
 echo    [M] Переключить режим на %OPPOSITE_MODE%
+echo    [C] CLEAN / MAINTENANCE (Очистка кэша)
 echo    [W] Profile Wizard (Создать профиль)
 echo    [R] Обновить список
 echo    [0] Выход
@@ -100,6 +100,7 @@ if /i "%choice%"=="0" exit /b
 if /i "%choice%"=="R" goto MENU
 if /i "%choice%"=="M" goto SWITCH_MODE
 if /i "%choice%"=="W" goto WIZARD
+if /i "%choice%"=="C" goto CLEAN_MENU
 if /i "%choice%"=="A" goto BUILD_ALL
 
 set /a num_choice=%choice% 2>nul
@@ -119,7 +120,6 @@ if "%BUILD_MODE%"=="SOURCE" (
     echo.
     echo [WARNING] Массовая компиляция из исходников!
     echo Это займет много времени и ресурсов CPU.
-    echo.
     pause
 )
 echo.
@@ -139,6 +139,119 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "BUILD_MODE=IMAGE"
 )
 goto MENU
+
+:: =========================================================
+::  NEW CLEANUP MENU (AUDIT IMPLEMENTATION)
+:: =========================================================
+:CLEAN_MENU
+cls
+color 0E
+echo ==========================================================
+echo  МЕНЮ ОЧИСТКИ И ОБСЛУЖИВАНИЯ [%BUILD_MODE%]
+echo ==========================================================
+echo  Docker Project Name Prefix: %DIR_NAME%
+echo.
+
+if "%BUILD_MODE%"=="IMAGE" (
+    echo    [1] Очистить кэш ImageBuilder (SDK)
+    echo        (Удалит скачанные архивы SDK, заставит скачать свежие)
+    echo.
+    echo    [2] Очистить кэш пакетов (.ipk)
+    echo        (Удалит скачанные пакеты opkg)
+    echo.
+    echo    [3] ПОЛНЫЙ СБРОС (SDK + Пакеты)
+) else (
+    echo    [1] SOFT CLEAN (Рекомендуется)
+    echo        (Выполняет 'make clean'. Удаляет бинарники, но 
+    echo         ОСТАВЛЯЕТ TOOLCHAIN и исходники. Сборка будет быстрой)
+    echo.
+    echo    [2] HARD RESET (ВНИМАНИЕ! УДАЛЕНИЕ РАБОЧЕЙ ПАПКИ)
+    echo        (Удаляет весь том src-workdir. Включая TOOLCHAIN и GIT.
+    echo         Следующая сборка займет 1-2 часа)
+    echo.
+    echo    [3] Очистить кэш исходников (dl)
+    echo        (Удаляет том src-dl-cache. Безопасно, но придется качать снова)
+)
+
+echo.
+echo    [9] Prune Docker (Удалить все остановленные контейнеры и висячие тома)
+echo    [0] Назад в меню
+echo.
+set /p clean_choice="Ваш выбор: "
+
+if "%clean_choice%"=="0" goto MENU
+if "%clean_choice%"=="9" (
+    echo.
+    echo [DOCKER] Выполняю system prune...
+    docker system prune -f
+    pause
+    goto CLEAN_MENU
+)
+
+:: Логика очистки для IMAGE MODE
+if "%BUILD_MODE%"=="IMAGE" (
+    if "%clean_choice%"=="1" (
+        echo [CLEAN] Удаление тома imagebuilder-cache...
+        docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul || echo Том не найден или уже удален.
+        pause
+        goto CLEAN_MENU
+    )
+    if "%clean_choice%"=="2" (
+        echo [CLEAN] Удаление тома ipk-cache...
+        docker volume rm %DIR_NAME%_ipk-cache 2>nul || echo Том не найден или уже удален.
+        pause
+        goto CLEAN_MENU
+    )
+    if "%clean_choice%"=="3" (
+        echo [CLEAN] Удаление ВСЕХ томов ImageBuilder...
+        docker volume rm %DIR_NAME%_imagebuilder-cache 2>nul
+        docker volume rm %DIR_NAME%_ipk-cache 2>nul
+        echo Готово.
+        pause
+        goto CLEAN_MENU
+    )
+)
+
+:: Логика очистки для SOURCE MODE
+if "%BUILD_MODE%"=="SOURCE" (
+    if "%clean_choice%"=="1" (
+        echo.
+        echo [CLEAN] Запуск контейнера для выполнения make clean...
+        echo Пожалуйста, подождите...
+        :: Используем docker-compose run для выполнения команды внутри контекста томов
+        docker-compose -f docker-compose-src.yaml run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found - nothing to clean'; fi"
+        echo.
+        echo [INFO] Toolchain НЕ БЫЛ затронут.
+        pause
+        goto CLEAN_MENU
+    )
+    if "%clean_choice%"=="2" (
+        echo.
+        echo [WARNING] Вы собираетесь удалить ТОМ С РАБОЧЕЙ ДИРЕКТОРИЕЙ.
+        echo Это удалит скомпилированный Toolchain.
+        echo Вы уверены?
+        set /p confirm="Введите YES для подтверждения: "
+        if /i "!confirm!"=="YES" (
+            echo [CLEAN] Удаление тома src-workdir...
+            docker-compose -f docker-compose-src.yaml down -v
+            :: Дополнительная страховка, если docker-compose down не удалил внешний том
+            docker volume rm %DIR_NAME%_src-workdir 2>nul
+            echo Том удален. Следующая сборка начнется с нуля.
+        ) else (
+            echo Отмена.
+        )
+        pause
+        goto CLEAN_MENU
+    )
+    if "%clean_choice%"=="3" (
+        echo [CLEAN] Удаление кэша загрузок (dl)...
+        docker volume rm %DIR_NAME%_src-dl-cache 2>nul || echo Том не найден.
+        pause
+        goto CLEAN_MENU
+    )
+)
+
+goto INVALID
 
 :WIZARD
 cls

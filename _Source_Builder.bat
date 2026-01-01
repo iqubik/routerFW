@@ -25,9 +25,9 @@ call :CHECK_DIR "custom_packages"
 
 :MENU
 cls
-echo ========================================
-echo  OpenWrt SOURCE Builder v1.5 (iqubik)
-echo ========================================
+echo ================================================================
+echo  OpenWrt SOURCE Builder v1.5 https://github.com/iqubik/routerFW
+echo ================================================================
 echo.
 echo Обнаруженные Source-профили:
 echo.
