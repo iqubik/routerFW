@@ -1,1 +1,0 @@
-powershell -ExecutionPolicy Bypass -File "create_profile.ps1"

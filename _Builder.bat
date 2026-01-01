@@ -7,6 +7,26 @@ chcp 65001 >nul
 :: Режим по умолчанию: IMAGE
 set "BUILD_MODE=IMAGE"
 
+echo [INIT] Проверка окружения...
+
+:: [AUDIT FIX] Проверка наличия Docker
+docker --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Docker не обнаружен!
+    echo Убедитесь, что Docker Desktop установлен и запущен.
+    echo.
+    pause
+    exit /b
+)
+
+:: [AUDIT FIX] Проверка docker-compose
+docker-compose --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] docker-compose не найден в PATH!
+    pause
+    exit /b
+)
+
 echo [INIT] Очистка неиспользуемых сетей Docker...
 docker network prune --force >nul 2>&1
 echo.
@@ -54,13 +74,13 @@ echo.
 echo Все обнаруженные профили:
 echo.
 
-:: Убраны все фильтры findstr, чтобы избежать ошибки "drive specified"
+:: === ЦИКЛ СКАНИРОВАНИЯ ===
 for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
     
-    :: Создаем папку
+    :: Создаем папку и права (Race condition исключен последовательным запуском)
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
     call :CREATE_PERMS_SCRIPT "!p_id!"
     
@@ -143,7 +163,7 @@ pause
 goto MENU
 
 :: =========================================================
-::  CORE BUILDER LOGIC (ОРИГИНАЛЬНАЯ РЕАЛИЗАЦИЯ)
+::  CORE BUILDER LOGIC
 :: =========================================================
 :BUILD_ROUTINE
 set "CONF_FILE=%~1"
@@ -157,8 +177,8 @@ echo [PROCESSING] Профиль: %CONF_FILE%
 echo [MODE]       %BUILD_MODE%
 echo ----------------------------------------------------
 
-:: 1. ИЗВЛЕЧЕНИЕ ПЕРЕМЕННОЙ (ОРИГИНАЛЬНЫЙ МЕТОД)
 :: Внутри процедуры одиночный findstr работает стабильно
+:: 1. ИЗВЛЕЧЕНИЕ ПЕРЕМЕННОЙ
 for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "%TARGET_VAR%"`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
@@ -203,7 +223,7 @@ if "%BUILD_MODE%"=="IMAGE" (
     )
 )
 
-:: Создаем папку физически (для Windows нужны обратные слеши)
+:: Создаем папку физически
 set "WIN_OUT_PATH=%REL_OUT_PATH:./=%"
 set "WIN_OUT_PATH=%WIN_OUT_PATH:/=\%"
 if not exist "%WIN_OUT_PATH%" mkdir "%WIN_OUT_PATH%"
