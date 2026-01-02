@@ -39,9 +39,6 @@ set "COMMON_FILES=!COMMON_FILES! "scripts\packager.sh""
 set "COMMON_FILES=!COMMON_FILES! "create_profile.ps1""
 set "COMMON_FILES=!COMMON_FILES! "README.md""
 set "COMMON_FILES=!COMMON_FILES! "_Builder.bat""
-rem set "COMMON_FILES=!COMMON_FILES! "_Source_Builder.bat""
-rem set "COMMON_FILES=!COMMON_FILES! "_Image_Builder.bat""
-rem set "COMMON_FILES=!COMMON_FILES! "_run_create_profile.bat""
 
 :: Временные файлы
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"
