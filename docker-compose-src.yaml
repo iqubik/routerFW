@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.8
+# file: srcBuilder\docker-compose-src.yaml v1.9
 services:
   builder-src-openwrt:
     build:
@@ -262,52 +262,72 @@ services:
       fi
 
       # === 3. CONFIGURATION ===
-      echo \"[CONFIG] Generating .config...\"
-      rm -f .config      
-      echo \"CONFIG_CCACHE=y\" >> .config
-      
-      # Базовая конфигурация Target
-      echo \"CONFIG_TARGET_$$SRC_TARGET=y\" >> .config
-      echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}=y\" >> .config
-      echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}_DEVICE_$$TARGET_PROFILE=y\" >> .config
-      
-      # Добавляем пользовательские пакеты из SRC_PACKAGES
-      for pkg in $$SRC_PACKAGES; do
-          if [[ \"$$pkg\" == -* ]]; then
-              clean_pkg=\"$${pkg#-}\"
-              echo \"# CONFIG_PACKAGE_$$clean_pkg is not set\" >> .config
-          else
-              echo \"CONFIG_PACKAGE_$$pkg=y\" >> .config
-          fi
-      done
-      
-      # Apply LUCI default (если пользователь не указал его сам)      
-      if ! grep -q \"CONFIG_PACKAGE_luci=y\" .config; then
-          echo \"CONFIG_PACKAGE_luci=y\" >> .config
-      fi
-      
-      # Sizes
-      if [ -n \"$$ROOTFS_SIZE\" ]; then
-        echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$ROOTFS_SIZE\" >> .config
-      fi
+      echo \"[CONFIG] Checking configuration strategy...\"
+      rm -f .config
 
-      if [ -n \"$$KERNEL_SIZE\" ]; then
-        echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$KERNEL_SIZE\" >> .config
-      fi
-
-      # === EXTRA CONFIG (Disable devices / Low level options) ===
-      if [ -n \"$$SRC_EXTRA_CONFIG\" ]; then
-          echo \"[CONFIG] Applying extra config options (SRC_EXTRA_CONFIG)...\"
-          # Обрабатываем переменную как список строк
-          for opt in $$SRC_EXTRA_CONFIG; do
-              echo \"$$opt\" >> .config
+      if [ -f \"/output/manual_config\" ]; then
+          echo \"[CONFIG] !!! FOUND manual_config in output folder !!!\"
+          echo \"[CONFIG] Applying manual configuration and SKIPPING auto-generation (including SRC_EXTRA_CONFIG).\"
+          
+          # Копируем ручной конфиг
+          cp \"/output/manual_config\" .config
+          
+          # Всегда включаем CCACHE, так как это настройка среды сборки, а не прошивки
+          echo \"CONFIG_CCACHE=y\" >> .config
+      else
+          echo \"[CONFIG] No manual_config found. Generating standard .config...\"
+          
+          echo \"CONFIG_CCACHE=y\" >> .config
+      
+          # Базовая конфигурация Target
+          echo \"CONFIG_TARGET_$$SRC_TARGET=y\" >> .config
+          echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}=y\" >> .config
+          echo \"CONFIG_TARGET_$${SRC_TARGET}_$${SRC_SUBTARGET}_DEVICE_$$TARGET_PROFILE=y\" >> .config
+          
+          # Добавляем пользовательские пакеты из SRC_PACKAGES
+          for pkg in $$SRC_PACKAGES; do
+              if [[ \"$$pkg\" == -* ]]; then
+                  clean_pkg=\"$${pkg#-}\"
+                  echo \"# CONFIG_PACKAGE_$$clean_pkg is not set\" >> .config
+              else
+                  echo \"CONFIG_PACKAGE_$$pkg=y\" >> .config
+              fi
           done
+          
+          # Apply LUCI default (если пользователь не указал его сам)      
+          if ! grep -q \"CONFIG_PACKAGE_luci=y\" .config; then
+              echo \"CONFIG_PACKAGE_luci=y\" >> .config
+          fi
+          
+          # Sizes
+          if [ -n \"$$ROOTFS_SIZE\" ]; then
+            echo \"CONFIG_TARGET_ROOTFS_PARTSIZE=$$ROOTFS_SIZE\" >> .config
+          fi
+
+          if [ -n \"$$KERNEL_SIZE\" ]; then
+            echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$KERNEL_SIZE\" >> .config
+          fi
+
+          # === EXTRA CONFIG (Disable devices / Low level options) ===
+          # Этот блок теперь внутри else, поэтому он ИГНОРИРУЕТСЯ при наличии manual_config
+          if [ -n \"$$SRC_EXTRA_CONFIG\" ]; then
+              echo \"[CONFIG] Applying extra config options (SRC_EXTRA_CONFIG)...\"
+              # Обрабатываем переменную как список строк
+              for opt in $$SRC_EXTRA_CONFIG; do
+                  echo \"$$opt\" >> .config
+              done
+          fi
       fi
 
-      echo \"[DEBUG] Showing generated SEED .config:\"
+      echo \"[DEBUG] Showing generated SEED .config (active settings only):\"
+      echo \"----------------------------------------\"      
+      grep -v \"^#\" .config || true
       echo \"----------------------------------------\"
-      cat .config
-      echo \"----------------------------------------\"
+      
+      # make defconfig выровняет зависимости (добавит недостающие пакеты, выбранные в menuconfig)
+      make defconfig
+      
+      # make defconfig выровняет зависимости (добавит недостающие пакеты, выбранные в menuconfig)
       make defconfig
       
       # === 4. CUSTOM FILES ===

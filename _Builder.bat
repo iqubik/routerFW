@@ -68,7 +68,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.2 https://github.com/iqubik/routerFW
+echo  OpenWrt FW Builder v3.3 https://github.com/iqubik/routerFW
 echo  Текущий режим: [%MODE_TITLE%]
 echo =================================================================
 echo.
@@ -90,6 +90,9 @@ echo.
 echo    [A] Собрать ВСЕ (Параллельно)
 echo    [M] Переключить режим на %OPPOSITE_MODE%
 echo    [C] CLEAN / MAINTENANCE (Очистка кэша)
+if "%BUILD_MODE%"=="SOURCE" (
+    echo    [K] MENUCONFIG (Настройка ядра/пакетов)
+)
 echo    [W] Profile Wizard (Создать профиль)
 echo    [0] Выход
 echo.
@@ -102,6 +105,9 @@ if /i "%choice%"=="0" exit /b
 if /i "%choice%"=="R" goto MENU
 if /i "%choice%"=="M" goto SWITCH_MODE
 if /i "%choice%"=="W" goto WIZARD
+if "%BUILD_MODE%"=="SOURCE" (
+    if /i "%choice%"=="K" goto MENUCONFIG_SELECTION
+)
 if /i "%choice%"=="C" goto CLEAN_MENU
 if /i "%choice%"=="A" goto BUILD_ALL
 
@@ -489,6 +495,90 @@ goto MENU
 echo Ошибка ввода.
 pause
 goto MENU
+
+:: =========================================================
+::  MENUCONFIG SECTION
+:: =========================================================
+:MENUCONFIG_SELECTION
+if not "%BUILD_MODE%"=="SOURCE" goto MENU
+cls
+echo ==========================================================
+echo  MENUCONFIG INTERACTIVE
+echo ==========================================================
+echo.
+echo  Внимание: Menuconfig сработает, только если исходники уже
+echo  были скачаны (вы запускали сборку этого профиля ранее).
+echo.
+echo  Выберите профиль для настройки:
+echo.
+
+for /L %%i in (1,1,%count%) do (
+    echo    [%%i] !profile[%%i]!
+)
+echo.
+echo    [0] Отмена
+echo.
+
+set "k_choice="
+set /p k_choice="Ваш выбор: "
+
+if "%k_choice%"=="" goto MENUCONFIG_SELECTION
+if "%k_choice%"=="0" goto MENU
+
+set /a num_k_choice=%k_choice% 2>nul
+if %num_k_choice% gtr %count% goto MENUCONFIG_SELECTION
+if %num_k_choice% lss 1 goto MENUCONFIG_SELECTION
+
+call :EXEC_MENUCONFIG "!profile[%k_choice%]!"
+goto MENU
+
+:EXEC_MENUCONFIG
+set "CONF_FILE=%~1"
+set "PROFILE_ID=%~n1"
+set "TARGET_VAL="
+set "IS_LEGACY="
+
+echo.
+echo [SETUP] Подготовка окружения для %PROFILE_ID%...
+
+:: 1. Определение версии (Legacy/New) - копируем логику из BUILD_ROUTINE
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "%TARGET_VAR%"`) do (
+    set "VAL=%%a"
+    set "VAL=!VAL:"=!"
+    for /f "tokens=* delims= " %%b in ("!VAL!") do set "TARGET_VAL=%%b"
+)
+echo "!TARGET_VAL!" | findstr /C:"/19." >nul && set IS_LEGACY=1
+echo "!TARGET_VAL!" | findstr /C:"/18." >nul && set IS_LEGACY=1
+echo "!TARGET_VAL!" | findstr /C:"/17." >nul && set IS_LEGACY=1
+echo "!TARGET_VAL!" | findstr /C:"19.07" >nul && set IS_LEGACY=1
+
+:: 2. Настройка переменных Docker
+set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
+set "PROJ_NAME=srcbuild_%PROFILE_ID%"
+set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%"
+set "HOST_OUTPUT_DIR=%REL_OUT_PATH%"
+
+if DEFINED IS_LEGACY (
+    set "SERVICE_NAME=builder-src-oldwrt"
+) else (
+    set "SERVICE_NAME=builder-src-openwrt"
+)
+
+:: Создаем output папку, если нет
+if not exist "%REL_OUT_PATH%" mkdir "%REL_OUT_PATH:/=\%"
+
+echo [INFO] Запуск интерактивного Menuconfig...
+echo [INFO] После выхода конфиг сохранится в: firmware_output/sourcebuilder/%PROFILE_ID%/manual_config
+echo.
+
+:: 3. Запуск через docker-compose run (интерактивно)
+:: Мы переопределяем команду (command), чтобы запустить только menuconfig
+docker-compose -f docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make menuconfig && cp .config /output/manual_config && echo '[OK] Saved to manual_config'; else echo '[ERROR] Makefile not found! Run a normal build first to fetch sources.'; fi"
+
+echo.
+echo Процедура завершена.
+pause
+exit /b
 
 :: =========================================================
 ::  CORE BUILDER LOGIC
