@@ -1,6 +1,6 @@
 #!/bin/bash
 # ======================================================================================
-#  Pre-Build Demo file edit and Hook Smart Vermagic script v1.3.2 (Universal)
+#  Pre-Build Demo file edit and Hook Smart Vermagic script v1.3.3 (Universal)
 #  File: hooks.sh
 #  Description: Сценарий автоматической модификации исходного кода.
 #               Запускается строго ПЕРЕД началом компиляции. Скрипт подмены vermagic
@@ -91,8 +91,8 @@ if [[ "$CLEAN_VER" == *"SNAPSHOT"* ]] || [[ "$CLEAN_VER" == *"master"* ]]; then
     warn "Сборка SNAPSHOT/Master. Vermagic Hack не применяется."
     # Если файл был патчен ранее, восстанавливаем оригинал
     if [ -f "$BACKUP_MK" ]; then
-        # Проверяем, не патчен ли уже файл
-        if ! grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
+        # Проверяем, не патчен ли уже файл (используем безопасную проверку)
+        if ! grep -F '$''(MKHASH) md5' "$TARGET_MK" 2>/dev/null; then
             log "Восстанавливаем оригинальный Makefile..."
             cp -f "$BACKUP_MK" "$TARGET_MK"
         fi
@@ -136,7 +136,6 @@ else
             else
                 log "Хеш ядра не изменился ($KERNEL_HASH). Используем кэш."
             fi
-            # -----------------------------
 
             # 6. Патчинг Makefile (Git-Safe)
             if [ -f "$TARGET_MK" ]; then
@@ -154,26 +153,47 @@ else
                 fi
 
                 # 6.2. Проверка целостности файла перед патчингом
-                if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
+                # ВАЖНО: Используем безопасную форму для избежания выполнения команд
+                if grep -F '$''(MKHASH) md5' "$TARGET_MK" 2>/dev/null; then
                     # Файл чистый - делаем бэкап
+                    log "Makefile в оригинальном состоянии (с MKHASH). Создаём бэкап..."
                     cp "$TARGET_MK" "$BACKUP_MK"
+                    APPLY_PATCH=true
                 elif [ -f "$BACKUP_MK" ]; then
-                    # Файл грязный - восстанавливаем из бэкапа
+                    # Файл грязный, но бэкап есть - восстанавливаем из бэкапа
+                    log "Makefile был изменён. Восстанавливаем из бэкапа..."
                     cp -f "$BACKUP_MK" "$TARGET_MK"
+                    APPLY_PATCH=true
                 else
-                    err "Makefile изменен и бэкапа нет."
-                    exit 1
+                    # Файл грязный и бэкапа нет - возможно старая версия OpenWrt
+                    warn "Makefile не содержит ожидаемую строку MKHASH md5."
+                    warn "Это может быть OpenWrt 19.07 или старше (до введения MKHASH)."
+                    
+                    # Создаём бэкап для безопасности, но НЕ патчим
+                    log "Создаём бэкап текущего состояния..."
+                    cp "$TARGET_MK" "$BACKUP_MK"
+                    APPLY_PATCH=false
+                    
+                    warn "═══════════════════════════════════════════════════════"
+                    warn "  Vermagic патч НЕ ПРИМЕНЁН для этой версии OpenWrt"
+                    warn "  Собранные kmod могут быть несовместимы с офиц. репо"
+                    warn "═══════════════════════════════════════════════════════"
                 fi
 
-                log "Применяем Vermagic патч к $TARGET_MK..."
-                sed -i "s/\$(MKHASH) md5/echo $KERNEL_HASH/g" "$TARGET_MK"                
-                
-                # Финальная проверка
-                if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
-                    echo -e "${GREEN}       УСПЕХ: Makefile модифицирован. Ядро соберется с официальным хэшем.${NC}"
+                # 6.3. Применяем патч только если флаг установлен
+                if [ "$APPLY_PATCH" = "true" ]; then
+                    log "Применяем Vermagic патч к $TARGET_MK..."
+                    sed -i "s/\$(MKHASH) md5/echo $KERNEL_HASH/g" "$TARGET_MK"
+                    
+                    # Финальная проверка
+                    if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
+                        echo -e "${GREEN}       УСПЕХ: Makefile модифицирован. Ядро соберется с официальным хэшем.${NC}"
+                    else
+                        err "Ошибка патчинга Makefile. Хэш не найден в файле после замены."
+                        exit 1
+                    fi
                 else
-                    err "Ошибка патчинга Makefile."
-                    exit 1
+                    log "Патчинг пропущен для совместимости со старой версией OpenWrt."
                 fi
             else
                 err "Файл $TARGET_MK не найден. Структура исходников изменилась?"
