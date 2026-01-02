@@ -4,12 +4,19 @@ $ErrorActionPreference = "Stop"
 # Создаем папку для профилей, если её нет
 if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles" | Out-Null }
 
-function Show-Header($Text) {
+# --- ИЗМЕНЕНИЕ 1: Обновленная функция заголовка ---
+function Show-Header($Text, $Selection = $null) {
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  OpenWrt UNIVERSAL Profile Creator (v1.2 iqubik/Secure)" -ForegroundColor Cyan
+    Write-Host "  OpenWrt UNIVERSAL Profile Creator (v1.3 iqubik/UI-Mod)" -ForegroundColor Cyan
     Write-Host "  $Text" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
+    
+    # Если есть выбранные параметры, показываем их
+    if ($null -ne $Selection) {
+        Write-Host "  ВЫБРАНО: $Selection" -ForegroundColor Green
+        Write-Host "--------------------------------------------------------------------------" -ForegroundColor DarkGray
+    }
     Write-Host ""
 }
 
@@ -63,7 +70,9 @@ try {
     $selectedRelease = $releases[($resIdx-1)]
 
     # --- ШАГ 2: ВЫБОР TARGET ---
-    Show-Header "Шаг 2: Выбор Target ($selectedRelease)"
+    # ИЗМЕНЕНИЕ 2: Передаем статус
+    Show-Header "Шаг 2: Выбор Target" "Release: [$selectedRelease]"
+    
     Write-Host "Пример: внутри ссылки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
     Write-Host "TARGET здесь: ramips" -ForegroundColor Blue
     Write-Host "--------------------------------------------------------------------------`n"
@@ -82,7 +91,9 @@ try {
     $selectedTarget = $targets[($tarIdx-1)]
 
     # --- ШАГ 3: ВЫБОР SUBTARGET ---
-    Show-Header "Шаг 3: Выбор Subtarget"
+    # ИЗМЕНЕНИЕ 3: Передаем статус
+    Show-Header "Шаг 3: Выбор Subtarget" "Release: [$selectedRelease] > Target: [$selectedTarget]"
+    
     Write-Host "Пример: внутри ссылки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
     Write-Host "SUBTARGET здесь: mt7621" -ForegroundColor Blue
     Write-Host "--------------------------------------------------------------------------`n"
@@ -105,7 +116,9 @@ try {
     }
 
     # --- ШАГ 4: ВЫБОР МОДЕЛИ ---
-    Show-Header "Шаг 4: Выбор модели"
+    # ИЗМЕНЕНИЕ 4: Передаем статус
+    Show-Header "Шаг 4: Выбор модели" "Release: [$selectedRelease] > Target: [$selectedTarget] > Sub: [$selectedSubtarget]"
+    
     Write-Host "Загрузка profiles.json..." -ForegroundColor Gray
     
     $finalFolderUrl = "$targetUrl$selectedTarget/$selectedSubtarget/"
@@ -125,7 +138,9 @@ try {
     $targetProfile = $profileList[($profIdx-1)].ID
 
     # --- ШАГ 5: ПОИСК IMAGEBUILDER ---
-    Show-Header "Шаг 5: Поиск ImageBuilder"
+    # ИЗМЕНЕНИЕ 5: Передаем полный статус
+    Show-Header "Шаг 5: Поиск ImageBuilder" "Release: [$selectedRelease] > Target: [$selectedTarget] > Sub: [$selectedSubtarget] > Device: [$targetProfile]"
+    
     $folderHtml = (Invoke-WebRequest -Uri $finalFolderUrl -UseBasicParsing).Content
     if ($folderHtml -match 'href="(openwrt-imagebuilder-[^"]+\.tar\.(xz|zst))"') {
         $ibFileName = $Matches[1]
@@ -135,11 +150,12 @@ try {
     }
 
     # --- ШАГ 6: ГЕНЕРАЦИЯ УНИВЕРСАЛЬНОГО ПРОФИЛЯ ---
-    Show-Header "Шаг 6: Финализация"
+    # ИЗМЕНЕНИЕ 6: Передаем полный статус
+    Show-Header "Шаг 6: Финализация" "Release: [$selectedRelease] > Target: [$selectedTarget] > Sub: [$selectedSubtarget] > Device: [$targetProfile]"
     
     $pkgs = Read-Host "Введите пакеты (через пробел, можно из буфера)"
     
-    # Валидация имени профиля (не пустое)
+    # Валидация имени профиля
     do {
         $profileName = Read-Host "Введите имя конфига (без пробелов, например: my_router)"
         if ([string]::IsNullOrWhiteSpace($profileName)) {
@@ -163,7 +179,7 @@ try {
         $gitBranch = "v$selectedRelease"
     }
 
-    # Формируем контент (Корректная структура)
+    # Формируем контент
     $content = @"
 # === Profile for $targetProfile (OpenWrt $selectedRelease) ===
 
