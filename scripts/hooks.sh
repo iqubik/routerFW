@@ -126,7 +126,7 @@ else
             [ -f "$VERMAGIC_MARKER" ] && OLD_HASH=$(cat "$VERMAGIC_MARKER")
 
             if [ "$OLD_HASH" != "$KERNEL_HASH" ]; then
-                warn "Хеш изменился или версия 19.07 ($OLD_HASH -> $KERNEL_HASH). Глубокая очистка..."
+                warn "Хеш изменился ($OLD_HASH -> $KERNEL_HASH). Глубокая очистка..."
                 
                 # 1. Мягкая очистка через make
                 make target/linux/clean > /dev/null 2>&1
