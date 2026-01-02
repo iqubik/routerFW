@@ -270,6 +270,5 @@ logread | grep -vE "BEACON-REQ|BEACON-RESP|BSS-TM-RESP|promiscuous mode|udhcpc: 
 footer
 
 echo "Done. Report: $LOG"
-pause
 echo "========================================================================================="
 cat "/tmp/diag_${HOST}.md"
