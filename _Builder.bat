@@ -537,11 +537,12 @@ set "CONF_FILE=%~1"
 set "PROFILE_ID=%~n1"
 set "TARGET_VAL="
 set "IS_LEGACY="
+set "SELECTED_CONF=%CONF_FILE%"
 
 echo.
 echo [SETUP] Подготовка окружения для %PROFILE_ID%...
 
-:: 1. Определение версии (Legacy/New) - копируем логику из BUILD_ROUTINE
+:: 1. Определение версии
 for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "%TARGET_VAR%"`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
@@ -552,11 +553,35 @@ echo "!TARGET_VAL!" | findstr /C:"/18." >nul && set IS_LEGACY=1
 echo "!TARGET_VAL!" | findstr /C:"/17." >nul && set IS_LEGACY=1
 echo "!TARGET_VAL!" | findstr /C:"19.07" >nul && set IS_LEGACY=1
 
-:: 2. Настройка переменных Docker
+:: 2. Настройка переменных
 set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
 set "PROJ_NAME=srcbuild_%PROFILE_ID%"
 set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%"
 set "HOST_OUTPUT_DIR=%REL_OUT_PATH%"
+set "WIN_OUT_PATH=%REL_OUT_PATH:./=%"
+set "WIN_OUT_PATH=%WIN_OUT_PATH:/=\%"
+
+:: Создаем папку, если нет
+if not exist "%WIN_OUT_PATH%" mkdir "%WIN_OUT_PATH%"
+
+:: === ПРОВЕРКА НА ПЕРЕЗАПИСЬ ===
+if exist "%WIN_OUT_PATH%\manual_config" (
+    echo.
+    echo [WARNING] В папке профиля найден сохраненный конфиг: manual_config
+    echo.
+    echo    Если вы продолжите, текущий файл manual_config будет
+    echo    ПЕРЕЗАПИСАН новым конфигом после выхода из меню.
+    echo.
+    set "overwrite="
+    set /p "overwrite=Перезаписать и продолжить? (Y/N): "
+    if /i not "!overwrite!"=="Y" (
+        echo Отмена операции.
+        pause
+        goto MENU
+    )
+    :: Удаляем старый файл, чтобы избежать проблем с правами доступа при записи нового
+    del "%WIN_OUT_PATH%\manual_config"
+)
 
 if DEFINED IS_LEGACY (
     set "SERVICE_NAME=builder-src-oldwrt"
@@ -564,8 +589,71 @@ if DEFINED IS_LEGACY (
     set "SERVICE_NAME=builder-src-openwrt"
 )
 
-:: Создаем output папку, если нет
-if not exist "%REL_OUT_PATH%" mkdir "%REL_OUT_PATH:/=\%"
+:: === ГЕНЕРАЦИЯ СКРИПТА ===
+set "RUNNER_SCRIPT=%WIN_OUT_PATH%\_menuconfig_runner.sh"
+
+echo #^!/bin/bash > "%RUNNER_SCRIPT%"
+echo set -e >> "%RUNNER_SCRIPT%"
+echo # FIX: Force HOME variable >> "%RUNNER_SCRIPT%"
+echo export HOME=/home/build >> "%RUNNER_SCRIPT%"
+echo cd /home/build/openwrt >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo # --- DEBUG INFO --- >> "%RUNNER_SCRIPT%"
+echo echo "[DEBUG] User: $(whoami)" >> "%RUNNER_SCRIPT%"
+echo echo "[DEBUG] Dir: $(pwd)" >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo # --- 1. Load Environment --- >> "%RUNNER_SCRIPT%"
+echo echo [INIT] Loading profile vars from: $CONF_FILE >> "%RUNNER_SCRIPT%"
+echo cat "/profiles/$CONF_FILE" ^| sed '1s/^\xEF\xBB\xBF//' ^| tr -d '\r' ^> /tmp/env.sh >> "%RUNNER_SCRIPT%"
+echo source /tmp/env.sh >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo # --- 2. Check State --- >> "%RUNNER_SCRIPT%"
+echo if [ -f "Makefile" ]; then >> "%RUNNER_SCRIPT%"
+echo     echo "[INFO] Makefile found. Skipping download." >> "%RUNNER_SCRIPT%"
+echo else >> "%RUNNER_SCRIPT%"
+echo     echo "[AUTO] Makefile missing. Cleaning up..." >> "%RUNNER_SCRIPT%"
+echo     rm -rf .git >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo     echo "Repo: $SRC_REPO" >> "%RUNNER_SCRIPT%"
+echo     echo "Branch: $SRC_BRANCH" >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo     # FIX: Dubious ownership >> "%RUNNER_SCRIPT%"
+echo     git config --global --add safe.directory /home/build/openwrt >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo     # Git Setup >> "%RUNNER_SCRIPT%"
+echo     echo "[GIT] Initializing..." >> "%RUNNER_SCRIPT%"
+echo     git init >> "%RUNNER_SCRIPT%"
+echo     git remote add origin "$SRC_REPO" >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo     # Fetch and Reset >> "%RUNNER_SCRIPT%"
+echo     echo "[GIT] Fetching..." >> "%RUNNER_SCRIPT%"
+echo     git fetch origin "$SRC_BRANCH" >> "%RUNNER_SCRIPT%"
+echo     echo "[GIT] Resetting..." >> "%RUNNER_SCRIPT%"
+echo     git checkout -f "FETCH_HEAD" >> "%RUNNER_SCRIPT%"
+echo     git reset --hard "FETCH_HEAD" >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo     # Feeds >> "%RUNNER_SCRIPT%"
+echo     echo "[FEEDS] Installing..." >> "%RUNNER_SCRIPT%"
+echo     ./scripts/feeds update -a >> "%RUNNER_SCRIPT%"
+echo     ./scripts/feeds install -a >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo     # Config Gen >> "%RUNNER_SCRIPT%"
+echo     echo "[CONFIG] Pre-seeding target..." >> "%RUNNER_SCRIPT%"
+echo     rm -f .config >> "%RUNNER_SCRIPT%"
+echo     echo "CONFIG_TARGET_$SRC_TARGET=y" ^> .config >> "%RUNNER_SCRIPT%"
+echo     echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}=y" ^>^> .config >> "%RUNNER_SCRIPT%"
+echo     echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}_DEVICE_$TARGET_PROFILE=y" ^>^> .config >> "%RUNNER_SCRIPT%"
+echo     make defconfig >> "%RUNNER_SCRIPT%"
+echo fi >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo # --- 3. Menuconfig --- >> "%RUNNER_SCRIPT%"
+echo echo [START] Launching Menuconfig UI... >> "%RUNNER_SCRIPT%"
+echo make menuconfig >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo # --- 4. Save --- >> "%RUNNER_SCRIPT%"
+echo echo [SAVE] Saving configuration... >> "%RUNNER_SCRIPT%"
+echo cp .config /output/manual_config >> "%RUNNER_SCRIPT%"
+echo echo [DONE] Saved to manual_config >> "%RUNNER_SCRIPT%"
 
 echo [INFO] Запуск интерактивного Menuconfig...
 echo [INFO] После выхода конфиг сохранится в: firmware_output/sourcebuilder/%PROFILE_ID%/manual_config
@@ -573,7 +661,10 @@ echo.
 
 :: 3. Запуск через docker-compose run (интерактивно)
 :: Мы переопределяем команду (command), чтобы запустить только menuconfig
-docker-compose -f docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make menuconfig && cp .config /output/manual_config && echo '[OK] Saved to manual_config'; else echo '[ERROR] Makefile not found! Run a normal build first to fetch sources.'; fi"
+:: Запуск: исправление прав -> запуск скрипта
+docker-compose -f docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
+
+if exist "%RUNNER_SCRIPT%" del "%RUNNER_SCRIPT%"
 
 echo.
 echo Процедура завершена.
