@@ -157,7 +157,7 @@ try {
     
     # Валидация имени профиля
     do {
-        $profileName = Read-Host "Введите имя конфига (без пробелов, например: my_router)"
+        $profileName = Read-Host "Введите имя конфига (без пробелов, в нижнем регистре. Например: my_router)"
         if ([string]::IsNullOrWhiteSpace($profileName)) {
             $profileName = "new_profile" 
             Write-Host "Имя не введено. Используется стандартное: $profileName" -ForegroundColor DarkGray
@@ -241,13 +241,7 @@ CONFIG_BUILD_LOG=y"
     $content -split "`n" | Select-Object -First 20 | Write-Host -ForegroundColor Cyan
     Write-Host "..." -ForegroundColor Cyan
     Write-Host "--------------------------------------------------------"
-    
-    Write-Host "Нажмите Enter, чтобы запустить Builder, или закройте окно..." -ForegroundColor Yellow
     Pause
-    
-    if (Test-Path "_Builder.bat") {
-        cmd.exe /c _Builder.bat
-    }
 
 } catch {
     Write-Host "`nОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
