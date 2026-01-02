@@ -1,5 +1,5 @@
 #!/bin/sh
-
+# прямое выполнение на роутере: wget -qO- https://raw.githubusercontent.com/iqubik/routerFW/main/scripts/diag.sh | sh
 # ==============================================================================
 #  OpenWrt Universal Diagnostic Tool
 #  Version: v1.7 (Audited Edition)
@@ -270,3 +270,6 @@ logread | grep -vE "BEACON-REQ|BEACON-RESP|BSS-TM-RESP|promiscuous mode|udhcpc: 
 footer
 
 echo "Done. Report: $LOG"
+pause
+echo "========================================================================================="
+cat "/tmp/diag_${HOST}.md"
