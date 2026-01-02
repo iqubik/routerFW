@@ -1,8 +1,8 @@
-#file: srcBuilder/src.dockerfile v1.0
+#file: srcBuilder/src.dockerfile v1.1
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \    
-    build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+    build-essential ccache clang flex bison g++ gawk gcc-multilib g++-multilib \
     gettext git patch swig time rsync unzip file wget curl \    
     libncurses-dev libssl-dev zlib1g-dev libelf-dev libzstd-dev \    
     python3-dev python3-distutils python3-setuptools python3-pyelftools \    

@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.4
+# file: srcBuilder\docker-compose-src.yaml v1.8
 services:
   builder-src-openwrt:
     build:
@@ -7,24 +7,34 @@ services:
     user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
+      - CCACHE_DIR=/ccache
     volumes:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
+      - src-ccache:/ccache
       - ./profiles:/profiles
       - ./src_packages:/input_packages
       - ${HOST_FILES_DIR}:/overlay_files
       - ${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
+
     command: &src_build_script |
       /bin/bash -c "
       set -e
       echo '[INIT] Checking volume permissions...'
-      # Используем $$(...) чтобы docker-compose не пытался интерпретировать переменную
+      
+      # 1. Исправление прав для рабочей папки
       if [ \"$$(stat -c '%U' /home/build/openwrt)\" != \"build\" ]; then
           echo \"[INIT] First run detected: Fixing ownership of workdir...\"
           chown -R build:build /home/build/openwrt
       fi
-      
+
+      # 2. FIX: Исправление прав для CCACHE (Иначе компилятор не сможет писать кэш и упадет)
+      if [ -d \"/ccache\" ] && [ \"$$(stat -c '%U' /ccache)\" != \"build\" ]; then
+          echo \"[INIT] Fixing ownership of /ccache volume...\"
+          chown -R build:build /ccache
+      fi
+
       # Создаем скрипт сборки внутри контейнера
       cat << 'EOF' > /tmp/build_script.sh      
       set -e
@@ -87,26 +97,161 @@ services:
       ./scripts/feeds install -a
 
       # === BUILD HOOKS (PRE-BUILD SCRIPT) ===
-      # Если в папке профиля есть hooks.sh, выполняем его
+      TARGET_MK=\"include/kernel-defaults.mk\"
+      BACKUP_MK=\"include/kernel-defaults.mk.bak\"
+      VERMAGIC_MARKER=\".last_vermagic\"
+
+      # Цвета для вывода (экранированные)
+      GREEN='\\033[0;32m'
+      RED='\\033[0;31m'
+      YELLOW='\\033[1;33m'
+      CYAN='\\033[0;36m'
+      NC='\\033[0m'
+      
+      echo \"[HOOKS] Checking for custom hooks in /overlay_files/hooks.sh...\"
+
       if [ -f \"/overlay_files/hooks.sh\" ]; then
           echo \"[HOOKS] Found hooks.sh! Sanitizing (CRLF -> LF) and executing...\"
-          
-          # 1. Читаем файл, удаляем Windows-спецсимволы (\r) и сохраняем чистую копию в /tmp
-          # Это делает скрипт устойчивым к редактированию в Notepad/VSCode под Windows
+
           tr -d '\\r' < \"/overlay_files/hooks.sh\" > /tmp/hooks.sh
-          
-          # 2. Делаем исполняемым
           chmod +x /tmp/hooks.sh
-          
-          # 3. Запускаем
-          /bin/bash /tmp/hooks.sh
-          
-          # Проверяем статус
-          if [ $$? -ne 0 ]; then
-              echo \"[ERROR] hooks.sh failed!\"
+          /bin/bash /tmp/hooks.sh || {
+              echo -e \"$${RED}[ERROR] hooks.sh failed!$${NC}\"
               exit 1
+          }
+
+          echo -e \"$${GREEN}[HOOKS] Custom modifications applied successfully.$${NC}\"
+      else
+          echo -e \"$${CYAN}[HOOKS] hooks.sh not found. Checking system state...$${NC}\"
+          echo \"\"
+          echo \"[DEBUG] ========== STATE CHECK BEGIN ==========\"
+          echo \"[DEBUG] TARGET_MK = $$TARGET_MK\"
+          echo \"[DEBUG] BACKUP_MK = $$BACKUP_MK\"
+          echo \"[DEBUG] VERMAGIC_MARKER = $$VERMAGIC_MARKER\"
+          echo \"\"
+
+          # Переменные состояния
+          NEEDS_ROLLBACK=false
+          IS_PATCHED=false
+          
+          # Проверка 1: Makefile патчен? (Умная проверка для старших и младших версий)
+          echo \"[DEBUG] Check 1: Is Makefile patched?\"
+          if [ -f \"$$TARGET_MK\" ]; then
+              # Ищем признаки нашего вмешательства (echo + хэш)
+              if grep -Eq 'echo [0-9a-f]{32}' \"$$TARGET_MK\" 2>/dev/null; then
+                  echo -e \"[DEBUG]   - Status: $${RED}PATCHED$${NC} (Hardcoded hash detected)\"
+                  IS_PATCHED=true
+                  NEEDS_ROLLBACK=true
+              else
+                  # Проверяем, выглядит ли файл "чистым" (поддержка MKHASH, mkhash, md5sum)
+                  if grep -E 'MKHASH|mkhash|md5sum' \"$$TARGET_MK\" >/dev/null 2>&1; then
+                      echo -e \"[DEBUG]   - Status: $${GREEN}CLEAN$${NC} (Standard hashing tool found)\"
+                  else
+                      echo -e \"[DEBUG]   - Status: $${YELLOW}UNKNOWN$${NC} (Syntax check inconclusive, safer to rollback)\"
+                      # Если синтаксис непонятен, считаем, что лучше откатить (если есть бэкап)
+                      if [ -f \"$$BACKUP_MK\" ]; then NEEDS_ROLLBACK=true; fi
+                  fi
+              fi
+          else
+              echo \"[DEBUG]   - File exists: NO\"
           fi
-          echo \"[HOOKS] Custom modifications applied successfully.\"
+          
+          # Проверка 2: Маркер существует?
+          echo \"[DEBUG] Check 2: Does vermagic marker exist?\"
+          if [ -f \"$$VERMAGIC_MARKER\" ]; then
+              MARKER_CONTENT=\$$(cat \"$$VERMAGIC_MARKER\")
+              echo -e \"[DEBUG]   - Marker exists: $${RED}YES$${NC} (content: $$MARKER_CONTENT)\"
+              NEEDS_ROLLBACK=true
+          else
+              echo -e \"[DEBUG]   - Marker exists: $${GREEN}NO$${NC}\"
+          fi
+          
+          # Проверка 3: Бэкап существует?
+          echo \"[DEBUG] Check 3: Does backup exist?\"
+          if [ -f \"$$BACKUP_MK\" ]; then
+              echo -e \"[DEBUG]   - Backup exists: $${RED}YES$${NC}\"
+              NEEDS_ROLLBACK=true
+          else
+              echo -e \"[DEBUG]   - Backup exists: $${GREEN}NO$${NC}\"
+          fi
+          
+          echo \"[DEBUG] NEEDS_ROLLBACK = $$NEEDS_ROLLBACK\"
+          echo \"[DEBUG] ========== STATE CHECK END ==========\"
+          echo \"\"
+
+          if [ \"$$NEEDS_ROLLBACK\" = \"false\" ]; then
+              echo -e \"$${GREEN}[HOOKS] ✓ System already in clean state. Nothing to do.$${NC}\"
+          else
+              echo -e \"$${YELLOW}[HOOKS] Dirty state detected. Performing rollback and cache cleanup...$${NC}\"
+              echo \"\"
+
+              # 1. Восстановление оригинального Makefile из бэкапа
+              if [ -f \"$$BACKUP_MK\" ]; then
+                  echo \"[DEBUG] Backup file found, processing restoration...\"
+                  
+                  # Если файл был патчен или мы решили откатить
+                  echo \"[HOOKS] Restoring $$TARGET_MK from backup...\"
+                  cp -f \"$$BACKUP_MK\" \"$$TARGET_MK\"
+                  
+                  # Универсальная проверка восстановления (Smart Check)
+                  if grep -E 'MKHASH|mkhash|md5sum' \"$$TARGET_MK\" >/dev/null 2>&1; then
+                      echo -e \"$${GREEN}[HOOKS] ✓ Makefile restored: dynamic vermagic logic present$${NC}\"
+                  else
+                      # Если после восстановления всё ещё нет стандартных строк (очень старая версия или поврежденный бэкап)
+                      echo -e \"$${YELLOW}[HOOKS] ! Makefile restored, but standard tools (MKHASH/mkhash) not explicitly found.$${NC}\"
+                      echo \"[HOOKS] Assuming correct legacy state from backup.\"
+                  fi
+                  
+                  # Удаляем бэкап
+                  rm -f \"$$BACKUP_MK\"
+                  if [ ! -f \"$$BACKUP_MK\" ]; then
+                      echo \"[HOOKS] ✓ Backup file removed\"
+                  fi
+                  
+              elif [ \"$$IS_PATCHED\" = \"true\" ]; then
+                  echo \"[DEBUG] No backup found for patched file! Attempting git restore...\"
+                  git checkout -- \"$$TARGET_MK\" 2>/dev/null || true
+                  
+                  if grep -E 'MKHASH|mkhash|md5sum' \"$$TARGET_MK\" >/dev/null 2>&1; then
+                      echo -e \"$${GREEN}[HOOKS] ✓ Git restore successful$${NC}\"
+                  fi
+              fi
+
+              # 2. Удаление маркера vermagic
+              if [ -f \"$$VERMAGIC_MARKER\" ]; then
+                  rm -f \"$$VERMAGIC_MARKER\"
+                  echo -e \"$${YELLOW}[HOOKS] ✓ Marker removed: next build will compute fresh hash$${NC}\"
+              fi
+
+              # 3. Глубокая очистка кэша (Deep Clean как в hooks.sh)
+              echo \"[HOOKS] Cleaning kernel cache (Deep Clean)...\"
+              make target/linux/clean > /dev/null 2>&1 || true
+              
+              # Удаление временных конфигов (Критично для 19.07/21.02)
+              rm -rf tmp/.packageinfo tmp/.targetinfo tmp/.config-target.in 2>/dev/null
+              
+              # Удаление директорий ядра
+              find build_dir/target-* -maxdepth 1 -type d -name \"linux-*\" -exec rm -rf {} + 2>/dev/null || true
+              
+              # Удаление штампов установки (чтобы форсировать пересчет)
+              rm -rf staging_dir/target-*/pkginfo/kernel.default.install 2>/dev/null
+              
+              echo -e \"$${GREEN}[HOOKS] ✓ Kernel cache cleaned$${NC}\"
+
+              # 4. Сброс CCACHE
+              if [ -d \"/ccache\" ]; then
+                  echo \"[HOOKS] Resetting build ccache...\"
+                  rm -rf /ccache/*
+                  echo -e \"$${GREEN}[HOOKS] ✓ CCACHE reset$${NC}\"
+              fi
+
+              echo \"\"
+              echo \"============================================================\"
+              echo \"=== ROLLBACK COMPLETE ===\"
+              echo \"=== System restored to original OpenWrt build state\"
+              echo \"============================================================\"
+              echo \"\"
+          fi
       fi
 
       # === CUSTOM SOURCES ===
@@ -118,7 +263,8 @@ services:
 
       # === 3. CONFIGURATION ===
       echo \"[CONFIG] Generating .config...\"
-      rm -f .config
+      rm -f .config      
+      echo \"CONFIG_CCACHE=y\" >> .config
       
       # Базовая конфигурация Target
       echo \"CONFIG_TARGET_$$SRC_TARGET=y\" >> .config
@@ -219,6 +365,7 @@ services:
     volumes:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
+      - src-ccache:/ccache
       - ./profiles:/profiles
       - ./src_packages:/input_packages
       - ${HOST_FILES_DIR}:/overlay_files
@@ -229,3 +376,4 @@ services:
 volumes:
   src-dl-cache:
   src-workdir:
+  src-ccache:
