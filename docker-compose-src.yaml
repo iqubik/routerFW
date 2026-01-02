@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.6
+# file: srcBuilder\docker-compose-src.yaml v1.8
 services:
   builder-src-openwrt:
     build:
@@ -97,26 +97,160 @@ services:
       ./scripts/feeds install -a
 
       # === BUILD HOOKS (PRE-BUILD SCRIPT) ===
-      # Если в папке профиля есть hooks.sh, выполняем его
+      TARGET_MK=\"include/kernel-defaults.mk\"
+      BACKUP_MK=\"include/kernel-defaults.mk.bak\"
+      VERMAGIC_MARKER=\".last_vermagic\"
+      
+      echo \"[HOOKS] Checking for custom hooks in /overlay_files/hooks.sh...\"
+
       if [ -f \"/overlay_files/hooks.sh\" ]; then
           echo \"[HOOKS] Found hooks.sh! Sanitizing (CRLF -> LF) and executing...\"
-          
-          # 1. Читаем файл, удаляем Windows-спецсимволы (\r) и сохраняем чистую копию в /tmp
-          # Это делает скрипт устойчивым к редактированию в Notepad/VSCode под Windows
+
           tr -d '\\r' < \"/overlay_files/hooks.sh\" > /tmp/hooks.sh
-          
-          # 2. Делаем исполняемым
           chmod +x /tmp/hooks.sh
-          
-          # 3. Запускаем
-          /bin/bash /tmp/hooks.sh
-          
-          # Проверяем статус
-          if [ $$? -ne 0 ]; then
+          /bin/bash /tmp/hooks.sh || {
               echo \"[ERROR] hooks.sh failed!\"
               exit 1
-          fi
+          }
+
           echo \"[HOOKS] Custom modifications applied successfully.\"
+      else
+          echo \"[HOOKS] hooks.sh not found. Checking system state...\"
+          echo \"\"
+          echo \"[DEBUG] ========== STATE CHECK BEGIN ==========\"
+          echo \"[DEBUG] TARGET_MK = $$TARGET_MK\"
+          echo \"[DEBUG] BACKUP_MK = $$BACKUP_MK\"
+          echo \"[DEBUG] VERMAGIC_MARKER = $$VERMAGIC_MARKER\"
+          echo \"\"
+
+          # Проверяем, нужны ли какие-то действия
+          NEEDS_ROLLBACK=false
+          
+          # Проверка 1: Makefile патчен?
+          echo \"[DEBUG] Check 1: Is Makefile patched?\"
+          if [ -f \"$$TARGET_MK\" ]; then
+              echo \"[DEBUG]   - File exists: YES\"
+              if grep -Fq '$(MKHASH) md5' \"$$TARGET_MK\" 2>/dev/null; then
+                  echo \"[DEBUG]   - Contains original string: YES (clean)\"
+              else
+                  echo \"[DEBUG]   - Contains original string: NO (patched!)\"
+                  NEEDS_ROLLBACK=true
+              fi
+          else
+              echo \"[DEBUG]   - File exists: NO\"
+          fi
+          
+          # Проверка 2: Маркер существует?
+          echo \"[DEBUG] Check 2: Does vermagic marker exist?\"
+          if [ -f \"$$VERMAGIC_MARKER\" ]; then
+              MARKER_CONTENT=\$$(cat \"$$VERMAGIC_MARKER\")
+              echo \"[DEBUG]   - Marker exists: YES (content: $$MARKER_CONTENT)\"
+              NEEDS_ROLLBACK=true
+          else
+              echo \"[DEBUG]   - Marker exists: NO\"
+          fi
+          
+          # Проверка 3: Бэкап существует?
+          echo \"[DEBUG] Check 3: Does backup exist?\"
+          if [ -f \"$$BACKUP_MK\" ]; then
+              echo \"[DEBUG]   - Backup exists: YES\"
+              ls -lh \"$$BACKUP_MK\"
+              NEEDS_ROLLBACK=true
+          else
+              echo \"[DEBUG]   - Backup exists: NO\"
+          fi
+          
+          echo \"[DEBUG] NEEDS_ROLLBACK = $$NEEDS_ROLLBACK\"
+          echo \"[DEBUG] ========== STATE CHECK END ==========\"
+          echo \"\"
+
+          if [ \"$$NEEDS_ROLLBACK\" = \"false\" ]; then
+              echo \"[HOOKS] ✓ System already in clean state. Nothing to do.\"
+          else
+              echo \"[HOOKS] Dirty state detected. Performing rollback and cache cleanup...\"
+              echo \"\"
+
+              # 1. Восстановление оригинального Makefile из бэкапа
+              if [ -f \"$$BACKUP_MK\" ]; then
+                  echo \"[DEBUG] Backup file found, processing restoration...\"
+                  
+                  if ! grep -Fq '$(MKHASH) md5' \"$$TARGET_MK\" 2>/dev/null; then
+                      echo \"[HOOKS] Restoring $$TARGET_MK from backup...\"
+                      echo \"[DEBUG] Before restore:\"
+                      grep -n 'MKHASH' \"$$TARGET_MK\" | head -5
+                      
+                      cp -f \"$$BACKUP_MK\" \"$$TARGET_MK\"
+                      
+                      echo \"[DEBUG] After restore:\"
+                      grep -n 'MKHASH' \"$$TARGET_MK\" | head -5
+                      
+                      # Проверка восстановления
+                      if grep -Fq '$(MKHASH) md5' \"$$TARGET_MK\"; then
+                          echo -e \"\\033[0;32m[HOOKS] ✓ Makefile restored: vermagic will be computed dynamically\\033[0m\"
+                          echo \"[HOOKS] Original line restored: \\\$(MKHASH) md5 ...\"
+                      else
+                          echo -e \"\\033[0;31m[HOOKS] ✗ Failed to restore Makefile!\\033[0m\"
+                          exit 1
+                      fi
+                  else
+                      echo \"[HOOKS] ✓ Makefile already in original state\"
+                  fi
+                  
+                  # Удаляем бэкап после восстановления
+                  echo \"[DEBUG] Attempting to remove backup: $$BACKUP_MK\"
+                  rm -f \"$$BACKUP_MK\"
+                  
+                  # Проверка удаления
+                  if [ -f \"$$BACKUP_MK\" ]; then
+                      echo \"[DEBUG] ✗ FAILED to remove backup!\"
+                      ls -lh \"$$BACKUP_MK\"
+                  else
+                      echo \"[HOOKS] ✓ Backup file removed\"
+                      echo \"[DEBUG] ✓ Backup successfully deleted\"
+                  fi
+              elif [ -f \"$$TARGET_MK\" ]; then
+                  echo \"[DEBUG] No backup found, attempting git restore...\"
+                  git checkout -- \"$$TARGET_MK\" 2>/dev/null || true
+                  
+                  if grep -Fq '$(MKHASH) md5' \"$$TARGET_MK\"; then
+                      echo -e \"\\033[0;32m[HOOKS] ✓ Git restore successful: using dynamic vermagic\\033[0m\"
+                  fi
+              fi
+
+              # 2. Удаление маркера vermagic
+              if [ -f \"$$VERMAGIC_MARKER\" ]; then
+                  OLD_HASH=\$$(cat \"$$VERMAGIC_MARKER\")
+                  echo \"[HOOKS] Removing vermagic marker (was: $$OLD_HASH)...\"
+                  rm -f \"$$VERMAGIC_MARKER\"
+                  
+                  if [ -f \"$$VERMAGIC_MARKER\" ]; then
+                      echo \"[DEBUG] ✗ FAILED to remove marker!\"
+                  else
+                      echo -e \"\\033[0;33m[HOOKS] ✓ Marker removed: next build will compute fresh hash\\033[0m\"
+                  fi
+              fi
+
+              # 3. Очистка кэша ядра (аналогично hooks.sh)
+              echo \"[HOOKS] Cleaning kernel cache...\"
+              make target/linux/clean > /dev/null 2>&1 || true
+              find build_dir/target-* -maxdepth 1 -type d -name \"linux-*\" -exec rm -rf {} + 2>/dev/null || true
+              echo \"[HOOKS] ✓ Kernel cache cleaned\"
+
+              # 4. Сброс CCACHE
+              if [ -d \"/ccache\" ]; then
+                  echo \"[HOOKS] Resetting build ccache...\"
+                  rm -rf /ccache/*
+                  echo \"[HOOKS] ✓ CCACHE reset\"
+              fi
+
+              echo \"\"
+              echo \"============================================================\"
+              echo \"=== ROLLBACK COMPLETE ===\"
+              echo \"=== System restored to original OpenWrt build state\"
+              echo \"=== Vermagic will be computed dynamically from sources\"
+              echo \"============================================================\"
+              echo \"\"
+          fi
       fi
 
       # === CUSTOM SOURCES ===

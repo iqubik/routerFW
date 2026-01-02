@@ -1,6 +1,6 @@
 #!/bin/bash
 # ======================================================================================
-#  Pre-Build Demo file edit and Hook Smart Vermagic script v1.3.1 (Universal)
+#  Pre-Build Demo file edit and Hook Smart Vermagic script v1.3.2 (Universal)
 #  File: hooks.sh
 #  Description: Сценарий автоматической модификации исходного кода.
 #               Запускается строго ПЕРЕД началом компиляции. Скрипт подмены vermagic
@@ -134,13 +134,26 @@ else
                 echo "$KERNEL_HASH" > "$VERMAGIC_MARKER"
                 log "Кэш ядра очищен. Готово к пересборке."
             else
-                log "Хеш ядра не изменился ($KERNEL_HASH). Использем кэш."
+                log "Хеш ядра не изменился ($KERNEL_HASH). Используем кэш."
             fi
             # -----------------------------
 
             # 6. Патчинг Makefile (Git-Safe)
             if [ -f "$TARGET_MK" ]; then
-                # Проверка целостности файла перед патчингом
+                # 6.1. Проверка перехода из unpatched состояния (ДО патчинга!)
+                if [ -f "$BACKUP_MK" ]; then
+                    # Бэкап существует - значит мы УЖЕ патчили ранее
+                    log "Makefile уже был патчен ранее. Пропускаем CCACHE clean."
+                else
+                    # Бэкапа нет - это ПЕРВЫЙ запуск патча после отката
+                    warn "Обнаружен переход из unpatched состояния. Очистка CCACHE..."
+                    if [ -d "/ccache" ]; then
+                        rm -rf /ccache/* 2>/dev/null || true
+                        log "CCACHE очищен для чистой сборки с патчем."
+                    fi
+                fi
+
+                # 6.2. Проверка целостности файла перед патчингом
                 if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
                     # Файл чистый - делаем бэкап
                     cp "$TARGET_MK" "$BACKUP_MK"
