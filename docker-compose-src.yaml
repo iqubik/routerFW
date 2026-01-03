@@ -322,11 +322,8 @@ services:
       echo \"[DEBUG] Showing generated SEED .config (active settings only):\"
       echo \"----------------------------------------\"      
       grep -v \"^#\" .config || true
-      echo \"----------------------------------------\"
-      
-      # make defconfig выровняет зависимости (добавит недостающие пакеты, выбранные в menuconfig)
-      make defconfig
-      
+      echo \"----------------------------------------\"      
+     
       # make defconfig выровняет зависимости (добавит недостающие пакеты, выбранные в menuconfig)
       make defconfig
       
