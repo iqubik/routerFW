@@ -1,12 +1,13 @@
 #!/bin/bash
 # ======================================================================================
-#  Pre-Build Demo file edit and Hook Smart Vermagic script v1.3.3 (Universal)
+#  Pre-Build Demo file edit, Feed Manager and Hook Smart Vermagic script v1.4.1
 #  File: hooks.sh
 #  Description: Сценарий автоматической модификации исходного кода.
-#               Запускается строго ПЕРЕД началом компиляции. Скрипт подмены vermagic
-#               позволяет собирать kmod-пакеты совместимые с официальными репозиториями.
-#               Поддерживает OpenWrt и ImmortalWrt.
-# ======================================================================================
+#               Запускается строго ПЕРЕД началом компиляции.
+#               Включает:
+#               1. Демо-автограф.
+#               2. Менеджер внешних репозиториев (Feeds).
+#               3. Подмену Vermagic для совместимости kmod-пакетов.
 #
 #  КОНТЕКСТ ВЫПОЛНЕНИЯ:
 #    - Где: Корневая директория исходников (/home/build/openwrt).
@@ -18,10 +19,6 @@
 #    2. Редактирование файлов через sed/awk (правка Makefile, DTS, конфигов).
 #    3. Скачивание сторонних файлов/блобов (curl/wget).
 #    4. Условная логика на основе переменных окружения ($SRC_TARGET, $PROFILE_NAME).
-#
-#  УПРАВЛЕНИЕ СБОРКОЙ:
-#    exit 0 -> Успех, продолжить сборку.
-#    exit 1 -> Критическая ошибка, немедленно остановить сборку.
 # ======================================================================================
 
 # 1. Настройка окружения и цветов
@@ -36,7 +33,7 @@ log() { echo -e "${CYAN}[HOOK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[HOOK] WARNING: $1${NC}"; }
 err()  { echo -e "${RED}[HOOK] ERROR: $1${NC}"; }
 
-log ">>> Запуск сценария hooks.sh (Universal)..."
+log ">>> Запуск сценария hooks.sh (Universal v1.4.1)..."
 
 # ======================================================================================
 # БЛОК 1: Демонстрационный пример (Автограф в README)
@@ -65,7 +62,53 @@ if ! grep -Fq "$SIGNATURE" "$TARGET_FILE"; then
 fi
 
 # ======================================================================================
-# БЛОК 2: Vermagic Hack + SMART CACHE CLEAN (OpenWrt & ImmortalWrt)
+# БЛОК 2: Smart Feed Manager (Добавление внешних репозиториев)
+# ======================================================================================
+log ">>> Проверка и интеграция внешних фидов (Feeds)..."
+
+# Функция для безопасного добавления и установки фида
+add_feed() {
+    local FEED_NAME="$1"
+    local FEED_URL="$2"
+    local FEED_FILE="feeds.conf.default"
+
+    # Проверяем, есть ли уже такой фид (по имени или URL)
+    if grep -qE "^src-git ${FEED_NAME} " "$FEED_FILE" || grep -Fq "$FEED_URL" "$FEED_FILE"; then
+        log "Фид '$FEED_NAME' уже присутствует. Пропуск."
+    else
+        log "Добавляем фид: $FEED_NAME -> $FEED_URL"
+        echo "src-git ${FEED_NAME} ${FEED_URL}" >> "$FEED_FILE"
+
+        # Принудительно обновляем и устанавливаем пакеты ТОЛЬКО из этого фида
+        # Это критически важно, так как основной update уже прошел до запуска хука
+        log "Интеграция пакетов из $FEED_NAME..."
+        
+        ./scripts/feeds update "$FEED_NAME"
+        if [ $? -eq 0 ]; then
+            ./scripts/feeds install -a -p "$FEED_NAME"
+            echo -e "${GREEN}       УСПЕХ: Пакеты из $FEED_NAME установлены в дерево сборки.${NC}"
+        else
+            err "Не удалось обновить фид $FEED_NAME. Проверьте URL или сеть."
+            # Не делаем exit 1, чтобы не ломать всю сборку из-за одного фида, но предупреждаем
+        fi
+    fi
+}
+
+# --- СПИСОК РЕПОЗИТОРИЕВ ДЛЯ ДОБАВЛЕНИЯ ---
+# Здесь вы можете добавлять любые необходимые репозитории
+
+# 1. AmneziaWG (Для протокола Amnezia)
+add_feed "amneziawg" "https://github.com/amnezia-vpn/amnezia-wg-openwrt.git"
+
+# 2. OpenClash / SSClash (Если нужны специфичные версии, раскомментируйте)
+# add_feed "openclash" "https://github.com/vernesong/OpenClash.git"
+
+# 3. Дополнительные пакеты (Kenzok8/Small - содержит ssclash, passwall и кучу всего)
+# Внимание: может конфликтовать со стандартными пакетами, использовать аккуратно!
+# add_feed "small" "https://github.com/kenzok8/small-package"
+
+# ======================================================================================
+# БЛОК 3: Vermagic Hack + SMART CACHE CLEAN (OpenWrt & ImmortalWrt)
 # ======================================================================================
 log ">>> Проверка необходимости Vermagic Hack..."
 
@@ -112,40 +155,31 @@ else
         # 4. Извлечение хэша (32 hex символа)
         KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)
 
-        # Валидация хэша (строго 32 hex символа)
+        # Валидация хэша
         if [[ ! "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
             err "Некорректный хэш ядра: '$KERNEL_HASH'"
             exit 1
         else
             echo -e "${GREEN}       Официальный Vermagic Hash: $KERNEL_HASH${NC}"
 
-            # ======================================================================================
             # 5. Smart Cache Cleaning (Enhanced for v19.07 + Modern)
-            # ======================================================================================
             OLD_HASH=""
             [ -f "$VERMAGIC_MARKER" ] && OLD_HASH=$(cat "$VERMAGIC_MARKER")
 
             if [ "$OLD_HASH" != "$KERNEL_HASH" ]; then
                 warn "Хеш изменился ($OLD_HASH -> $KERNEL_HASH). Глубокая очистка..."
-                
                 # 1. Мягкая очистка через make
                 make target/linux/clean > /dev/null 2>&1
-                
                 # 2. Удаление временных файлов конфигурации (Критично для 19.07)
                 rm -rf tmp/.packageinfo tmp/.targetinfo tmp/.config-target.in
-                
                 # 3. Удаление артефактов ядра в build_dir
                 find build_dir/target-* -maxdepth 1 -type d -name "linux-*" -exec rm -rf {} + 2>/dev/null
-                
                 # 4. Удаление штампов установки ядра (чтобы заставить систему пересчитать vermagic)
                 rm -rf staging_dir/target-*/pkginfo/kernel.default.install 2>/dev/null
-
                 # 5. Если это ветка 19.07 — чистим staging_dir более точечно
                 if [[ "$CLEAN_VER" == "19.07"* ]]; then
-                    log "Специфичная очистка для v19.07..."
                     rm -rf staging_dir/target-*/root-* 2>/dev/null
                 fi
-
                 # Сохраняем новый хеш
                 echo "$KERNEL_HASH" > "$VERMAGIC_MARKER"
                 log "Кэши полностью сброшены. Готово к чистой сборке ядра."
@@ -153,7 +187,7 @@ else
                 log "Хеш ядра не изменился ($KERNEL_HASH). Используем кэш."
             fi
 
-            # 6. Патчинг Makefile (Git-Safe & Version Aware)
+            # 6. Патчинг Makefile
             if [ -f "$TARGET_MK" ]; then
                 # Определение типа синтаксиса в файле
                 PATCH_STRATEGY=""
@@ -213,7 +247,6 @@ else
                     fi
                 else
                     warn "Не удалось определить метод хэширования в $TARGET_MK."
-                    warn "Файл не содержит ожидаемых инструкций (MKHASH или mkhash)."
                     warn "Патчинг пропущен (Безопасный режим)."
                 fi
             else
