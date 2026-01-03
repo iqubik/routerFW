@@ -340,11 +340,11 @@ services:
       
       # === 5. DOWNLOAD ===
       echo \"[DOWNLOAD] Downloading sources to cache...\"
-      mkdir -p dl      
+      mkdir -p dl
       make download || (echo \"[ERROR] Download failed! Retrying with logging...\" && make download V=s && exit 1)
       
       # === 6. BUILD ===
-      echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"      
+      echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"
       make -j$$(nproc) || (echo \"[ERROR] Multicore build failed. Retrying single core V=s...\" && make -j1 V=s)
       
       # === 7. ARTIFACTS ===
@@ -352,8 +352,8 @@ services:
       TARGET_DIR=\"/output/$$TIMESTAMP\"
       mkdir -p \"$$TARGET_DIR\"
       
-      # Ищем файлы в bin/targets
-      find bin/targets/$$SRC_TARGET/$$SRC_SUBTARGET -type f -not -path \"*/packages/*\" -exec cp {} \"$$TARGET_DIR/\" \\;
+      # Ищем файлы рекурсивно внутри bin/targets/ARCH, игнорируя папку packages
+      find bin/targets/$$SRC_TARGET -type f -not -path \"*/packages/*\" -exec cp {} \"$$TARGET_DIR/\" \\;
       
       # Сохраняем итоговый конфиг для справки
       cp .config \"$$TARGET_DIR/build.config\"
