@@ -1,4 +1,4 @@
-# file: srcBuilder\docker-compose-src.yaml v1.9
+# file: srcBuilder\docker-compose-src.yaml v2.2
 services:
   builder-src-openwrt:
     build:
@@ -72,6 +72,17 @@ services:
           echo \"[GIT] Initializing repo in non-empty dir...\"
           # Убираем надоедливое предупреждение о ветке master/main
           git config --global init.defaultBranch master
+          
+          # --- FIX FOR GNUTLS / GITHUB ---
+          echo \"[GIT] Applying connection fixes...\"
+          # Увеличиваем буфер для скачивания больших объектов
+          git config --global http.postBuffer 524288000
+          # Принудительно используем HTTP/1.1 (GnuTLS часто падает на HTTP/2)
+          git config --global http.version HTTP/1.1
+          # Можно попробовать принудительно TLS 1.2, если 1.3 сбоит
+          git config --global http.sslVersion tlsv1.2
+          # -------------------------------
+
           git init
           git remote add origin \"$$SRC_REPO\"
       fi
@@ -341,8 +352,31 @@ services:
       make download || (echo \"[ERROR] Download failed! Retrying with logging...\" && make download V=s && exit 1)
       
       # === 6. BUILD ===
-      echo \"[BUILD] Starting compilation (Jobs: $$(nproc))...\"
-      make -j$$(nproc) || (echo \"[ERROR] Multicore build failed. Retrying single core V=s...\" && make -j1 V=s)
+      # Определение количества потоков сборки
+      SYS_CORES=$$(nproc)
+      
+      # По умолчанию берем все ядра
+      BUILD_JOBS=$$SYS_CORES
+
+      if [ -n \"$$SRC_CORES\" ]; then
+          # Если указан режим "safe" или "auto" -> (nproc - 1)
+          if [[ \"$$SRC_CORES\" == \"safe\" || \"$$SRC_CORES\" == \"auto\" ]]; then
+              echo \"[BUILD] Mode SAFE detected. Reducing core count by 1.\"
+              BUILD_JOBS=$$((SYS_CORES - 1))
+          # Если указано конкретное число
+          elif [[ \"$$SRC_CORES\" =~ ^[0-9]+$$ ]]; then
+              BUILD_JOBS=$$SRC_CORES
+          fi
+      fi
+
+      # Защита от дурака: минимум 1 ядро
+      if [ \"$$BUILD_JOBS\" -lt 1 ]; then BUILD_JOBS=1; fi
+      
+      echo \"[BUILD] Starting compilation...\"
+      echo \"        System Cores: $$SYS_CORES\"
+      echo \"        Build Jobs:   $$BUILD_JOBS (-j$$BUILD_JOBS)\"
+
+      make -j$$BUILD_JOBS || (echo \"[ERROR] Multicore build failed. Retrying single core V=s...\" && make -j1 V=s)
       
       # === 7. ARTIFACTS ===
       echo \"[SAVE] Saving artifacts...\"
