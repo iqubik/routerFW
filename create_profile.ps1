@@ -423,10 +423,10 @@ CONFIG_BUILD_LOG=y"
                 $finalAction = Read-Host
                 if ($finalAction -eq 'q') { exit }
                 $Step = 1
-        }
+            } # <-- Закрывает Шаг 6
+        } # <-- Закрывает Switch
     } catch {
         Write-Host "`nКРИТИЧЕСКАЯ ОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "Строка: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
         Read-Host "Нажмите Enter для повтора..."
     }
-}
+} # <-- Закрывает While
