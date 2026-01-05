@@ -43,6 +43,7 @@ set "COMMON_FILES=!COMMON_FILES! "profiles\zbt_wr8305rt_22037_full.conf""
 set "COMMON_FILES=!COMMON_FILES! "profiles\xiaomi_4a_gigabit_23056_full.conf""
 set "COMMON_FILES=!COMMON_FILES! "profiles\rax3000m_i_24104_full.conf""
 set "COMMON_FILES=!COMMON_FILES! "profiles\rax3000m_emmc_test_new.conf""
+set "COMMON_FILES=!COMMON_FILES! "profiles\giga_24104_immortal_full.conf""
 set "COMMON_FILES=!COMMON_FILES! "firmware_output\sourcebuilder\rax3000m_emmc_test_new\manual_config""
 
 :: Временные файлы
