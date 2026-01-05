@@ -155,16 +155,23 @@ PKGS="$COMMON_LIST"
 SRC_REPO="https://github.com/openwrt/openwrt.git"
 SRC_BRANCH="v24.10.0" # Используйте ТЕГИ для совпадения версий ядра!
 
+# safe = max-1; иди задать число ядер вручную =5
+SRC_CORES="safe"
+
 # Параметры архитектуры (из OpenWrt Table of Hardware)
 SRC_TARGET="ramips"
 SRC_SUBTARGET="mt7621"
 SRC_PACKAGES="$COMMON_LIST"
 
 # Кастомные репозитории (Ключ + URL)
-CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
-CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci
-src/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/packages
-src/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/special"
+#CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
+#CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci
+#src/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/packages
+#src/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/special"
+
+# === Extra config options
+#ROOTFS_SIZE="512"
+#KERNEL_SIZE="64"
 
 # Тонкая настройка конфига (v2.1+)
 # Позволяет менять размеры разделов или отключать опции ядра до компиляции
@@ -210,6 +217,18 @@ CONFIG_TARGET_ROOTFS_PARTSIZE=256"
 *   **Ручной режим (Приоритетный):** Если файл `manual_config` обнаружен в папке вывода прошивок, сборщик **ИГНОРИРУЕТ** списки пакетов и опции ядра из `.conf` файла. Вместо этого он применяет ваш сохраненный конфиг "как есть" (добавляя только настройки кэширования).
 
 > **Как вернуться к авто-сборке?** Просто удалите или переименуйте файл `manual_config` в папке `firmware_output`.
+
+Внедрена механика сборки репозитория со специфическим кастомным китайский кодом wifi драйверов для mt79 для роутеров Rax3000M/ME/EMMC на ядре 6.6. Боль ветки 4pda rax3000m-emmc-mt-wifi
+
+Так же появилось понимание как такие сборки собирать:
+
+определяем верное название какое надо собирать и фиксируем версию цель и название ветки в файле профиля.
+запускаем menuconfig Для этой сборки - так как профиль пустой кэш пустой, файлов пока нет.
+берём образец конфига для сборки который обычно лежит в папках наподобии
+https://github.com/padavanonly/immortalwrt-mt798x-6.6/blob/openwrt-24.10-6.6/defconfig/mt7981-ax3000.config
+и кладём его в выходную папку прошивки там после menuconfig появится файл firmware_output\sourcebuilder\rax3000m_emmc_test_new\manual_config
+вместо 400кб файла который у нас получился мы положили 11кб файл
+чтобы сборщик устранил все зависимости желательно опять просто запустить menuconfig и наш 11кб файлик превратится в 400кб зато теперь в этом файле видны все конфиги что возможны, можно с ним работать и из menuconfig и он включил в себя все рекомендации автора исходников дистрибутива который вы собираете.
 
 ---
 
