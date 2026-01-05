@@ -39,6 +39,7 @@ set "COMMON_FILES=!COMMON_FILES! "scripts\packager.sh""
 set "COMMON_FILES=!COMMON_FILES! "create_profile.ps1""
 set "COMMON_FILES=!COMMON_FILES! "README.md""
 set "COMMON_FILES=!COMMON_FILES! "_Builder.bat""
+set "COMMON_FILES=!COMMON_FILES! "profiles\rax3000m_emmc_test_new.conf""
 
 :: Временные файлы
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"
