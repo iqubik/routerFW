@@ -4,11 +4,11 @@
 # Создаем папку для профилей, если её нет
 if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles" | Out-Null }
 
-# --- ИЗМЕНЕНИЕ 1: Обновленная функция заголовка ---
+# --- ФУНКЦИИ ---
 function Show-Header($Text, $Selection = $null) {
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  OpenWrt UNIVERSAL Profile Creator (v1.3 iqubik/UI-Mod)" -ForegroundColor Cyan
+    Write-Host "  OpenWrt UNIVERSAL Profile Creator (v1.5 DefPkgs)" -ForegroundColor Cyan
     Write-Host "  $Text" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
@@ -23,21 +23,18 @@ function Show-Header($Text, $Selection = $null) {
 # Функция безопасного выбора из списка
 function Read-Selection($MaxCount) {
     if ($MaxCount -lt 1) { return 0 }
-    
     do {
         $inputVal = Read-Host "`nВыберите номер (1-$MaxCount)"
-        
         # Проверка на пустоту
         if ([string]::IsNullOrWhiteSpace($inputVal)) {
             Write-Host "Ошибка: Ввод не может быть пустым." -ForegroundColor Red
             continue
         }
-
         # Проверка, что это число
         if ($inputVal -match '^\d+$') {
             $idx = [int]$inputVal
             if ($idx -ge 1 -and $idx -le $MaxCount) {
-                return $idx # Возвращаем корректный индекс (1-based)
+                return $idx
             } else {
                 Write-Host "Ошибка: Число должно быть от 1 до $MaxCount." -ForegroundColor Red
             }
@@ -64,28 +61,24 @@ try {
                 Select-Object -Unique | Sort-Object -Descending)
 
     for ($i=0; $i -lt $releases.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $releases[$i]) }
-    
     # ВАЛИДАЦИЯ ВВОДА
     $resIdx = Read-Selection -MaxCount $releases.Count
     $selectedRelease = $releases[($resIdx-1)]
 
     # --- ШАГ 2: ВЫБОР TARGET ---
-    # ИЗМЕНЕНИЕ 2: Передаем статус
     Show-Header "Шаг 2: Выбор Target" "Release: [$selectedRelease]"
     
-    Write-Host "Пример: внутри ссылки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
+    Write-Host "Пример: внутри имени прошивки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
     Write-Host "TARGET здесь: ramips" -ForegroundColor Blue
     Write-Host "--------------------------------------------------------------------------`n"
     
     $targetUrl = if ($selectedRelease -eq "snapshots") { "https://downloads.openwrt.org/snapshots/targets/" } else { "$baseUrl$selectedRelease/targets/" }
-    
     $html = (Invoke-WebRequest -Uri $targetUrl -UseBasicParsing).Content
     $targets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
             ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
             Where-Object { $_ -notin @('backups', 'kmodindex') })
 
     for ($i=0; $i -lt $targets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $targets[$i]) }
-    
     # ВАЛИДАЦИЯ ВВОДА
     $tarIdx = Read-Selection -MaxCount $targets.Count
     $selectedTarget = $targets[($tarIdx-1)]
@@ -94,7 +87,7 @@ try {
     # ИЗМЕНЕНИЕ 3: Передаем статус
     Show-Header "Шаг 3: Выбор Subtarget" "Release: [$selectedRelease] > Target: [$selectedTarget]"
     
-    Write-Host "Пример: внутри ссылки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
+    Write-Host "Пример: внутри имени прошивки -ramips-mt7621-beeline_smartbox-giga-" -ForegroundColor Gray
     Write-Host "SUBTARGET здесь: mt7621" -ForegroundColor Blue
     Write-Host "--------------------------------------------------------------------------`n"
     $subUrl = "$targetUrl$selectedTarget/"
@@ -109,20 +102,17 @@ try {
         $selectedSubtarget = $subtargets[0]
     } else {
         for ($i=0; $i -lt $subtargets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $subtargets[$i]) }
-        
         # ВАЛИДАЦИЯ ВВОДА
         $subIdx = Read-Selection -MaxCount $subtargets.Count
         $selectedSubtarget = $subtargets[($subIdx-1)]
     }
 
     # --- ШАГ 4: ВЫБОР МОДЕЛИ ---
-    # ИЗМЕНЕНИЕ 4: Передаем статус
     Show-Header "Шаг 4: Выбор модели" "Release: [$selectedRelease] > Target: [$selectedTarget] > Sub: [$selectedSubtarget]"
-    
     Write-Host "Загрузка profiles.json..." -ForegroundColor Gray
     
     $finalFolderUrl = "$targetUrl$selectedTarget/$selectedSubtarget/"
-    $data = Invoke-RestMethod -Uri "$($finalFolderUrl)profiles.json"    
+    $data = Invoke-RestMethod -Uri "$($finalFolderUrl)profiles.json"
     
     $profileIds = @($data.profiles.PSObject.Properties.Name | Sort-Object)
     $profileList = @()
@@ -137,11 +127,40 @@ try {
     $profIdx = Read-Selection -MaxCount $profileList.Count
     $targetProfile = $profileList[($profIdx-1)].ID
 
+    # --- ОБРАБОТКА ПАКЕТОВ ---
+    Write-Host "Анализ пакетов по умолчанию..." -ForegroundColor Gray
+    
+    # 1. Получаем списки
+    $basePackages   = @($data.default_packages)
+    $devicePackages = @($data.profiles.$targetProfile.device_packages)
+    
+    # 2. Сортируем пакеты устройства
+    $pkgsToRemove = @()
+    $pkgsToAdd    = @()
+
+    foreach ($pkg in $devicePackages) {
+        $p = [string]$pkg
+        if ($p.StartsWith("-")) {
+            $pkgsToRemove += $p.Substring(1)
+        } else {
+            $pkgsToAdd += $p
+        }
+    }
+
+    # 3. Фильтруем базовый список и добавляем новые
+    $finalList = $basePackages | Where-Object { $_ -notin $pkgsToRemove }
+    $finalList += $pkgsToAdd
+    
+    # 4. Убираем дубли и собираем строку
+    $defaultPackages = ($finalList | Select-Object -Unique | Sort-Object) -join " "
+
     # --- ШАГ 5: ПОИСК IMAGEBUILDER ---
     # ИЗМЕНЕНИЕ 5: Передаем полный статус
     Show-Header "Шаг 5: Поиск ImageBuilder" "Release: [$selectedRelease] > Target: [$selectedTarget] > Sub: [$selectedSubtarget] > Device: [$targetProfile]"
     
     $folderHtml = (Invoke-WebRequest -Uri $finalFolderUrl -UseBasicParsing).Content
+    
+    # ИСПРАВЛЕНИЕ URL: Сразу сохраняем имя файла в переменную, чтобы избежать ошибки Hashtable[1]
     if ($folderHtml -match 'href="(openwrt-imagebuilder-[^"]+\.tar\.(xz|zst))"') {
         $ibFileName = $Matches[1]
         $ibUrl = "$finalFolderUrl$ibFileName"
@@ -153,14 +172,18 @@ try {
     # ИЗМЕНЕНИЕ 6: Передаем полный статус
     Show-Header "Шаг 6: Финализация" "Release: [$selectedRelease] > Target: [$selectedTarget] > Sub: [$selectedSubtarget] > Device: [$targetProfile]"
     
-    $pkgs = Read-Host "Введите пакеты (через пробел, можно из буфера)"
+    Write-Host "Пакеты по умолчанию ($($finalList.Count) шт.):" -ForegroundColor Green
+    Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host $defaultPackages -ForegroundColor Gray
+    Write-Host "----------------------------------------------------------------`n" -ForegroundColor DarkGray
+
+    $pkgs = Read-Host "Введите ДОПОЛНИТЕЛЬНЫЕ пакеты (через пробел)"
     
     # Валидация имени профиля
     do {
-        $profileName = Read-Host "Введите имя конфига (без пробелов, в нижнем регистре. Например: my_router)"
+        $profileName = Read-Host "Введите имя конфига (без пробелов, a-z, 0-9. Например: my_router)"
         if ([string]::IsNullOrWhiteSpace($profileName)) {
             $profileName = "new_profile" 
-            Write-Host "Имя не введено. Используется стандартное: $profileName" -ForegroundColor DarkGray
             break
         }
         if ($profileName -match '\s') {
@@ -171,26 +194,25 @@ try {
     } while ($true)
 
     $confPath = "profiles\$profileName.conf"
-    
     # Определяем ветку git
-    if ($selectedRelease -eq "snapshots") {
-        $gitBranch = "master"
-    } else {
-        $gitBranch = "v$selectedRelease"
-    }
+    $gitBranch = if ($selectedRelease -eq "snapshots") { "master" } else { "v$selectedRelease" }
 
-    # Формируем контент
+    # Формируем контент с исправленным SRC_EXTRA_CONFIG и новым SRC_CORES
     $content = @"
 # === Profile for $targetProfile (OpenWrt $selectedRelease) ===
 
 PROFILE_NAME="$profileName"
 TARGET_PROFILE="$targetProfile"
 
+# Пакеты по умолчанию (Target Default +/- Device Specific)
+DEFAULT_PACKAGES="$defaultPackages"
+
+# Ваши дополнительные пакеты
 COMMON_LIST="$pkgs"
 
 # === IMAGE BUILDER CONFIG
 IMAGEBUILDER_URL="$ibUrl"
-PKGS="`$COMMON_LIST"
+PKGS="`$DEFAULT_PACKAGES `$COMMON_LIST"
 EXTRA_IMAGE_NAME="custom"
 #CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
 #CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci
@@ -204,6 +226,7 @@ SRC_BRANCH="$gitBranch"
 SRC_TARGET="$selectedTarget"
 SRC_SUBTARGET="$selectedSubtarget"
 SRC_PACKAGES="`$PKGS"
+SRC_CORES="safe"
 
 # === Extra config options
 #ROOTFS_SIZE="512"
@@ -245,5 +268,6 @@ CONFIG_BUILD_LOG=y"
 
 } catch {
     Write-Host "`nОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
     Pause
 }
