@@ -55,18 +55,33 @@ function Show-Header {
 
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  UNIVERSAL Profile Creator (v2.2 Safe Mode)" -ForegroundColor Cyan
+    Write-Host "  UNIVERSAL Profile Creator (v2.21 UX+)" -ForegroundColor Cyan
     Write-Host "  $StepName" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
-    # Динамически отображаем только те параметры, которые уже выбраны
-    if ($GlobalState.Source)    { Write-Host "  SOURCE:    $($GlobalState.Source)" -ForegroundColor Green }
-    if ($GlobalState.Release)   { Write-Host "  RELEASE:   $($GlobalState.Release)" -ForegroundColor Green }
-    if ($GlobalState.Target)    { Write-Host "  TARGET:    $($GlobalState.Target)" -ForegroundColor Green }
-    if ($GlobalState.Subtarget) { Write-Host "  SUBTARGET: $($GlobalState.Subtarget)" -ForegroundColor Green }
-    if ($GlobalState.ModelName) { Write-Host "  MODEL:     $($GlobalState.ModelName)" -ForegroundColor Green }
+    # 1. Собираем список (хлебные крошки)
+    $crumbs = @()
+    if ($GlobalState.Source)    { $crumbs += $GlobalState.Source }
+    if ($GlobalState.Release)   { $crumbs += $GlobalState.Release }
+    if ($GlobalState.Target)    { $crumbs += $GlobalState.Target }
+    if ($GlobalState.Subtarget) { $crumbs += $GlobalState.Subtarget }
+    if ($GlobalState.ModelName) { $crumbs += $GlobalState.ModelName }
     
-    if ($GlobalState.Source) {
+    # 2. Выводим разноцветную строку
+    if ($crumbs.Count -gt 0) {
+        Write-Host "  SELECTED: " -NoNewline -ForegroundColor Gray
+        
+        for ($i = 0; $i -lt $crumbs.Count; $i++) {
+            # Значение (Ярко-зеленый)
+            Write-Host $crumbs[$i] -NoNewline -ForegroundColor Green
+            
+            # Разделитель (Только если это не последний элемент)
+            if ($i -lt ($crumbs.Count - 1)) {
+                Write-Host " > " -NoNewline -ForegroundColor DarkGray
+            }
+        }
+        
+        Write-Host "" # Завершаем строку переносом
         Write-Host "--------------------------------------------------------------------------" -ForegroundColor DarkGray
     }
     Write-Host ""
