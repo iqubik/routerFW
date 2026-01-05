@@ -51,15 +51,46 @@ function Show-Header {
     .PARAMETER StepName
         Название текущего шага для заголовка.
     #>
-    param($StepName)
+    param(
+        [string]$StepName,
+        [int]$StepNum
+    )
 
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  UNIVERSAL Profile Creator (v2.21 UX+)" -ForegroundColor Cyan
+    Write-Host "  UNIVERSAL Profile Creator (v2.23 UX+)" -ForegroundColor Cyan
     Write-Host "  $StepName" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
-    # 1. Собираем список (хлебные крошки)
+    # --- ВИЗУАЛИЗАЦИЯ ИМЕНИ ФАЙЛА (STRUCTURE HELPER) ---
+    Write-Host "  FIRMWARE BINARY STRUCTURE:" -ForegroundColor Gray
+    Write-Host "  " -NoNewline
+
+    # Функция-помощник для покраски сегментов
+    function Out-Part {
+        param($Value, $Default, $PartStep)
+        $display = if ($Value) { $Value.ToLower() } else { $Default }
+        
+        if ($StepNum -eq $PartStep) {
+            Write-Host "[$display]" -NoNewline -ForegroundColor Magenta # Текущий шаг
+        } elseif ($Value) {
+            Write-Host $display -NoNewline -ForegroundColor Green   # Заполнено
+        } else {
+            Write-Host $display -NoNewline -ForegroundColor DarkGray # Будущее
+        }
+    }
+
+    # Собираем структуру: source-target-subtarget-model-suffix
+    Out-Part $GlobalState.Source "source" 1
+    Write-Host "-" -NoNewline -ForegroundColor DarkGray
+    Out-Part $GlobalState.Target "target" 3
+    Write-Host "-" -NoNewline -ForegroundColor DarkGray
+    Out-Part $GlobalState.Subtarget "subtarget" 4
+    Write-Host "-" -NoNewline -ForegroundColor DarkGray
+    Out-Part $GlobalState.ModelID "model" 5
+    Write-Host "-squashfs-sysupgrade.bin" -ForegroundColor DarkGray
+
+    # --- ХЛЕБНЫЕ КРОШКИ (PATH) ---
     $crumbs = @()
     if ($GlobalState.Source)    { $crumbs += $GlobalState.Source }
     if ($GlobalState.Release)   { $crumbs += $GlobalState.Release }
@@ -69,22 +100,18 @@ function Show-Header {
     
     # 2. Выводим разноцветную строку
     if ($crumbs.Count -gt 0) {
-        Write-Host "  SELECTED: " -NoNewline -ForegroundColor Gray
-        
+        Write-Host "  PATH: " -NoNewline -ForegroundColor Gray
         for ($i = 0; $i -lt $crumbs.Count; $i++) {
             # Значение (Ярко-зеленый)
             Write-Host $crumbs[$i] -NoNewline -ForegroundColor Green
-            
             # Разделитель (Только если это не последний элемент)
-            if ($i -lt ($crumbs.Count - 1)) {
-                Write-Host " > " -NoNewline -ForegroundColor DarkGray
-            }
+            if ($i -lt ($crumbs.Count - 1)) { Write-Host " > " -NoNewline -ForegroundColor DarkGray }
         }
-        
         Write-Host "" # Завершаем строку переносом
         Write-Host "--------------------------------------------------------------------------" -ForegroundColor DarkGray
+        Write-Host ""
     }
-    Write-Host ""
+    Write-Host "--------------------------------------------------------------------------" -ForegroundColor DarkGray
 }
 
 function Read-Selection {
