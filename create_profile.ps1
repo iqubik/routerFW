@@ -13,21 +13,17 @@
     - UX 2.0: Автозаполнение (Luci), системные имена файлов и защита от перезаписи.
 
 .VERSION
-    2.2 (Safety Check + Smart UX)
+    2.25 (Header Fix + Smart Navigation)
 #>
 
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # --- ИНИЦИАЛИЗАЦИЯ ОКРУЖЕНИЯ ---
-
 # Создаем рабочую папку для профилей, если её нет
-if (-not (Test-Path "profiles")) { 
-    New-Item -ItemType Directory -Name "profiles" | Out-Null 
-}
+if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles" | Out-Null }
 
 # --- ХРАНИЛИЩЕ СОСТОЯНИЯ (GLOBAL STATE) ---
-# Хеш-таблица для хранения выбора пользователя на каждом этапе.
 # Позволяет реализовать логику "Назад" без потери контекста.
 $GlobalState = @{
     Source     = $null # OpenWrt или ImmortalWrt
@@ -40,6 +36,7 @@ $GlobalState = @{
     ModelName  = $null # Человекочитаемое название
     DefPkgs    = $null # Вычисленный список пакетов
     IBUrl      = $null # Ссылка на ImageBuilder
+    LastStep   = 1    # Для отслеживания направления движения
 }
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
@@ -51,14 +48,10 @@ function Show-Header {
     .PARAMETER StepName
         Название текущего шага для заголовка.
     #>
-    param(
-        [string]$StepName,
-        [int]$StepNum
-    )
-
+    param([string]$StepName, [int]$StepNum)
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  UNIVERSAL Profile Creator (v2.23 UX+)" -ForegroundColor Cyan
+    Write-Host "  UNIVERSAL Profile Creator (v2.26 UX+)" -ForegroundColor Cyan
     Write-Host "  $StepName" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
@@ -107,7 +100,6 @@ function Show-Header {
             # Разделитель (Только если это не последний элемент)
             if ($i -lt ($crumbs.Count - 1)) { Write-Host " > " -NoNewline -ForegroundColor DarkGray }
         }
-        Write-Host "" # Завершаем строку переносом
         Write-Host ""
     }
     Write-Host "--------------------------------------------------------------------------" -ForegroundColor DarkGray
@@ -125,43 +117,31 @@ function Read-Selection {
         Число (индекс) или -1 (код возврата).
     #>
     param($MaxCount, $AllowBack = $true)
-
     do {
         $prompt = "`nВыберите номер (1-$MaxCount)"
         if ($AllowBack) { $prompt += ", [Z] Назад" }
         $prompt += ", [Q] Выход: "
-        
         $inputVal = Read-Host $prompt
-        
         # Игнорируем пустой ввод
         if ([string]::IsNullOrWhiteSpace($inputVal)) { continue }
-        
         $val = $inputVal.Trim().ToLower()
-        
         # Обработка выхода
-        if ($val -eq 'q') { 
-            Write-Host "`nВыход..." -ForegroundColor Gray
-            exit 
-        }
-        
         # Обработка возврата (Код -1)
+        if ($val -eq 'q') { exit }
         if ($AllowBack -and $val -eq 'z') { return -1 } 
-        
         # Валидация числа
         if ($val -match '^\d+$') {
             $idx = [int]$val
-            if ($idx -ge 1 -and $idx -le $MaxCount) {
-                return $idx
-            }
+            if ($idx -ge 1 -and $idx -le $MaxCount) { return $idx }
         }
         Write-Host "Ошибка: Некорректный ввод." -ForegroundColor Red
     } while ($true)
 }
 
-# --- ОСНОВНОЙ ЦИКЛ (STATE MACHINE) ---
 # Логика скрипта построена на машине состояний.
 # Переменная $Step определяет текущий экран.
 # Это позволяет легко реализовать кнопки "Назад" ($Step--) и повтор шагов.
+# --- ОСНОВНОЙ ЦИКЛ ---
 
 $Step = 1
 
@@ -175,15 +155,10 @@ while ($true) {
             1 {
                 # Сброс состояния при возврате в начало
                 $GlobalState.Source = $null
-                $GlobalState.Release = $null
-                $GlobalState.Target = $null
-                
-                Show-Header "Шаг 1: Выбор источника прошивки"
+                Show-Header "Шаг 1: Выбор источника прошивки" 1
                 Write-Host " 1. OpenWrt (Официальная, стабильная)"
                 Write-Host " 2. ImmortalWrt (Больше пакетов, оптимизации)"
-                
                 $sel = Read-Selection -MaxCount 2 -AllowBack $false
-                
                 if ($sel -eq 1) {
                     $GlobalState.Source  = "OpenWrt"
                     $GlobalState.BaseUrl = "https://downloads.openwrt.org"
@@ -193,94 +168,78 @@ while ($true) {
                     $GlobalState.BaseUrl = "https://downloads.immortalwrt.org"
                     $GlobalState.RepoUrl = "https://github.com/immortalwrt/immortalwrt.git"
                 }
-                $Step++ 
+                $GlobalState.LastStep = 1; $Step++ 
             }
 
             # ==========================================
             # ШАГ 2: ВЫБОР РЕЛИЗА
             # ==========================================
             2 {
-                Show-Header "Шаг 2: Выбор релиза ($($GlobalState.Source))"
+                $GlobalState.Release = $null
+                Show-Header "Шаг 2: Выбор релиза ($($GlobalState.Source))" 2
                 Write-Host "Получение списка..."
-                
                 $url = "$($GlobalState.BaseUrl)/releases/"
                 $html = (Invoke-WebRequest -Uri $url -UseBasicParsing).Content
-                
                 # Regex парсит ссылки вида "23.05.0/" или "snapshots/"
                 $releases = @([regex]::Matches($html, 'href="(\d{2}\.\d{2}\.[^"/]+/|snapshots/)"') | 
                             ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
                             Select-Object -Unique | Sort-Object -Descending)
-
                 for ($i=0; $i -lt $releases.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $releases[$i]) }
-                
                 $idx = Read-Selection -MaxCount $releases.Count
                 if ($idx -eq -1) { $Step--; continue }
-                
                 $GlobalState.Release = $releases[($idx-1)]
-                $Step++
+                $GlobalState.LastStep = 2; $Step++
             }
 
             # ==========================================
             # ШАГ 3: ВЫБОР АРХИТЕКТУРЫ (TARGET)
             # ==========================================
             3 {
-                Show-Header "Шаг 3: Выбор Target"
-                Write-Host "Пример: ramips, ath79, mediatek..." -ForegroundColor Gray
-                
+                $GlobalState.Target = $null
+                Show-Header "Шаг 3: Выбор Target" 3
                 $rel = $GlobalState.Release
                 $baseUrl = $GlobalState.BaseUrl
-                
                 # Формируем URL в зависимости от того, релиз это или снапшот
                 $targetUrl = if ($rel -eq "snapshots") { "$baseUrl/snapshots/targets/" } else { "$baseUrl/releases/$rel/targets/" }
-                
                 $html = (Invoke-WebRequest -Uri $targetUrl -UseBasicParsing).Content
                 # Исключаем служебные папки (backups, kmodindex)
                 $targets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
                         ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
                         Where-Object { $_ -notin @('backups', 'kmodindex') })
-
                 for ($i=0; $i -lt $targets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $targets[$i]) }
-                
                 $idx = Read-Selection -MaxCount $targets.Count
                 if ($idx -eq -1) { $Step--; continue }
-                
                 $GlobalState.Target = $targets[($idx-1)]
-                $Step++
+                $GlobalState.LastStep = 3; $Step++
             }
 
             # ==========================================
             # ШАГ 4: ВЫБОР ПОД-АРХИТЕКТУРЫ (SUBTARGET)
             # ==========================================
             4 {
-                Show-Header "Шаг 4: Выбор Subtarget"
-                
-                $rel = $GlobalState.Release
-                $baseUrl = $GlobalState.BaseUrl
-                $tar = $GlobalState.Target
-                
+                $GlobalState.Subtarget = $null
+                $rel = $GlobalState.Release; $baseUrl = $GlobalState.BaseUrl; $tar = $GlobalState.Target
                 $baseTargetUrl = if ($rel -eq "snapshots") { "$baseUrl/snapshots/targets/$tar/" } else { "$baseUrl/releases/$rel/targets/$tar/" }
                 $GlobalState.CurrentTargetUrl = $baseTargetUrl
-
                 $html = (Invoke-WebRequest -Uri $baseTargetUrl -UseBasicParsing).Content
                 $subtargets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
                             ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
                             Where-Object { $_ -notin @('backups', 'kmodindex', 'packages') })
 
                 # АВТОМАТИЗАЦИЯ: Если папка одна (часто generic), пропускаем выбор
-                if ($subtargets.Count -eq 0) {
-                    $GlobalState.Subtarget = "generic"
-                    $Step++ 
-                    continue
-                } elseif ($subtargets.Count -eq 1) {
-                    $GlobalState.Subtarget = $subtargets[0]
-                    $Step++ 
+                if ($subtargets.Count -le 1) {
+                    # АВТО-ПЕРЕХОД
+                    if ($GlobalState.LastStep -eq 5) { $Step--; continue } # Если шли назад с 5-го, прыгаем на 3-й
+                    $GlobalState.Subtarget = if ($subtargets.Count -eq 1) { $subtargets[0] } else { "generic" }
+                    $GlobalState.LastStep = 4; $Step++ 
                     continue
                 } else {
+                    Show-Header "Шаг 4: Выбор Subtarget" 4
                     for ($i=0; $i -lt $subtargets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $subtargets[$i]) }
                     $idx = Read-Selection -MaxCount $subtargets.Count
                     if ($idx -eq -1) { $Step--; continue }
                     $GlobalState.Subtarget = $subtargets[($idx-1)]
-                    $Step++
+                    $GlobalState.LastStep = 4; $Step++
                 }
             }
 
@@ -288,166 +247,91 @@ while ($true) {
             # ШАГ 5: ВЫБОР МОДЕЛИ И АНАЛИЗ ПАКЕТОВ
             # ==========================================
             5 {
-                Show-Header "Шаг 5: Выбор модели устройства"
-                Write-Host "Загрузка profiles.json..." -ForegroundColor Gray
-                
+                $GlobalState.ModelID = $null; $GlobalState.ModelName = $null
+                Show-Header "Шаг 5: Выбор модели устройства" 5
                 $finalUrl = "$($GlobalState.CurrentTargetUrl)$($GlobalState.Subtarget)/"
                 $GlobalState.FinalUrl = $finalUrl
-
                 try {
                     $data = Invoke-RestMethod -Uri "$($finalUrl)profiles.json"
                 } catch {
-                    Write-Host "Ошибка загрузки profiles.json. Возможно, папка пуста." -ForegroundColor Red
-                    Start-Sleep 2
-                    $Step--; continue
+                    Write-Host "Ошибка загрузки profiles.json." -ForegroundColor Red; Start-Sleep 2; $Step--; continue
                 }
-                
                 # Получаем список ID профилей и их названий
                 $profileIds = @($data.profiles.PSObject.Properties.Name | Sort-Object)
                 $profileList = @()
                 for ($i=0; $i -lt $profileIds.Count; $i++) {
-                    $id = $profileIds[$i]
-                    $title = $data.profiles.$id.title
+                    $id = $profileIds[$i]; $title = $data.profiles.$id.title
                     Write-Host (" {0,3}. {1} ({2})" -f ($i+1), $title, $id)
                     $profileList += [PSCustomObject]@{ ID = $id; Title = $title }
                 }
-
                 $idx = Read-Selection -MaxCount $profileList.Count
-                if ($idx -eq -1) { $Step--; continue }
-
+                if ($idx -eq -1) { $GlobalState.LastStep = 5; $Step--; continue }
                 $selectedProfile = $profileList[($idx-1)]
                 $GlobalState.ModelID = $selectedProfile.ID
                 $GlobalState.ModelName = $selectedProfile.Title
                 
-                # --- ЛОГИКА АНАЛИЗА ПАКЕТОВ ---
-                Write-Host "`nАнализ пакетов..." -ForegroundColor Gray
-                
-                # 1. Загружаем базовые списки (приводим к массиву @(), чтобы избежать ошибок на одиночных элементах)
-                $basePackages   = @($data.default_packages)
-                $devicePackages = @($data.profiles.$($selectedProfile.ID).device_packages)
-                
-                # 2. Разбираем device_packages на добавление и удаление (префикс "-")
-                $pkgsToRemove = @()
-                $pkgsToAdd    = @()
+                # Анализ пакетов
+                $basePackages = @($data.default_packages); $devicePackages = @($data.profiles.$($selectedProfile.ID).device_packages)
+                $pkgsToRemove = @(); $pkgsToAdd = @()
                 foreach ($pkg in $devicePackages) {
                     $p = [string]$pkg
-                    if ($p.StartsWith("-")) { $pkgsToRemove += $p.Substring(1) } 
-                    else { $pkgsToAdd += $p }
+                    if ($p.StartsWith("-")) { $pkgsToRemove += $p.Substring(1) } else { $pkgsToAdd += $p }
                 }
-
                 # 3. Фильтруем базовый список и добавляем специфичные пакеты
                 $finalList = $basePackages | Where-Object { $_ -notin $pkgsToRemove }
                 $finalList += $pkgsToAdd
-                
                 # 4. Сохраняем чистый список (строкой)
                 $GlobalState.DefPkgs = ($finalList | Select-Object -Unique | Sort-Object) -join " "
-                
-                $Step++
+                $GlobalState.LastStep = 5; $Step++
             }
 
             # ==========================================
             # ШАГ 6: ГЕНЕРАЦИЯ КОНФИГА
             # ==========================================
             6 {
-                Show-Header "Шаг 6: Финализация"
-                
                 # 1. Поиск ImageBuilder
-                try {
-                    $folderHtml = (Invoke-WebRequest -Uri $GlobalState.FinalUrl -UseBasicParsing).Content
-                } catch {
-                     Write-Host "Ошибка доступа к каталогу релизов. Проверьте интернет." -ForegroundColor Red
-                     Start-Sleep 2; $Step--; continue
-                }
-                
+                Show-Header "Шаг 6: Финализация" 6
+                $folderHtml = (Invoke-WebRequest -Uri $GlobalState.FinalUrl -UseBasicParsing).Content
                 if ($folderHtml -match 'href="((openwrt|immortalwrt)-imagebuilder-[^"]+\.tar\.(xz|zst))"') {
-                    $ibFileName = $Matches[1]
-                    $currentUrl = "$($GlobalState.FinalUrl)$ibFileName"
-                    
                     # --- ВЫБОР ЗЕРКАЛА (ТОЛЬКО ДЛЯ IMMORTALWRT) ---
+                    $ibFileName = $Matches[1]; $currentUrl = "$($GlobalState.FinalUrl)$ibFileName"
                     if ($GlobalState.Source -eq "ImmortalWrt") {
-                        Write-Host "Выберите источник загрузки ImageBuilder:" -ForegroundColor Yellow
-                        Write-Host " 1. Official (downloads.immortalwrt.org) - Медленно, но надежно"
-                        Write-Host " 2. KyaruCloud (CDN/Cloudflare)        - Быстро (Рекомендуется)"
-                        
+                        Write-Host "Выберите источник загрузки IB:`n 1. Official`n 2. KyaruCloud (CDN)" -ForegroundColor Yellow
                         $mirrorSel = Read-Host "`nВаш выбор (1-2) [Default: 2]"
-                        
-                        if ($mirrorSel -eq '1') {
-                            $GlobalState.IBUrl = $currentUrl
-                            Write-Host " [INFO] Выбран официальный сервер." -ForegroundColor Gray
-                        } else {
-                            # По умолчанию (2) или Enter
-                            $MirrorBase   = "https://immortalwrt.kyarucloud.moe"
-                            $OriginalBase = "https://downloads.immortalwrt.org"
-                            $GlobalState.IBUrl = $currentUrl.Replace($OriginalBase, $MirrorBase)
-                            Write-Host " [INFO] Выбрано зеркало KyaruCloud." -ForegroundColor Green
-                        }
-                        Write-Host ""
-                    } else {
-                        # OpenWrt
-                        $GlobalState.IBUrl = $currentUrl
-                    }
-                    # ---------------------------------------------
-
+                        $GlobalState.IBUrl = if ($mirrorSel -eq '1') { $currentUrl } else { $currentUrl.Replace("https://downloads.immortalwrt.org", "https://immortalwrt.kyarucloud.moe") }
+                    } else { $GlobalState.IBUrl = $currentUrl }
                 } else {
-                    Write-Host "ОШИБКА: ImageBuilder не найден в данной директории!" -ForegroundColor Red
-                    Read-Host "Нажмите Enter для возврата"
-                    $Step--; continue
+                    Write-Host "ОШИБКА: ImageBuilder не найден!" -ForegroundColor Red; Read-Host; $Step--; continue
                 }
 
                 # 2. Отображение пакетов
                 # ---------------------------------------------------------
-                Write-Host "Пакеты по умолчанию (из профиля):" -ForegroundColor Green
-                Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-                Write-Host $GlobalState.DefPkgs -ForegroundColor Gray
-                Write-Host "----------------------------------------------------------------`n" -ForegroundColor DarkGray
-                
-                $defaultExtra = "luci"
-                
-                Write-Host "Введите ДОПОЛНИТЕЛЬНЫЕ пакеты через пробел"
-                Write-Host "Нажмите [Enter], чтобы добавить '$defaultExtra'" -ForegroundColor Yellow
-                Write-Host "[Z] Назад, [Q] Выход" -ForegroundColor DarkGray
-                
-                $inputPkgs = Read-Host "Доп. пакеты [$defaultExtra] > "
-                
-                if ($inputPkgs -eq 'z') { $Step--; continue }
-                if ($inputPkgs -eq 'q') { exit }
-                
-                # Если пусто -> luci, иначе ввод пользователя
-                if ([string]::IsNullOrWhiteSpace($inputPkgs)) {
-                    $pkgs = $defaultExtra
-                    Write-Host "  -> Выбрано: $pkgs" -ForegroundColor DarkGray
-                } else {
-                    $pkgs = $inputPkgs
-                }
+                Write-Host "Пакеты по умолчанию:`n$($GlobalState.DefPkgs)`n" -ForegroundColor Gray
+                $inputPkgs = Read-Host "Дополнительные пакеты [luci] (Z - Назад)"
+                if ($inputPkgs.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue }
+                $pkgs = if ([string]::IsNullOrWhiteSpace($inputPkgs)) { "luci" } else { $inputPkgs }
 
-                # 3. Имя файла (ГЕНЕРАЦИЯ ПО МАТРИЦЕ + ЗАЩИТА ПЕРЕЗАПИСИ)
+                # 3. Имя файла (Системная генерация + Защита)
                 # ---------------------------------------------------------
-                
-                # А. Подготовка частей для системного имени
-                $verClean = $GlobalState.Release -replace '\.', ''
-                if ($verClean -eq 'snapshots') { $verClean = 'snap' }
-                
+                $verClean = ($GlobalState.Release -replace '\.', '') -replace 'snapshots', 'snap'
                 $srcShort = if ($GlobalState.Source -eq 'ImmortalWrt') { 'iw' } else { 'ow' }
                 $modClean = $GlobalState.ModelID -replace '-', '_'
-                
-                # Б. Сборка дефолтного имени
                 $defaultName = "${modClean}_${verClean}_${srcShort}_full"
 
-                # 3. Имя файла
+                $profileName = $null
                 do {
-                    Write-Host "`nВведите имя файла конфига (без .conf)"
-                    $inputName = Read-Host "Имя файла [$defaultName] > "
+                    Write-Host "`nВведите имя файла конфига (без .conf)" -ForegroundColor Gray
+                    $inputName = Read-Host "Имя файла [$defaultName] (Z - Назад)"
                     
                     # Навигация
-                    if ($inputName -eq 'z') { $Step--; continue 2 }
-                    if ($inputName -eq 'q') { exit }
+                    if ($inputName.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue 2 }
+                    if ($inputName.ToLower() -eq 'q') { exit }
 
-                    # Логика выбора имени
+                    # Логика выбора и нормализации
                     if ([string]::IsNullOrWhiteSpace($inputName)) { 
                         $profileName = $defaultName
-                        Write-Host "  -> Имя файла: $profileName" -ForegroundColor Cyan
                     } else {
-                        # Если ввели руками -> форматируем под "систему" (lower + underscore)
+                        # Форматирование: только мелкие буквы, цифры и подчеркивания
                         $cleanName = $inputName.Trim().ToLower() -replace '[\s\-\.]+', '_'
                         $cleanName = $cleanName -replace '[^a-z0-9_]', ''
                         
@@ -461,24 +345,21 @@ while ($true) {
                         }
                     }
 
-                    # В. ПРОВЕРКА НА СУЩЕСТВОВАНИЕ ФАЙЛА
+                    # Проверка на существование
                     if (Test-Path "profiles\$profileName.conf") {
-                        Write-Host " [!] Файл '$profileName.conf' уже существует!" -ForegroundColor Red
+                        Write-Host " [!] Файл '$profileName.conf' уже существует!" -ForegroundColor Yellow
                         $ovr = Read-Host " Перезаписать? (y/n) [n]"
-                        if ($ovr.Trim().ToLower() -ne 'y') {
-                            # Если не 'y', возвращаемся в начало цикла (попросить другое имя)
-                            continue 
-                        }
-                        Write-Host "  -> Перезапись разрешена." -ForegroundColor Yellow
+                        if ($ovr.Trim().ToLower() -ne 'y') { continue }
                     }
-                    
-                    break # Имя принято, выходим из do..while
+                    break 
                 } while ($true)
 
-                # 4. Генерация
+                # 4. Сохранение
+                # ---------------------------------------------------------
                 $confPath = "profiles\$profileName.conf"
                 $gitBranch = if ($GlobalState.Release -eq "snapshots") { "master" } else { "v$($GlobalState.Release)" }
                 
+                # Твой расширенный шаблон контента
                 $content = @"
 # === Profile for $($GlobalState.ModelID) ($($GlobalState.Source) $($GlobalState.Release)) ===
 
@@ -535,21 +416,17 @@ CONFIG_BUILD_LOG=y"
 #    Если пакет не ставится через SRC_PACKAGES, можно включить его тут.
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
 "@
-                # Сохраняем в UTF8
                 $content | Out-File -FilePath $confPath -Encoding utf8 -Force
+                Write-Host "`n[OK] Конфиг успешно сохранен: $confPath" -ForegroundColor Green
                 
-                Write-Host "`n[OK] Профиль создан: $confPath" -ForegroundColor Green
-                Write-Host "Нажмите Enter для создания НОВОГО профиля или Q для выхода"
-                $fin = Read-Host
-                if ($fin -eq 'q') { exit }
-                
-                $Step = 1 
-            }
+                Write-Host "`nНажмите Enter для создания нового профиля или 'Q' для выхода..."
+                $finalAction = Read-Host
+                if ($finalAction -eq 'q') { exit }
+                $Step = 1
         }
     } catch {
         Write-Host "`nКРИТИЧЕСКАЯ ОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host "Строка: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
-        Read-Host "Нажмите Enter, чтобы попробовать повторить шаг..."
-        # Не меняем $Step, цикл повторит текущий шаг
+        Read-Host "Нажмите Enter для повтора..."
     }
 }
