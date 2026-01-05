@@ -62,7 +62,7 @@ function Show-Header {
     Write-Host "  $StepName" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
-    # --- ВИЗУАЛИЗАЦИЯ ИМЕНИ ФАЙЛА (STRUCTURE HELPER) ---
+    # --- ВИЗУАЛИЗАЦИЯ ИМЕНИ ФАЙЛА ---
     Write-Host "  FIRMWARE BINARY STRUCTURE:" -ForegroundColor Gray
     Write-Host "  " -NoNewline
 
@@ -70,13 +70,12 @@ function Show-Header {
     function Out-Part {
         param($Value, $Default, $PartStep)
         $display = if ($Value) { $Value.ToLower() } else { $Default }
-        
         if ($StepNum -eq $PartStep) {
-            Write-Host "[$display]" -NoNewline -ForegroundColor Magenta # Текущий шаг
+            Write-Host "[$display]" -NoNewline -ForegroundColor Magenta
         } elseif ($Value) {
-            Write-Host $display -NoNewline -ForegroundColor Green   # Заполнено
+            Write-Host $display -NoNewline -ForegroundColor Green
         } else {
-            Write-Host $display -NoNewline -ForegroundColor DarkGray # Будущее
+            Write-Host $display -NoNewline -ForegroundColor DarkGray
         }
     }
 
@@ -89,8 +88,9 @@ function Show-Header {
     Write-Host "-" -NoNewline -ForegroundColor DarkGray
     Out-Part $GlobalState.ModelID "model" 5
     Write-Host "-squashfs-sysupgrade.bin" -ForegroundColor DarkGray
+    Write-Host "`n"
 
-    # --- ХЛЕБНЫЕ КРОШКИ (PATH) ---
+    # --- ХЛЕБНЫЕ КРОШКИ ---
     $crumbs = @()
     if ($GlobalState.Source)    { $crumbs += $GlobalState.Source }
     if ($GlobalState.Release)   { $crumbs += $GlobalState.Release }
@@ -108,7 +108,6 @@ function Show-Header {
             if ($i -lt ($crumbs.Count - 1)) { Write-Host " > " -NoNewline -ForegroundColor DarkGray }
         }
         Write-Host "" # Завершаем строку переносом
-        Write-Host "--------------------------------------------------------------------------" -ForegroundColor DarkGray
         Write-Host ""
     }
     Write-Host "--------------------------------------------------------------------------" -ForegroundColor DarkGray
