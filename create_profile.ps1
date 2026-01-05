@@ -10,9 +10,10 @@
     - Чтение JSON-профилей устройств (profiles.json).
     - Умный анализ пакетов (Target Default + Device Specific).
     - Навигацию (Назад/Выход) через машину состояний.
+    - UX 2.0: Автозаполнение (Luci), системные имена файлов и защита от перезаписи.
 
 .VERSION
-    2.0 (Navigation + ImmortalWrt Support)
+    2.2 (Safety Check + Smart UX)
 #>
 
 $ErrorActionPreference = "Stop"
@@ -54,7 +55,7 @@ function Show-Header {
 
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  UNIVERSAL Profile Creator (v2.0 Navigation + ImmortalWrt)" -ForegroundColor Cyan
+    Write-Host "  UNIVERSAL Profile Creator (v2.2 Safe Mode)" -ForegroundColor Cyan
     Write-Host "  $StepName" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
@@ -128,7 +129,7 @@ while ($true) {
         switch ($Step) {
             
             # ==========================================
-            # ШАГ 1: ВЫБОР ИСТОЧНИКА (OpenWrt/Immortal)
+            # ШАГ 1: ВЫБОР ИСТОЧНИКА
             # ==========================================
             1 {
                 # Сброс состояния при возврате в начало
@@ -138,7 +139,7 @@ while ($true) {
                 
                 Show-Header "Шаг 1: Выбор источника прошивки"
                 Write-Host " 1. OpenWrt (Официальная, стабильная)"
-                Write-Host " 2. ImmortalWrt (Больше пакетов, оптимизации, свои фичи)"
+                Write-Host " 2. ImmortalWrt (Больше пакетов, оптимизации)"
                 
                 $sel = Read-Selection -MaxCount 2 -AllowBack $false
                 
@@ -172,7 +173,7 @@ while ($true) {
                 for ($i=0; $i -lt $releases.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $releases[$i]) }
                 
                 $idx = Read-Selection -MaxCount $releases.Count
-                if ($idx -eq -1) { $Step--; continue } # Обработка [Z]
+                if ($idx -eq -1) { $Step--; continue }
                 
                 $GlobalState.Release = $releases[($idx-1)]
                 $Step++
@@ -217,7 +218,7 @@ while ($true) {
                 $tar = $GlobalState.Target
                 
                 $baseTargetUrl = if ($rel -eq "snapshots") { "$baseUrl/snapshots/targets/$tar/" } else { "$baseUrl/releases/$rel/targets/$tar/" }
-                $GlobalState.CurrentTargetUrl = $baseTargetUrl # Сохраняем URL для следующих шагов
+                $GlobalState.CurrentTargetUrl = $baseTargetUrl
 
                 $html = (Invoke-WebRequest -Uri $baseTargetUrl -UseBasicParsing).Content
                 $subtargets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
@@ -353,30 +354,84 @@ while ($true) {
                 }
 
                 # 2. Отображение пакетов
-                Write-Host "Пакеты по умолчанию:" -ForegroundColor Green
+                # ---------------------------------------------------------
+                Write-Host "Пакеты по умолчанию (из профиля):" -ForegroundColor Green
                 Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
                 Write-Host $GlobalState.DefPkgs -ForegroundColor Gray
                 Write-Host "----------------------------------------------------------------`n" -ForegroundColor DarkGray
                 
-                Write-Host "Введите ДОПОЛНИТЕЛЬНЫЕ пакеты (через пробел)"
+                $defaultExtra = "luci"
+                
+                Write-Host "Введите ДОПОЛНИТЕЛЬНЫЕ пакеты через пробел"
+                Write-Host "Нажмите [Enter], чтобы добавить '$defaultExtra'" -ForegroundColor Yellow
                 Write-Host "[Z] Назад, [Q] Выход" -ForegroundColor DarkGray
-                $inputPkgs = Read-Host "> "
+                
+                $inputPkgs = Read-Host "Доп. пакеты [$defaultExtra] > "
                 
                 if ($inputPkgs -eq 'z') { $Step--; continue }
                 if ($inputPkgs -eq 'q') { exit }
                 
-                $pkgs = $inputPkgs
+                # Если пусто -> luci, иначе ввод пользователя
+                if ([string]::IsNullOrWhiteSpace($inputPkgs)) {
+                    $pkgs = $defaultExtra
+                    Write-Host "  -> Выбрано: $pkgs" -ForegroundColor DarkGray
+                } else {
+                    $pkgs = $inputPkgs
+                }
+
+                # 3. Имя файла (ГЕНЕРАЦИЯ ПО МАТРИЦЕ + ЗАЩИТА ПЕРЕЗАПИСИ)
+                # ---------------------------------------------------------
+                
+                # А. Подготовка частей для системного имени
+                $verClean = $GlobalState.Release -replace '\.', ''
+                if ($verClean -eq 'snapshots') { $verClean = 'snap' }
+                
+                $srcShort = if ($GlobalState.Source -eq 'ImmortalWrt') { 'iw' } else { 'ow' }
+                $modClean = $GlobalState.ModelID -replace '-', '_'
+                
+                # Б. Сборка дефолтного имени
+                $defaultName = "${modClean}_${verClean}_${srcShort}_full"
 
                 # 3. Имя файла
                 do {
-                    $profileName = Read-Host "Введите имя файла конфига в нижнем регистре (например: my_router)"
+                    Write-Host "`nВведите имя файла конфига (без .conf)"
+                    $inputName = Read-Host "Имя файла [$defaultName] > "
                     
-                    if ($profileName -eq 'z') { $Step--; continue 2 }
-                    if ($profileName -eq 'q') { exit }
+                    # Навигация
+                    if ($inputName -eq 'z') { $Step--; continue 2 }
+                    if ($inputName -eq 'q') { exit }
 
-                    if ([string]::IsNullOrWhiteSpace($profileName)) { $profileName = "custom_profile"; break }
-                    if ($profileName -match '\s') { Write-Host "Без пробелов!" -ForegroundColor Red } 
-                    else { break }
+                    # Логика выбора имени
+                    if ([string]::IsNullOrWhiteSpace($inputName)) { 
+                        $profileName = $defaultName
+                        Write-Host "  -> Имя файла: $profileName" -ForegroundColor Cyan
+                    } else {
+                        # Если ввели руками -> форматируем под "систему" (lower + underscore)
+                        $cleanName = $inputName.Trim().ToLower() -replace '[\s\-\.]+', '_'
+                        $cleanName = $cleanName -replace '[^a-z0-9_]', ''
+                        
+                        if ([string]::IsNullOrWhiteSpace($cleanName)) {
+                            Write-Host "Ошибка: некорректное имя." -ForegroundColor Red
+                            continue
+                        }
+                        $profileName = $cleanName
+                        if ($inputName -ne $profileName) {
+                            Write-Host "  -> Автокоррекция: $profileName" -ForegroundColor Cyan
+                        }
+                    }
+
+                    # В. ПРОВЕРКА НА СУЩЕСТВОВАНИЕ ФАЙЛА
+                    if (Test-Path "profiles\$profileName.conf") {
+                        Write-Host " [!] Файл '$profileName.conf' уже существует!" -ForegroundColor Red
+                        $ovr = Read-Host " Перезаписать? (y/n) [n]"
+                        if ($ovr.Trim().ToLower() -ne 'y') {
+                            # Если не 'y', возвращаемся в начало цикла (попросить другое имя)
+                            continue 
+                        }
+                        Write-Host "  -> Перезапись разрешена." -ForegroundColor Yellow
+                    }
+                    
+                    break # Имя принято, выходим из do..while
                 } while ($true)
 
                 # 4. Генерация
@@ -439,7 +494,7 @@ CONFIG_BUILD_LOG=y"
 #    Если пакет не ставится через SRC_PACKAGES, можно включить его тут.
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
 "@
-    # Сохраняем в UTF8
+                # Сохраняем в UTF8
                 $content | Out-File -FilePath $confPath -Encoding utf8 -Force
                 
                 Write-Host "`n[OK] Профиль создан: $confPath" -ForegroundColor Green
