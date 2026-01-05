@@ -80,8 +80,7 @@ function Show-Header {
     Out-Part $GlobalState.Subtarget "subtarget" 4
     Write-Host "-" -NoNewline -ForegroundColor DarkGray
     Out-Part $GlobalState.ModelID "model" 5
-    Write-Host "-squashfs-sysupgrade.bin" -ForegroundColor DarkGray
-    Write-Host "`n"
+    Write-Host "-squashfs-sysupgrade.bin" -ForegroundColor DarkGray    
 
     # --- ХЛЕБНЫЕ КРОШКИ ---
     $crumbs = @()
