@@ -3,167 +3,180 @@ setlocal enabledelayedexpansion
 cls
 chcp 65001 >nul
 
+:: Проверка аргумента для запуска рабочего потока (WORKER)
+if "%~1"==":WORKER" goto :WORKER
+
 :: =========================================================
-::  Упаковщик общих ресурсов в _unpacker.bat
-::  v1.9 (Scripts Protected + Smart Profiles)
+::  Упаковщик общих ресурсов (Multi-Threaded Fixed)
+::  v2.1 (Fix: Spaces in paths & Quoting)
 :: =========================================================
 
 cls
 echo ========================================
-echo  OpenWrt Universal Packer (v1.9 Final)
+echo  OpenWrt Universal Packer (v2.1 MT)
 echo ========================================
 echo.
 
 :: === 1. Определяем список общих файлов ===
-set "COMMON_FILES="
-:: --- ЯДРО (Корневые файлы обновляются всегда) ---
-set "COMMON_FILES=!COMMON_FILES! "openssl.cnf""
-set "COMMON_FILES=!COMMON_FILES! "docker-compose.yaml""
-set "COMMON_FILES=!COMMON_FILES! "docker-compose-src.yaml""
-set "COMMON_FILES=!COMMON_FILES! "dockerfile""
-set "COMMON_FILES=!COMMON_FILES! "dockerfile.841n""
-set "COMMON_FILES=!COMMON_FILES! "src.dockerfile""
-set "COMMON_FILES=!COMMON_FILES! "src.dockerfile.legacy""
-set "COMMON_FILES=!COMMON_FILES! "create_profile.ps1""
-set "COMMON_FILES=!COMMON_FILES! "README.md""
-set "COMMON_FILES=!COMMON_FILES! "_Builder.bat""
+set "IDX=0"
 
-:: --- ЗАЩИЩЕННЫЕ ПАПКИ (SCRIPTS, PROFILES, OUTPUT) ---
-:: Они восстанавливаются только при ОТСУТСТВИИ personal.flag
-set "COMMON_FILES=!COMMON_FILES! "scripts\etc\uci-defaults\99-permissions.sh""
-set "COMMON_FILES=!COMMON_FILES! "scripts\diag.sh""
-set "COMMON_FILES=!COMMON_FILES! "scripts\hooks.sh""
-set "COMMON_FILES=!COMMON_FILES! "scripts\upgrade.sh""
-set "COMMON_FILES=!COMMON_FILES! "scripts\packager.sh""
-set "COMMON_FILES=!COMMON_FILES! "profiles\giga_24105_main_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\giga_24105_rep_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\nanopi_r5c_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\tplink_841n_v9_190710_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\zbt_wr8305rt_22037_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\xiaomi_4a_gigabit_23056_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\rax3000m_i_24104_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\rax3000m_emmc_test_new.conf""
-set "COMMON_FILES=!COMMON_FILES! "profiles\giga_24104_immortal_full.conf""
-set "COMMON_FILES=!COMMON_FILES! "firmware_output\sourcebuilder\rax3000m_emmc_test_new\manual_config""
+:: Функция добавления в список
+call :ADD_FILE "openssl.cnf"
+call :ADD_FILE "docker-compose.yaml"
+call :ADD_FILE "docker-compose-src.yaml"
+call :ADD_FILE "dockerfile"
+call :ADD_FILE "dockerfile.841n"
+call :ADD_FILE "src.dockerfile"
+call :ADD_FILE "src.dockerfile.legacy"
+call :ADD_FILE "create_profile.ps1"
+call :ADD_FILE "README.md"
+call :ADD_FILE "_Builder.bat"
 
-:: Временные файлы
+:: --- ЗАЩИЩЕННЫЕ ПАПКИ ---
+call :ADD_FILE "scripts\etc\uci-defaults\99-permissions.sh"
+call :ADD_FILE "scripts\diag.sh"
+call :ADD_FILE "scripts\hooks.sh"
+call :ADD_FILE "scripts\upgrade.sh"
+call :ADD_FILE "scripts\packager.sh"
+call :ADD_FILE "profiles\giga_24105_main_full.conf"
+call :ADD_FILE "profiles\giga_24105_rep_full.conf"
+call :ADD_FILE "profiles\nanopi_r5c_full.conf"
+call :ADD_FILE "profiles\tplink_841n_v9_190710_full.conf"
+call :ADD_FILE "profiles\zbt_wr8305rt_22037_full.conf"
+call :ADD_FILE "profiles\xiaomi_4a_gigabit_23056_full.conf"
+call :ADD_FILE "profiles\rax3000m_i_24104_full.conf"
+call :ADD_FILE "profiles\rax3000m_emmc_test_new.conf"
+call :ADD_FILE "profiles\giga_24104_immortal_full.conf"
+call :ADD_FILE "firmware_output\sourcebuilder\rax3000m_emmc_test_new\manual_config"
+
+:: Настройки путей (Используем абсолютные пути во избежание ошибок)
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"
-set "B64_BLOCK_FILE=b64_block.tmp"
-set "CERTUTIL_OUT=cert_out.tmp"
+set "TEMP_DIR_NAME=temp_packer_worker"
+set "FULL_TEMP_DIR=%~dp0%TEMP_DIR_NAME%"
 
-:: Очистка
+:: Очистка и подготовка
 if exist "%NEW_UNPACKER_FILE%" del /f /q "%NEW_UNPACKER_FILE%"
-if exist "%B64_BLOCK_FILE%" del /f /q "%B64_BLOCK_FILE%"
-if exist "%CERTUTIL_OUT%" del /f /q "%CERTUTIL_OUT%"
+if exist "%FULL_TEMP_DIR%" rd /s /q "%FULL_TEMP_DIR%"
+md "%FULL_TEMP_DIR%"
 
 :: === 2. Генерируем логическую часть _unpacker.bat ===
 echo [PACKER] Создание логики распаковщика...
 
-:: Пишем заголовок
-echo @echo off> "%NEW_UNPACKER_FILE%"
-echo setlocal enabledelayedexpansion>> "%NEW_UNPACKER_FILE%"
-echo cls>> "%NEW_UNPACKER_FILE%"
-echo chcp 65001 ^>nul>> "%NEW_UNPACKER_FILE%"
-echo.>> "%NEW_UNPACKER_FILE%"
-echo :: =========================================================>> "%NEW_UNPACKER_FILE%"
-echo ::  Универсальный распаковщик (Smart Edition v1.9)>> "%NEW_UNPACKER_FILE%"
-echo :: =========================================================>> "%NEW_UNPACKER_FILE%"
-echo.>> "%NEW_UNPACKER_FILE%"
-echo echo [UNPACKER] Проверка ресурсов...>> "%NEW_UNPACKER_FILE%"
-echo.>> "%NEW_UNPACKER_FILE%"
-
-:: --- УМНАЯ ПРОВЕРКА ---
-echo :: Проверка флага первоначальной настройки>> "%NEW_UNPACKER_FILE%"
-echo set "SKIP_DEFAULTS=0">> "%NEW_UNPACKER_FILE%"
-echo if exist "profiles\personal.flag" (>> "%NEW_UNPACKER_FILE%"
-echo     echo [INFO] Найден файл personal.flag. Восстановление пользовательских папок пропущено.>> "%NEW_UNPACKER_FILE%"
-echo     set "SKIP_DEFAULTS=1">> "%NEW_UNPACKER_FILE%"
-echo )>> "%NEW_UNPACKER_FILE%"
-echo.>> "%NEW_UNPACKER_FILE%"
+(
+    echo @echo off
+    echo setlocal enabledelayedexpansion
+    echo cls
+    echo chcp 65001 ^>nul
+    echo.
+    echo :: =========================================================
+    echo ::  Универсальный распаковщик ^(Smart Edition v2.1^)
+    echo :: =========================================================
+    echo.
+    echo echo [UNPACKER] Проверка ресурсов...
+    echo.
+    echo :: Проверка флага первоначальной настройки
+    echo set "SKIP_DEFAULTS=0"
+    echo if exist "profiles\personal.flag" ^(
+    echo     echo [INFO] Найден файл personal.flag. Восстановление пользовательских папок пропущено.
+    echo     set "SKIP_DEFAULTS=1"
+    echo ^)
+    echo.
+) > "%NEW_UNPACKER_FILE%"
 
 :: Генерируем вызовы функций
-for %%F in (%COMMON_FILES%) do (
-    set "FNAME=%%~F"
+for /L %%i in (1,1,%IDX%) do (
+    set "FNAME=!FILE_%%i!"
     set "IS_PROTECTED=0"
     
-    REM === ПРАВИЛА ЗАЩИТЫ ПАПОК ===
-    echo "%%~F" | findstr /C:"profiles\\" >nul && set "IS_PROTECTED=1"
-    echo "%%~F" | findstr /C:"firmware_output\\" >nul && set "IS_PROTECTED=1"
-    echo "%%~F" | findstr /C:"scripts\\" >nul && set "IS_PROTECTED=1"
+    echo "!FNAME!" | findstr /C:"profiles\\" >nul && set "IS_PROTECTED=1"
+    echo "!FNAME!" | findstr /C:"firmware_output\\" >nul && set "IS_PROTECTED=1"
+    echo "!FNAME!" | findstr /C:"scripts\\" >nul && set "IS_PROTECTED=1"
     
     if "!IS_PROTECTED!"=="1" (
-        REM Файл защищен: распаковываем только если SKIP_DEFAULTS=0
-        echo if "%%SKIP_DEFAULTS%%"=="0" call :DECODE_FILE "%%~F">> "%NEW_UNPACKER_FILE%"
+        echo if "%%SKIP_DEFAULTS%%"=="0" call :DECODE_FILE "!FNAME!">> "%NEW_UNPACKER_FILE%"
     ) else (
-        REM Файл системный: пытаемся распаковать всегда (если удален)
-        echo call :DECODE_FILE "%%~F">> "%NEW_UNPACKER_FILE%"
+        echo call :DECODE_FILE "!FNAME!">> "%NEW_UNPACKER_FILE%"
     )
 )
 
-:: Установка флага
-echo.>> "%NEW_UNPACKER_FILE%"
-echo :: Создаем флаг (если папки нет - создаем)>> "%NEW_UNPACKER_FILE%"
-echo if not exist "profiles" md "profiles" 2^>nul>> "%NEW_UNPACKER_FILE%"
-echo if not exist "profiles\personal.flag" (>> "%NEW_UNPACKER_FILE%"
-echo     echo Initial setup done ^> "profiles\personal.flag">> "%NEW_UNPACKER_FILE%"
-echo     echo [INFO] Создан флаг profiles\personal.flag>> "%NEW_UNPACKER_FILE%"
-echo )>> "%NEW_UNPACKER_FILE%"
+:: Завершение логической части
+(
+    echo.
+    echo :: Создаем флаг ^(если папки нет - создаем^)
+    echo if not exist "profiles" md "profiles" 2^>nul
+    echo if not exist "profiles\personal.flag" ^(
+    echo     echo Initial setup done ^> "profiles\personal.flag"
+    echo     echo [INFO] Создан флаг profiles\personal.flag
+    echo ^)
+    echo.
+    echo echo [UNPACKER] Готово.
+    echo echo ===================================
+    echo echo Можно запускать _Builder.bat
+    echo echo ===================================
+    echo exit /b
+    echo.
+    echo :DECODE_FILE
+    echo     if exist "%%~1" exit /b
+    echo     if not exist "%%~dp1" md "%%~dp1" 2^>nul
+    echo     echo [UNPACK] Восстановление файла: %%~1
+    echo     powershell -Command "$ext = '%%~1'; $content = Get-Content '%%~f0'; $start = $false; $b64 = ''; foreach($line in $content){ if($line -match 'BEGIN_B64_ ' + [Regex]::Escape($ext)){ $start = $true; continue }; if($line -match 'END_B64_ ' + [Regex]::Escape($ext)){ $start = $false; break }; if($start){ $b64 += $line.Trim() } }; if($b64){ [IO.File]::WriteAllBytes($ext, [Convert]::FromBase64String($b64)) }"
+    echo exit /b
+    echo.
+    echo :: =========================================================
+    echo ::  СЕКЦИЯ ДЛЯ BASE64 КОДА
+    echo :: =========================================================
+) >> "%NEW_UNPACKER_FILE%"
 
-:: Завершение
-echo.>> "%NEW_UNPACKER_FILE%"
-echo echo [UNPACKER] Готово.>> "%NEW_UNPACKER_FILE%"
-echo echo ===================================>> "%NEW_UNPACKER_FILE%"
-echo echo Можно запускать _Builder.bat>> "%NEW_UNPACKER_FILE%"
-echo echo ===================================>> "%NEW_UNPACKER_FILE%"
-echo exit /b>> "%NEW_UNPACKER_FILE%"
-echo.>> "%NEW_UNPACKER_FILE%"
-
-:: === 3. Добавляем функцию декодирования ===
-echo :DECODE_FILE>> "%NEW_UNPACKER_FILE%"
-echo     if exist "%%~1" exit /b>> "%NEW_UNPACKER_FILE%"
-echo     if not exist "%%~dp1" md "%%~dp1" 2^>nul>> "%NEW_UNPACKER_FILE%"
-echo     echo [UNPACK] Восстановление файла: %%~1>> "%NEW_UNPACKER_FILE%"
-echo     powershell -Command "$ext = '%%~1'; $content = Get-Content '%%~f0'; $start = $false; $b64 = ''; foreach($line in $content){ if($line -match 'BEGIN_B64_ ' + [Regex]::Escape($ext)){ $start = $true; continue }; if($line -match 'END_B64_ ' + [Regex]::Escape($ext)){ $start = $false; break }; if($start){ $b64 += $line.Trim() } }; if($b64){ [IO.File]::WriteAllBytes($ext, [Convert]::FromBase64String($b64)) }">> "%NEW_UNPACKER_FILE%"
-echo exit /b>> "%NEW_UNPACKER_FILE%"
-
-:: === 4. Генерируем Base64 блоки ===
+:: === 3. МНОГОПОТОЧНАЯ ГЕНЕРАЦИЯ BASE64 ===
 echo.
-echo [PACKER] Генерация Base64 блоков...
+echo [PACKER] Запуск потоков кодирования (%IDX% файлов)...
 
-echo.>> "%B64_BLOCK_FILE%"
-echo :: =========================================================>> "%B64_BLOCK_FILE%"
-echo ::  СЕКЦИЯ ДЛЯ BASE64 КОДА>> "%B64_BLOCK_FILE%"
-echo :: =========================================================>> "%B64_BLOCK_FILE%"
-
-for %%F in (%COMMON_FILES%) do (
-    set "CURRENT_FILE=%%~F"
+set "ACTIVE_TASKS=0"
+for /L %%i in (1,1,%IDX%) do (
+    set "CURRENT_FILE=!FILE_%%i!"
+    
     if exist "!CURRENT_FILE!" (
-        rem Кодируем файл
-        echo   Packing '!CURRENT_FILE!'...
-        certutil -f -encode "!CURRENT_FILE!" "%CERTUTIL_OUT%" > nul
-        echo.>> "%B64_BLOCK_FILE%"
-        echo :: BEGIN_B64_ !CURRENT_FILE!>> "%B64_BLOCK_FILE%"
-        rem Берем тело Base64
-        for /f "tokens=*" %%L in ('findstr /v /c:"-----" "%CERTUTIL_OUT%"') do (
-            echo %%L>> "%B64_BLOCK_FILE%"
-        )
-        echo :: END_B64_ !CURRENT_FILE!>> "%B64_BLOCK_FILE%"
+        rem Используем тройные кавычки для cmd /c, чтобы правильно передать путь к скрипту с пробелами
+        start "" /b cmd /c "call "%~f0" :WORKER "!CURRENT_FILE!" "%%i" "!FULL_TEMP_DIR!""
+        set /a ACTIVE_TASKS+=1
     ) else (
-        echo   [WARNING] Файл '!CURRENT_FILE!' не найден, пропуск.
+        echo   [SKIP] Файл '!CURRENT_FILE!' не найден.
+        rem Создаем заглушку
+        echo. > "%FULL_TEMP_DIR%\%%i.ready"
     )
 )
 
-:: === 5. Сборка и Zip ===
+echo [PACKER] Ожидание завершения потоков...
+
+:WAIT_LOOP
+rem Проверяем количество готовых файлов (.ready)
+set "DONE_COUNT=0"
+for %%A in ("%FULL_TEMP_DIR%\*.ready") do set /a DONE_COUNT+=1
+
+rem Визуализация
+<nul set /p "=Progress: !DONE_COUNT! / !IDX!   " >con
+<nul set /p "=                          " >con
+
+if !DONE_COUNT! LSS !IDX! (
+    timeout /t 1 >nul
+    goto :WAIT_LOOP
+)
 echo.
-echo [PACKER] Сборка финального файла _unpacker.bat...
-type "%B64_BLOCK_FILE%" >> "%NEW_UNPACKER_FILE%"
+echo [PACKER] Все потоки завершены. Сборка...
+
+:: === 4. Сборка финального файла ===
+for /L %%i in (1,1,%IDX%) do (
+    if exist "%FULL_TEMP_DIR%\%%i.chunk" (
+        type "%FULL_TEMP_DIR%\%%i.chunk" >> "%NEW_UNPACKER_FILE%"
+    )
+)
+
 move /Y "%NEW_UNPACKER_FILE%" "_unpacker.bat" > nul
 
-:: === 6. Очистка ===
-if exist "%B64_BLOCK_FILE%" del "%B64_BLOCK_FILE%"
-if exist "%CERTUTIL_OUT%" del "%CERTUTIL_OUT%"
+:: === 5. Очистка ===
+rd /s /q "%FULL_TEMP_DIR%"
 
-:: === 7. Создание ZIP архива ===
+:: === 6. Создание ZIP архива ===
 echo.
 echo [PACKER] Создание резервной копии в ZIP...
 :: Получаем дату через PowerShell (формат ДД.ММ.ГГГГ_ЧЧ-ММ)
@@ -177,8 +190,53 @@ echo.
 echo ========================================
 echo  Файл обновлен: _unpacker.bat
 echo  Архив создан:  !ZIP_NAME!
-echo  ГОТОВО (v1.9)
-echo  Scripts, Profiles и FirmwareOutput защищены.
+echo  ГОТОВО (v2.1 Fixed)
 echo ========================================
 echo.
 pause
+exit /b
+
+:: =========================================================
+::  ФУНКЦИИ И РАБОЧИЕ ПОТОКИ
+:: =========================================================
+
+:ADD_FILE
+set /a IDX+=1
+set "FILE_%IDX%=%~1"
+exit /b
+
+:WORKER
+rem %2 = Имя файла
+rem %3 = Индекс (ID)
+rem %4 = Temp папка (Абсолютный путь)
+set "W_FILE=%~2"
+set "W_ID=%~3"
+set "W_DIR=%~4"
+set "W_TMP=%W_DIR%\%W_ID%.tmp"
+set "W_OUT=%W_DIR%\%W_ID%.chunk"
+set "W_RDY=%W_DIR%\%W_ID%.ready"
+
+rem Кодируем certutil (ошибки в nul, чтобы не спамить в консоль)
+certutil -f -encode "%W_FILE%" "%W_TMP%" >nul 2>&1
+
+rem Если certutil не создал файл (например, файл занят или 0 байт), создаем пустой чанк
+if not exist "%W_TMP%" (
+    echo :: ERROR_PACKING_FILE: %W_FILE% > "%W_OUT%"
+    echo done > "%W_RDY%"
+    exit
+)
+
+rem Формируем блок
+(
+    echo.
+    echo :: BEGIN_B64_ %W_FILE%
+    findstr /v /c:"-----" "%W_TMP%"
+    echo :: END_B64_ %W_FILE%
+) > "%W_OUT%"
+
+rem Удаляем временный файл certutil
+del /q "%W_TMP%"
+
+rem Создаем файл-флаг готовности
+echo done > "%W_RDY%"
+exit
