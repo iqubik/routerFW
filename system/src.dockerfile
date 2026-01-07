@@ -1,4 +1,4 @@
-#file: srcBuilder/src.dockerfile v1.1
+#file: system/src.dockerfile v1.1
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \    
@@ -11,5 +11,5 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -m -u 1000 -s /bin/bash build
 WORKDIR /home/build/openwrt
 RUN mkdir -p dl && chown -R build:build /home/build/openwrt
-COPY --chown=build:build openssl.cnf /home/build/openssl.cnf
+COPY --chown=build:build system/openssl.cnf /home/build/openssl.cnf
 ENV OPENSSL_CONF=/home/build/openssl.cnf

@@ -1,9 +1,9 @@
-# file: srcBuilder\docker-compose-src.yaml v2.3
+# file: system/docker-compose-src.yaml v2.31
 services:
   builder-src-openwrt:
     build:
-      context: .
-      dockerfile: src.dockerfile
+      context: ..
+      dockerfile: system/src.dockerfile
     user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
@@ -12,10 +12,10 @@ services:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - src-ccache:/ccache
-      - ./profiles:/profiles
-      - ./src_packages:/input_packages
-      - ${HOST_FILES_DIR}:/overlay_files
-      - ${HOST_OUTPUT_DIR}:/output
+      - ../profiles:/profiles
+      - ../src_packages:/input_packages
+      - ../${HOST_FILES_DIR}:/overlay_files
+      - ../${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
 
     command: &src_build_script |
@@ -408,19 +408,20 @@ services:
 
   builder-src-oldwrt:
     build:
-      context: .
-      dockerfile: src.dockerfile.legacy
+      context: ..
+      dockerfile: system/src.dockerfile.legacy
     user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
+      - CCACHE_DIR=/ccache
     volumes:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - src-ccache:/ccache
-      - ./profiles:/profiles
-      - ./src_packages:/input_packages
-      - ${HOST_FILES_DIR}:/overlay_files
-      - ${HOST_OUTPUT_DIR}:/output
+      - ../profiles:/profiles
+      - ../src_packages:/input_packages
+      - ../${HOST_FILES_DIR}:/overlay_files
+      - ../${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
     command: *src_build_script
 
