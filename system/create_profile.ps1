@@ -1,6 +1,7 @@
 ﻿<#
 .SYNOPSIS
     OpenWrt/ImmortalWrt Universal Profile Creator.
+    file: system\create_profile.ps1
 
 .DESCRIPTION
     Скрипт-мастер (Wizard) для создания конфигурационных файлов профилей сборки.

@@ -1,16 +1,18 @@
-# file: docker-compose.yaml V1.41
+# file: system\docker-compose.yaml V1.41
 services:
   builder-openwrt:
-    build: .
+    build:
+      context: ..
+      dockerfile: system/dockerfile
     environment:
       - CONF_FILE=${SELECTED_CONF}
     volumes:
       - imagebuilder-cache:/cache
       - ipk-cache:/builder_workspace/dl
-      - ./custom_packages:/input_packages
-      - ${HOST_FILES_DIR}:/overlay_files
-      - ${HOST_OUTPUT_DIR}:/output
-      - ./profiles:/profiles
+      - ../custom_packages:/input_packages
+      - ../${HOST_FILES_DIR}:/overlay_files
+      - ../${HOST_OUTPUT_DIR}:/output
+      - ../profiles:/profiles
       - ./openssl.cnf:/openssl.cnf
     command: &build_script |
       /bin/bash -c "
@@ -215,17 +217,17 @@ services:
 
   builder-oldwrt:
     build:
-      context: .
-      dockerfile: dockerfile.841n
+      context: ..
+      dockerfile: system/dockerfile.841n
     environment:
       - CONF_FILE=${SELECTED_CONF}
     volumes:
       - imagebuilder-cache:/cache
       - ipk-cache:/builder_workspace/dl
-      - ./custom_packages:/input_packages
-      - ${HOST_FILES_DIR}:/overlay_files
-      - ${HOST_OUTPUT_DIR}:/output
-      - ./profiles:/profiles
+      - ../custom_packages:/input_packages
+      - ../${HOST_FILES_DIR}:/overlay_files
+      - ../${HOST_OUTPUT_DIR}:/output
+      - ../profiles:/profiles
       - ./openssl.cnf:/openssl.cnf
     command: *build_script
 

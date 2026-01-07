@@ -1,4 +1,4 @@
-#file: srcBuilder/src.dockerfile v1.1
+#file: system/src.dockerfile v1.1
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \    

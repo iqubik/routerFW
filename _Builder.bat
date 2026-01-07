@@ -364,12 +364,12 @@ goto REL_SINGLE_SRC
 :REL_SINGLE_IMG
 set "PROJ_NAME=build_%P_ID%"
 :: Используем !PROJ_NAME! так как enabledelayedexpansion включено
-docker-compose -p !PROJ_NAME! down >nul 2>&1
+docker-compose -f system/docker-compose.yaml -p !PROJ_NAME! down >nul 2>&1
 exit /b
 
 :REL_SINGLE_SRC
 set "PROJ_NAME=srcbuild_%P_ID%"
-docker-compose -f docker-compose-src.yaml -p !PROJ_NAME! down >nul 2>&1
+docker-compose -f system/docker-compose-src.yaml -p !PROJ_NAME! down >nul 2>&1
 exit /b
 
 :: --- SOURCE ACTIONS ---
@@ -390,7 +390,7 @@ set "HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/%TARGET_PROFILE_ID%"
 set "PROJ_NAME=srcbuild_%TARGET_PROFILE_ID%"
 
 :: Запускаем (добавляем CCACHE_DIR=dummy на всякий случай, если он не задан в yaml по умолчанию)
-docker-compose -f docker-compose-src.yaml -p %PROJ_NAME% run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found'; fi"
+docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found'; fi"
 pause
 goto CLEAN_MENU
 
@@ -424,7 +424,7 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "SELECTED_CONF=dummy"
     set "HOST_FILES_DIR=./custom_files" 
     set "HOST_OUTPUT_DIR=./firmware_output"
-    docker-compose -f docker-compose-src.yaml -p !PROJ_NAME! down -v >nul 2>&1
+    docker-compose -f system/docker-compose-src.yaml -p !PROJ_NAME! down -v >nul 2>&1
 ) else (
     :: Сначала убиваем контейнеры
     call :HELPER_RELEASE_LOCKS "ALL"
@@ -463,7 +463,7 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "SELECTED_CONF=dummy"
     set "HOST_FILES_DIR=./custom_files"
     set "HOST_OUTPUT_DIR=./firmware_output"
-    docker-compose -p !PROJ_NAME! down -v >nul 2>&1
+    docker-compose -f system/docker-compose.yaml -p !PROJ_NAME! down -v >nul 2>&1
 ) else (
     call :HELPER_RELEASE_LOCKS "ALL"
 )
@@ -480,8 +480,8 @@ echo ==========================================
 echo  ЗАПУСК МАСТЕРА СОЗДАНИЯ ПРОФИЛЯ
 echo ==========================================
 echo.
-if exist "create_profile.ps1" (
-    powershell -ExecutionPolicy Bypass -File "create_profile.ps1"
+if exist "system/create_profile.ps1" (
+    powershell -ExecutionPolicy Bypass -File "system/create_profile.ps1"
     echo.
     echo Мастер завершил работу.
     pause
@@ -677,7 +677,7 @@ echo [INFO] Запуск интерактивного Menuconfig...
 echo.
 
 :: Запуск
-docker-compose -f docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
+docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
 
 if exist "%RUNNER_SCRIPT%" del "%RUNNER_SCRIPT%"
 
@@ -714,7 +714,7 @@ if "%TARGET_VAL%"=="" (
     exit /b
 )
 
-:: 2. ПРОВЕРКА ВЕРСИИ
+:: 2. ПРОВЕРКА ВЕРСИИ (Legacy)
 echo "!TARGET_VAL!" | findstr /C:"/19." >nul && set IS_LEGACY=1
 echo "!TARGET_VAL!" | findstr /C:"/18." >nul && set IS_LEGACY=1
 echo "!TARGET_VAL!" | findstr /C:"/17." >nul && set IS_LEGACY=1
@@ -726,28 +726,24 @@ if "%BUILD_MODE%"=="IMAGE" (
     :: --- IMAGE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/imagebuilder/%PROFILE_ID%"
     set "PROJ_NAME=build_%PROFILE_ID%"
-    set "COMPOSE_ARG="
-    :: Назначаем заголовок окна для Image режима
-    set "WINDOW_TITLE=I: %PROFILE_ID%"
     
-    if DEFINED IS_LEGACY (
-        set "SERVICE_NAME=builder-oldwrt"
-    ) else (
-        set "SERVICE_NAME=builder-openwrt"
-    )
+    :: БЫЛО: set "COMPOSE_ARG=" (Docker искал файл в корне)
+    :: СТАЛО: Указываем путь к файлу в папке system
+    set "COMPOSE_ARG=-f system/docker-compose.yaml"
+    
+    set "WINDOW_TITLE=I: %PROFILE_ID%"
+    if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-oldwrt") else (set "SERVICE_NAME=builder-openwrt")
 ) else (
     :: --- SOURCE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
     set "PROJ_NAME=srcbuild_%PROFILE_ID%"
-    set "COMPOSE_ARG=-f docker-compose-src.yaml"
-    :: Назначаем заголовок окна для Source режима
-    set "WINDOW_TITLE=S: %PROFILE_ID%"
     
-    if DEFINED IS_LEGACY (
-        set "SERVICE_NAME=builder-src-oldwrt"
-    ) else (
-        set "SERVICE_NAME=builder-src-openwrt"
-    )
+    :: БЫЛО: set "COMPOSE_ARG=-f docker-compose-src.yaml"
+    :: СТАЛО: Добавляем system/ перед именем файла
+    set "COMPOSE_ARG=-f system/docker-compose-src.yaml"
+    
+    set "WINDOW_TITLE=S: %PROFILE_ID%"
+    if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-src-oldwrt") else (set "SERVICE_NAME=builder-src-openwrt")
 )
 
 :: Создаем папку физически

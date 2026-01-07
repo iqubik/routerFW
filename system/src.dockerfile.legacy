@@ -1,4 +1,4 @@
-# file: srcBuilder/src.dockerfile.legacy v1.1
+# file: system\src.dockerfile.legacy v1.1
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
