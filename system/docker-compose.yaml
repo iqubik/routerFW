@@ -218,7 +218,7 @@ services:
   builder-oldwrt:
     build:
       context: ..
-      dockerfile: system/dockerfile.841n
+      dockerfile: system/dockerfile.legacy
     environment:
       - CONF_FILE=${SELECTED_CONF}
     volumes:

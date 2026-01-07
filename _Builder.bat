@@ -68,7 +68,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.57 https://github.com/iqubik/routerFW
+echo  OpenWrt FW Builder v3.6 https://github.com/iqubik/routerFW
 echo  Текущий режим: [%MODE_TITLE%]
 echo =================================================================
 echo.
@@ -119,7 +119,7 @@ if %num_choice% lss 1 goto INVALID
 :: === ОДИНОЧНАЯ СБОРКА ===
 set "SELECTED_CONF=!profile[%choice%]!"
 call :BUILD_ROUTINE "%SELECTED_CONF%"
-echo Сборка завершена.
+echo Сборка запущена...
 pause
 goto MENU
 
@@ -700,7 +700,6 @@ echo ----------------------------------------------------
 echo [PROCESSING] Профиль: %CONF_FILE%
 echo [MODE]       %BUILD_MODE%
 
-:: Внутри процедуры одиночный findstr работает стабильно
 :: 1. ИЗВЛЕЧЕНИЕ ПЕРЕМЕННОЙ
 for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "%TARGET_VAR%"`) do (
     set "VAL=%%a"
@@ -726,38 +725,31 @@ if "%BUILD_MODE%"=="IMAGE" (
     :: --- IMAGE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/imagebuilder/%PROFILE_ID%"
     set "PROJ_NAME=build_%PROFILE_ID%"
-    
-    :: БЫЛО: set "COMPOSE_ARG=" (Docker искал файл в корне)
     :: СТАЛО: Указываем путь к файлу в папке system
     set "COMPOSE_ARG=-f system/docker-compose.yaml"
-    
     set "WINDOW_TITLE=I: %PROFILE_ID%"
     if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-oldwrt") else (set "SERVICE_NAME=builder-openwrt")
 ) else (
     :: --- SOURCE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
     set "PROJ_NAME=srcbuild_%PROFILE_ID%"
-    
-    :: БЫЛО: set "COMPOSE_ARG=-f docker-compose-src.yaml"
     :: СТАЛО: Добавляем system/ перед именем файла
     set "COMPOSE_ARG=-f system/docker-compose-src.yaml"
-    
     set "WINDOW_TITLE=S: %PROFILE_ID%"
     if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-src-oldwrt") else (set "SERVICE_NAME=builder-src-openwrt")
 )
 
-:: Создаем папку физически
-set "WIN_OUT_PATH=%REL_OUT_PATH:./=%"
-set "WIN_OUT_PATH=%WIN_OUT_PATH:/=\%"
-if not exist "%WIN_OUT_PATH%" mkdir "%WIN_OUT_PATH%"
+:: Создаем папку (используем прямой путь, mkdir в Windows понимает слэши /)
+if not exist "%REL_OUT_PATH%" mkdir "%REL_OUT_PATH%"
 
 echo [LAUNCH] Запуск: %PROFILE_ID%
 echo [INFO]   Target: !TARGET_VAL!
 echo [INFO]   Service: %SERVICE_NAME%
 
-:: Запуск Docker
-:: Мы подставляем переменную "%WINDOW_TITLE%" в первые кавычки
-START "%WINDOW_TITLE%" /D "%PROJECT_DIR%" cmd /c "set SELECTED_CONF=%CONF_FILE%&& set HOST_FILES_DIR=./custom_files/%PROFILE_ID%&& set HOST_OUTPUT_DIR=%REL_OUT_PATH%&& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
+:: 4. ЗАПУСК (Удален проблемный /D "%PROJECT_DIR%")
+:: Мы уже находимся в корневой папке, поэтому запуск будет идти из нее.
+:: Переменные окружения обернуты в кавычки для безопасности.
+START "%WINDOW_TITLE%" cmd /c "set "SELECTED_CONF=%CONF_FILE%" && set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" && set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" && docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
 
 exit /b
 

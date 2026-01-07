@@ -1,4 +1,4 @@
-# file system/dockerfile.841n v1
+# file system/dockerfile.legacy v1
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
@@ -6,5 +6,5 @@ RUN apt-get update && apt-get install -y \
 	&& update-ca-certificates \
 	&& ln -sf /usr/bin/python2.7 /usr/bin/python \
 	&& rm -rf /var/lib/apt/lists/*
-COPY openssl.cnf /etc/ssl/openssl.cnf
+COPY system/openssl.cnf /etc/ssl/openssl.cnf
 WORKDIR /builder_workspace

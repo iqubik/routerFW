@@ -21,8 +21,10 @@ $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # --- ИНИЦИАЛИЗАЦИЯ ОКРУЖЕНИЯ ---
+$ProfilesDir = Join-Path (Split-Path -Parent $PSScriptRoot) "profiles" # Это корень/profiles
+
 # Создаем рабочую папку для профилей, если её нет
-if (-not (Test-Path "profiles")) { New-Item -ItemType Directory -Name "profiles" | Out-Null }
+if (-not (Test-Path $ProfilesDir)) { New-Item -ItemType Directory -Path $ProfilesDir | Out-Null }
 
 # --- ХРАНИЛИЩЕ СОСТОЯНИЯ (GLOBAL STATE) ---
 # Позволяет реализовать логику "Назад" без потери контекста.
@@ -346,7 +348,7 @@ while ($true) {
                     }
 
                     # Проверка на существование
-                    if (Test-Path "profiles\$profileName.conf") {
+                    if (Test-Path (Join-Path $ProfilesDir "$profileName.conf")) {
                         Write-Host " [!] Файл '$profileName.conf' уже существует!" -ForegroundColor Yellow
                         $ovr = Read-Host " Перезаписать? (y/n) [n]"
                         if ($ovr.Trim().ToLower() -ne 'y') { continue }
@@ -355,8 +357,8 @@ while ($true) {
                 } while ($true)
 
                 # 4. Сохранение
-                # ---------------------------------------------------------
-                $confPath = "profiles\$profileName.conf"
+                # ---------------------------------------------------------                
+                $confPath = Join-Path $ProfilesDir "$profileName.conf"
                 $gitBranch = if ($GlobalState.Release -eq "snapshots") { "master" } else { "v$($GlobalState.Release)" }
                 
                 # Твой расширенный шаблон контента
