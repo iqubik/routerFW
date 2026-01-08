@@ -1,4 +1,4 @@
-# file: system/docker-compose-src.yaml v2.31
+# file: system/docker-compose-src.yaml v2.4
 services:
   builder-src-openwrt:
     build:
@@ -12,8 +12,8 @@ services:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - src-ccache:/ccache
-      - ../profiles:/profiles
-      - ../src_packages:/input_packages
+      - ../profiles:/profiles      
+      - ../${HOST_PKGS_DIR}:/input_packages
       - ../${HOST_FILES_DIR}:/overlay_files
       - ../${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
@@ -423,7 +423,7 @@ services:
       - src-dl-cache:/home/build/openwrt/dl
       - src-ccache:/ccache
       - ../profiles:/profiles
-      - ../src_packages:/input_packages
+      - ../${HOST_PKGS_DIR}:/input_packages
       - ../${HOST_FILES_DIR}:/overlay_files
       - ../${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf

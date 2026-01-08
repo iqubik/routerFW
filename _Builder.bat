@@ -1,7 +1,22 @@
 @echo off
+rem file: _Builder.bat
 setlocal enabledelayedexpansion
 cls
 chcp 65001 >nul
+:: Настройка ANSI цветов
+for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+
+set "C_KEY=%ESC%[93m"
+:: Bright Yellow (Ярко-желтый): Для клавиш [A], [W] и важных акцентов
+
+set "C_LBL=%ESC%[36m"
+:: Cyan (Бирюзовый): Для меток, заголовков и ссылок
+
+set "C_VAL=%ESC%[92m"
+:: Bright Green (Ярко-зеленый): Для статусов "ОК", путей и активных значений
+
+set "C_RST=%ESC%[0m"
+:: Reset (Сброс): Возврат к стандартному цвету терминала
 
 :: === КОНФИГУРАЦИЯ ===
 :: Режим по умолчанию: IMAGE
@@ -68,39 +83,38 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.7 https://github.com/iqubik/routerFW
-echo  Текущий режим: [%MODE_TITLE%]
+echo  OpenWrt FW Builder v3.8 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  Текущий режим: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
-echo Профили сборки:
-echo.
 
+:: === ЦИКЛ СКАНИРОВАНИЯ ===
+echo %C_LBL%Профили сборки:%C_RST%
+echo.
 :: === ЦИКЛ СКАНИРОВАНИЯ ===
 for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
-    :: Создаем папку и права (Race condition исключен последовательным запуском)
+    :: Авто-создание структуры папок для профиля
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
+    if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
+    if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
+    
     call :CREATE_PERMS_SCRIPT "!p_id!"
-    echo    [!count!] %%~nxf
+    echo    %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% %%~nxf
 )
 
 echo.
-if "%BUILD_MODE%"=="IMAGE" (
-    echo    [A] Собрать ВСЕ ^(Параллельно^)
-)
-echo    [M] Переключить режим на %OPPOSITE_MODE%
-echo    [C] CLEAN / MAINTENANCE (Очистка кэша)
+echo    %C_LBL%[%C_KEY%A%C_LBL%] Собрать ВСЕ%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] Переключить на %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%0%C_LBL%] Выход%C_RST%
+echo    %C_LBL%[%C_KEY%C%C_LBL%] Обслуживание%C_RST%     %C_LBL%[%C_KEY%W%C_LBL%] Мастер профилей%C_RST%
+
 if "%BUILD_MODE%"=="SOURCE" (
-    echo    [K] MENUCONFIG ^(Настройка ядра/пакетов^)
-    echo    [I] IMPORT IPK ^(Преобразовать IPK из custom_packages в исходники^)
+    echo    %C_LBL%[%C_KEY%K%C_LBL%] Menuconfig%C_RST%       %C_LBL%[%C_KEY%I%C_LBL%] Импорт IPK%C_RST%
 )
-echo    [W] Profile Wizard (Создать профиль)
-echo    [0] Выход
 echo.
 set "choice="
-set /p choice="Ваш выбор: "
+set /p choice=%C_LBL%Ваш выбор: %C_RST%
 
 :: Если нажали Enter (пусто), просто обновляем меню
 if "%choice%"=="" goto MENU
@@ -155,11 +169,43 @@ goto MENU
 :: IMPORT IPK SECTION
 :IMPORT_IPK
 cls
+echo %C_LBL%==========================================================%C_RST%
+echo  ИМПОРТ ПАКЕТОВ (IPK) ДЛЯ ПРОФИЛЯ
+echo %C_LBL%==========================================================%C_RST%
+echo.
+echo  Выберите профиль для импорта пакетов:
+echo.
+for /L %%i in (1,1,%count%) do (
+    echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !profile[%%i]!
+)
+echo.
+echo    %C_LBL%[%C_KEY%0%C_LBL%]%C_RST% Назад
+echo.
+set "i_choice="
+set /p i_choice=%C_LBL%Ваш выбор: %C_RST%
+
+if "%i_choice%"=="0" goto MENU
+set /a n_i=%i_choice% 2>nul
+if %n_i% gtr %count% goto INVALID
+if %n_i% lss 1 goto INVALID
+
+set "SEL_CONF=!profile[%n_i%]!"
+set "SEL_ID=!profile[%n_i%]:.conf=!"
+
+:: Извлекаем SRC_TARGET для валидации
+set "P_TARGET="
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "SRC_TARGET"`) do (
+    set "VAL=%%a"
+    set "VAL=!VAL:"=!"
+    for /f "tokens=* delims= " %%b in ("!VAL!") do set "P_TARGET=%%b"
+)
+
+echo.
 if exist "system/import_ipk.ps1" (
-    powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1"
+    powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1" -ProfileID "!SEL_ID!" -TargetArch "!P_TARGET!"
     pause
 ) else (
-    echo [ERROR] system/import_ipk.ps1 не найден!
+    echo %C_KEY%[ERROR]%C_RST% system/import_ipk.ps1 не найден!
     pause
 )
 goto MENU
@@ -573,6 +619,7 @@ echo "!TARGET_VAL!" | findstr /C:"19.07" >nul && set IS_LEGACY=1
 set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
 set "PROJ_NAME=srcbuild_%PROFILE_ID%"
 set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%"
+set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%"
 set "HOST_OUTPUT_DIR=%REL_OUT_PATH%"
 set "WIN_OUT_PATH=%REL_OUT_PATH:./=%"
 set "WIN_OUT_PATH=%WIN_OUT_PATH:/=\%"
@@ -705,8 +752,8 @@ echo echo [DONE] Saved to manual_config >> "%RUNNER_SCRIPT%"
 echo [INFO] Запуск интерактивного Menuconfig...
 echo.
 
-:: Запуск
-docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
+:: Запуск (добавляем явное указание переменной перед вызовом для надежности)
+set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
 
 if exist "%RUNNER_SCRIPT%" del "%RUNNER_SCRIPT%"
 
@@ -778,7 +825,7 @@ echo [INFO]   Service: %SERVICE_NAME%
 :: 4. ЗАПУСК (Удален проблемный /D "%PROJECT_DIR%")
 :: Мы уже находимся в корневой папке, поэтому запуск будет идти из нее.
 :: Переменные окружения обернуты в кавычки для безопасности.
-START "%WINDOW_TITLE%" cmd /c "set "SELECTED_CONF=%CONF_FILE%" && set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" && set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" && docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
+START "%WINDOW_TITLE%" cmd /c "set "SELECTED_CONF=%CONF_FILE%" && set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" && set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" && docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
 
 exit /b
 
