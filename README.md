@@ -161,6 +161,8 @@ SRC_CORES="safe"
 5.  **Результат:** Скрипт перехватит конфиг и сохранит его как **мастер-файл** в папку:
     `firmware_output/sourcebuilder/<имя_профиля>/manual_config`
 
+<img width="1154" height="548" alt="{055C8650-7708-43DD-A94A-ABD3DE48A368}" src="https://github.com/user-attachments/assets/d09999ad-cf46-4ab4-bc3c-01a190d860a1" />
+
 ### ⚠️ Приоритет конфигурации (Manual Config)
 
 Система сборки теперь автоматически определяет стратегию конфигурации:
