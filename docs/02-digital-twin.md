@@ -59,7 +59,7 @@
 1.  Подключитесь к вашему роутеру по SSH.
 2.  Выполните и скопируйте результат этой команды. Она автоматически сгенерирует чистый список пакетов, которые вы установили дополнительно:
     ```bash
-    echo "------------------------------------------------------" && opkg list-installed | awk '{print $1}' | grep -vE "^(base-files|busybox|ca-bundle|cgi-common|dropbear|firewall4|fstools|fwtool|getrandom|iwinfo|jshn|jsonfilter|kernel|kmod-.*|libc|libgcc|libiwinfo-lua|libjson-c|libjson-script|liblua|liblucihttp|liblucihttp-lua|libubox|libubus|libubus-lua|libuci-lua|logd|lua|luci|luci-app-firewall|luci-base|luci-lib-base|luci-lib-ip|luci-lib-jsonc|luci-lib-nixio|luci-mod-admin-full|luci-proto-ipv6|luci-proto-ppp|luci-theme-bootstrap|mtd|netifd|odhcp6c|odhcpd-ipv6only|openwrt-keyring|ppp|procd|rpcd|rpcd-mod-file|rpcd-mod-iwinfo|rpcd-mod-luci|rpcd-mod-rrdns|uboot-envtools|ubus|ubusd|uci|uclient-fetch|uhttpd|uhttpd-mod-ubus|usign|wget-ssl|wpad-basic-wolfssl)$" | xargs && echo "------------------------------------------------------"
+wget -qO- https://raw.githubusercontent.com/iqubik/routerFW/main/scripts/show_pkgs.sh | sh
     ```
 3.  Сохраните этот список в переменную `COMMON_LIST=""` внутри профиля. Это второй из двух ключей к конфигурации вашей персональной сборки.
 
