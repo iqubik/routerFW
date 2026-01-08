@@ -74,7 +74,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 ) else (
     color 0D
     set "MODE_TITLE=SOURCE BUILDER (Полная компиляция)"
-    set "OPPOSITE_MODE=IMAGE"
+    set "OPPOSITE_MODE= IMAGE"
     set "TARGET_VAR=SRC_BRANCH"
 )
 
@@ -87,7 +87,6 @@ echo.
 :: === ЦИКЛ СКАНИРОВАНИЯ ===
 echo %C_LBL%Профили сборки:%C_RST%
 echo.
-:: === ЦИКЛ СКАНИРОВАНИЯ ===
 for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
@@ -102,11 +101,11 @@ for %%f in (profiles\*.conf) do (
 )
 
 echo.
-echo    %C_LBL%[%C_KEY%A%C_LBL%] Собрать ВСЕ%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] Переключить на %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%0%C_LBL%] Выход%C_RST%
-echo    %C_LBL%[%C_KEY%C%C_LBL%] Обслуживание%C_RST%     %C_LBL%[%C_KEY%W%C_LBL%] Мастер профилей%C_RST%
+echo    %C_LBL%[%C_KEY%A%C_LBL%] Собрать ВСЕ%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] Переключить на %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%E%C_LBL%] Редактор%C_RST%
+echo    %C_LBL%[%C_KEY%C%C_LBL%] Обслуживание%C_RST%     %C_LBL%[%C_KEY%W%C_LBL%] Мастер профилей%C_RST%          %C_LBL%[%C_KEY%0%C_LBL%] Выход%C_RST%
 
 if "%BUILD_MODE%"=="SOURCE" (
-    echo    %C_LBL%[%C_KEY%K%C_LBL%] Menuconfig%C_RST%       %C_LBL%[%C_KEY%I%C_LBL%] Импорт IPK%C_RST%
+    echo    %C_LBL%[%C_KEY%K%C_LBL%] %C_VAL%Menuconfig%C_RST%       %C_LBL%[%C_KEY%I%C_LBL%] %C_VAL%Импорт IPK%C_RST%
 )
 echo.
 set "choice="
@@ -118,6 +117,7 @@ if /i "%choice%"=="0" exit /b
 if /i "%choice%"=="R" goto MENU
 if /i "%choice%"=="M" goto SWITCH_MODE
 if /i "%choice%"=="W" goto WIZARD
+if /i "%choice%"=="E" goto EDIT_PROFILE
 if "%BUILD_MODE%"=="SOURCE" (
     if /i "%choice%"=="K" goto MENUCONFIG_SELECTION
     if /i "%choice%"=="I" goto IMPORT_IPK
@@ -135,6 +135,72 @@ set "SELECTED_CONF=!profile[%choice%]!"
 call :BUILD_ROUTINE "%SELECTED_CONF%"
 echo Сборка запущена...
 pause
+goto MENU
+
+:EDIT_PROFILE
+cls
+:: Используем зеленый цвет (%C_OK%) для заголовка
+echo %C_KEY%==========================================================%C_RST%
+echo  %C_VAL%МЕНЕДЖЕР РЕСУРСОВ И РЕДАКТОР ПРОФИЛЯ%C_RST%
+echo %C_KEY%==========================================================%C_RST%
+echo.
+echo  Выберите профиль для работы:
+echo.
+for /L %%i in (1,1,%count%) do (
+    echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !profile[%%i]!
+)
+echo.
+echo    %C_LBL%[%C_KEY%0%C_LBL%] Назад%C_RST%
+echo.
+set "e_choice="
+set /p e_choice=%C_OK%Ваш выбор: %C_RST%
+
+if "%e_choice%"=="0" goto MENU
+set /a n_e=%e_choice% 2>nul
+if %n_e% gtr %count% goto INVALID
+if %n_e% lss 1 goto INVALID
+
+set "SEL_CONF=!profile[%n_e%]!"
+set "SEL_ID=!profile[%n_e%]:.conf=!"
+
+:: --- БЛОК ОТЛАДКИ / СОСТОЯНИЯ (DEBUG INFO) ---
+echo.
+echo %C_OK%[АНАЛИЗ СОСТОЯНИЯ ПРОФИЛЯ: !SEL_ID!]%C_RST%
+echo ----------------------------------------------------------
+
+:: Проверка наличия папок для отладки
+set "S_FILES=%C_ERR%Отсутствует%C_RST%"
+set "S_PACKS=%C_ERR%Отсутствует%C_RST%"
+set "S_SRCS=%C_ERR%Отсутствует%C_RST%"
+
+if exist "custom_files\!SEL_ID!" set "S_FILES=%C_OK%Готов (files/)%C_RST%"
+if exist "custom_packages\!SEL_ID!" set "S_PACKS=%C_OK%Готов (ipk/)%C_RST%"
+if exist "src_packages\!SEL_ID!" set "S_SRCS=%C_OK%Готов (make/)%C_RST%"
+
+echo  - Конфигурация:  %C_VAL%profiles\!SEL_CONF!%C_RST%
+echo  - Overlay файлы: !S_FILES!
+echo  - Входящие IPK:  !S_PACKS!
+echo  - Исходники PKG: !S_SRCS!
+echo ----------------------------------------------------------
+echo.
+
+set "open_f="
+echo %C_OK%[ДЕЙСТВИЕ]%C_RST% Открыть файл %C_VAL%!SEL_CONF!%C_RST% в редакторе...
+set /p open_f=%C_LBL%Открыть также папки ресурсов в Проводнике? [%C_KEY%Y%C_LBL%/%C_KEY%N%C_LBL%]: %C_RST%
+
+:: 1. Открываем файл конфигурации (всегда)
+start notepad "profiles\!SEL_CONF!"
+
+:: 2. Открываем папки ресурсов (если Y)
+if /i "!open_f!"=="Y" (
+    echo %C_OK%[INFO]%C_RST% Запуск проводника...
+    if exist "custom_files\!SEL_ID!" start explorer "custom_files\!SEL_ID!"
+    if exist "custom_packages\!SEL_ID!" start explorer "custom_packages\!SEL_ID!"
+    if exist "src_packages\!SEL_ID!" start explorer "src_packages\!SEL_ID!"
+)
+
+echo %C_OK%Готово.%C_RST% Переход в меню...
+timeout /t 2 >nul
 goto MENU
 
 :BUILD_ALL
