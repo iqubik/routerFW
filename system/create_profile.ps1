@@ -59,7 +59,7 @@ function Show-Header {
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
     # --- ВИЗУАЛИЗАЦИЯ ИМЕНИ ФАЙЛА ---
-    Write-Host "  FIRMWARE BINARY STRUCTURE:" -ForegroundColor Gray
+    Write-Host "  СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:" -ForegroundColor Gray
     Write-Host "  " -NoNewline
 
     # Функция-помощник для покраски сегментов
