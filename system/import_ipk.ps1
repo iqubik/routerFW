@@ -61,7 +61,15 @@ foreach ($ipk in $ipkFiles) {
         if ($line -match "^Package: (.*)") { $pkgName = $matches[1].Trim() }
         if ($line -match "^Architecture: (.*)") { $pkgArch = $matches[1].Trim() }
         if ($line -match "^Depends: (.*)") { 
-            $depsList = ($line -split ":")[1].Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "libc" -and $_ -ne "" }
+            # 1. Разбиваем строку зависимостей
+            $depsRaw = ($line -split ":")[1].Trim() -replace ",", " "
+            $depsList = $depsRaw -split "\s+" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "libc" -and $_ -ne "" }            
+            # 2. ФИКС: Маппинг устаревших имен на новые (для OpenWrt 23.xx / 24.xx)
+            $depsList = $depsList | ForEach-Object {
+                if ($_ -eq "libnetfilter-queue1") { "libnetfilter-queue" }
+                elseif ($_ -eq "libnfnetlink0") { "libnfnetlink" }
+                else { $_ }
+            }
             if ($depsList) { $pkgDeps = "+" + ($depsList -join " +") }
         }
     }
@@ -131,6 +139,9 @@ PKG_VERSION:=binary
 PKG_RELEASE:=1
 
 include $(INCLUDE_DIR)/package.mk
+# Запрещаем системе сборки изменять готовые бинарники (решает ошибки Strip/Patchelf)
+STRIP:=:
+PATCHELF:=:
 
 define Package/$(PKG_NAME)
   SECTION:=utils

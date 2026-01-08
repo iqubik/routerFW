@@ -565,11 +565,11 @@ goto MENU
 if not "%BUILD_MODE%"=="SOURCE" goto MENU
 cls
 echo ==========================================================
-echo  MENUCONFIG INTERACTIVE
+echo  %C_KEY%MENUCONFIG INTERACTIVE%C_RST%
 echo ==========================================================
 echo.
-echo  Внимание: Menuconfig сработает, только если исходники уже
-echo  были скачаны (вы запускали сборку этого профиля ранее).
+echo  В результате работы MenuConfig будет создан %C_KEY%manual_config%C_RST%
+echo  в папке: %C_LBL%firmware_output\sourcebuilder\%C_VAL%[ИМЯ_ПРОФИЛЯ]%C_RST%
 echo.
 echo  Выберите профиль для настройки:
 echo.
