@@ -68,7 +68,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.6 https://github.com/iqubik/routerFW
+echo  OpenWrt FW Builder v3.7 https://github.com/iqubik/routerFW
 echo  Текущий режим: [%MODE_TITLE%]
 echo =================================================================
 echo.
@@ -91,7 +91,8 @@ echo    [A] Собрать ВСЕ (Параллельно)
 echo    [M] Переключить режим на %OPPOSITE_MODE%
 echo    [C] CLEAN / MAINTENANCE (Очистка кэша)
 if "%BUILD_MODE%"=="SOURCE" (
-    echo    [K] MENUCONFIG (Настройка ядра/пакетов)
+    echo    [K] MENUCONFIG ^(Настройка ядра/пакетов^)
+    echo    [I] IMPORT IPK ^(Преобразовать IPK из custom_packages в исходники^)
 )
 echo    [W] Profile Wizard (Создать профиль)
 echo    [0] Выход
@@ -107,6 +108,7 @@ if /i "%choice%"=="M" goto SWITCH_MODE
 if /i "%choice%"=="W" goto WIZARD
 if "%BUILD_MODE%"=="SOURCE" (
     if /i "%choice%"=="K" goto MENUCONFIG_SELECTION
+    if /i "%choice%"=="I" goto IMPORT_IPK
 )
 if /i "%choice%"=="C" goto CLEAN_MENU
 if /i "%choice%"=="A" goto BUILD_ALL
@@ -145,6 +147,21 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "BUILD_MODE=SOURCE"
 ) else (
     set "BUILD_MODE=IMAGE"
+)
+goto MENU
+
+:: IMPORT IPK SECTION
+:IMPORT_IPK
+cls
+echo ==========================================
+echo  IMPORTING CUSTOM IPK PACKAGES
+echo ==========================================
+if exist "system/import_ipk.ps1" (
+    powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1"
+    pause
+) else (
+    echo [ERROR] system/import_ipk.ps1 не найден!
+    pause
 )
 goto MENU
 
