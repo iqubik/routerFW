@@ -1,68 +1,62 @@
-﻿# Скрипт преобразования .ipk в "бинарные исходники" для OpenWrt
+﻿# Скрипт импорта IPK v2 (Binary Integrity Mode)
 $ipkDir = "custom_packages"
 $outDir = "src_packages"
 $tempDir = "system\.ipk_temp"
+$overwriteAll = $false
 
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host " IMPORTING CUSTOM IPK PACKAGES" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
-
-if (-not (Test-Path $ipkDir)) { 
-    Write-Host "[!] Папка $ipkDir не найдена." -ForegroundColor Yellow
-    exit 
-}
-
+if (-not (Test-Path $ipkDir)) { Write-Host "[!] Folder $ipkDir not found." -ForegroundColor Yellow; exit }
 $ipkFiles = Get-ChildItem -Path "$ipkDir\*.ipk"
-
-if ($ipkFiles.Count -eq 0) {
-    Write-Host "[!] В папке $ipkDir нет .ipk файлов." -ForegroundColor Yellow
-    exit
-}
-
+if ($ipkFiles.Count -eq 0) { Write-Host "[!] No .ipk files found." -ForegroundColor Yellow; exit }
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir | Out-Null }
 
 foreach ($ipk in $ipkFiles) {
-    Write-Host "`n[+] Обработка: $($ipk.Name)..." -ForegroundColor Cyan
+    Write-Host "`n[+] Processing: $($ipk.Name)..." -ForegroundColor Cyan
     
-    # 1. Очистка временной папки
-    if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
+    # 1. Распаковка метаданных
+    if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
     $null = New-Item -ItemType Directory -Path "$tempDir\unpack" -Force
-
     # 2. Распаковка IPK
     tar -xf "$ipkDir\$($ipk.Name)" -C "$tempDir\unpack"
-
     # 3. Распаковка control.tar.gz
     $null = New-Item -ItemType Directory -Path "$tempDir\control_data" -Force
     tar -xf "$tempDir\unpack\control.tar.gz" -C "$tempDir\control_data"
 
-    # 4. Парсинг control
-    $pkgName = ""
-    $pkgDeps = ""
+    # 2. Парсинг данных
+    $pkgName = ""; $pkgDeps = ""; $postinst = ""
     $controlContent = Get-Content "$tempDir\control_data\control"
     foreach($line in $controlContent) {
         if ($line -match "^Package: (.*)") { $pkgName = $matches[1].Trim() }
-        if ($line -match "^Depends: (.*)") { $pkgDeps = $matches[1].Trim() -replace ",", " " }
-    }
-    
-    if (-not $pkgName) {
-        Write-Host "    [!] Не удалось определить имя пакета. Пропуск." -ForegroundColor Red
-        continue
+        if ($line -match "^Depends: (.*)") { 
+            $depsList = ($line -split ":")[1].Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "libc" -and $_ -ne "" }
+            if ($depsList) { $pkgDeps = "+" + ($depsList -join " +") }
+        }
     }
 
-    Write-Host "    Пакет: $pkgName"
-    Write-Host "    Зависимости: $pkgDeps"
+    # Читаем postinst и экранируем символ $ для Makefile (превращаем $ в $$)
+    if (Test-Path "$tempDir\control_data\postinst") {
+        $postinst = Get-Content "$tempDir\control_data\postinst" -Raw
+        $postinst = $postinst -replace '\$', '$$$$'
+    }
 
-    # 5. Создание структуры
+    if (-not $pkgName) { continue }
+
     $targetPkgDir = "$outDir\$pkgName"
+    if (Test-Path $targetPkgDir) {
+        if (-not $overwriteAll) {
+            $choice = Read-Host "    Package '$pkgName' exists. Overwrite? [Y]es / [N]o / [A]ll"
+            if ($choice -eq 'A' -or $choice -eq 'a') { $overwriteAll = $true }
+            elseif ($choice -ne 'Y' -and $choice -ne 'y') { continue }
+        }
+    }
+
+    # 3. Подготовка структуры
     if (Test-Path $targetPkgDir) { Remove-Item -Recurse -Force $targetPkgDir }
-    $null = New-Item -ItemType Directory -Path "$targetPkgDir\files" -Force
+    $null = New-Item -ItemType Directory -Path $targetPkgDir -Force
 
-    # 6. Распаковка данных
-    tar -xf "$tempDir\unpack\data.tar.gz" -C "$targetPkgDir\files"
+    # ВАЖНО: Просто копируем сжатый архив data.tar.gz (сохраняем симлинки внутри него)
+    Copy-Item "$tempDir\unpack\data.tar.gz" -Destination "$targetPkgDir\data.tar.gz"
 
-    # 7. Генерируем Makefile через оператор форматирования (-f)
-    # Используем одинарные кавычки @' ... '@ - в них PS ничего не раскрывает.
-    # {0} и {1} - это заглушки для $pkgName и $pkgDeps
+    # 4. Генерация умного Makefile
     $template = @'
 include $(TOPDIR)/rules.mk
 
@@ -81,7 +75,7 @@ endef
 
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) ./files/* $(PKG_BUILD_DIR)/
+	cp ./data.tar.gz $(PKG_BUILD_DIR)/
 endef
 
 define Build/Compile
@@ -89,23 +83,36 @@ define Build/Compile
 endef
 
 define Package/$(PKG_NAME)/install
-	$(CP) $(PKG_BUILD_DIR)/* $(1)/
+	mkdir -p $(1)
+	# Распаковка внутри Linux сохраняет симлинки и структуру
+	tar -xzf $(PKG_BUILD_DIR)/data.tar.gz -C $(1)
+	
+	# Принудительная правка прав для скриптов и бинарников
+	[ -d $(1)/etc/init.d ] && chmod +x $(1)/etc/init.d/* || true
+	[ -d $(1)/usr/bin ] && chmod +x $(1)/usr/bin/* || true
+	[ -d $(1)/usr/sbin ] && chmod +x $(1)/usr/sbin/* || true
+	[ -d $(1)/lib/upgrade/keep.d ] && chmod 644 $(1)/lib/upgrade/keep.d/* || true
+endef
+
+define Package/$(PKG_NAME)/postinst
+#!/bin/sh
+# Проверка: если мы находимся в процессе сборки (INSTROOT), не запускаем сервисы
+if [ -z "$$IPKG_INSTROOT" ]; then
+{2}
+fi
+exit 0
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
 '@
 
-    # Заполняем шаблон данными
-    $makefileContent = $template -f $pkgName, $pkgDeps
-
     # Сохраняем файл с принудительными Unix-окончаниями строк (LF)
     # Это критично для сборки в Docker/Linux
+    $makefileContent = $template -f $pkgName, $pkgDeps, $postinst
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     $finalContent = $makefileContent -replace "`r`n", "`n"
     [System.IO.File]::WriteAllText("$targetPkgDir\Makefile", $finalContent, $utf8NoBom)
     
-    Write-Host "    [OK] Пакет создан в $targetPkgDir" -ForegroundColor Green
+    Write-Host "    [OK] Imported successfully." -ForegroundColor Green
 }
-
-if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
-Write-Host "`n[DONE] Все пакеты успешно импортированы в $outDir!" -ForegroundColor Green
+if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
