@@ -131,14 +131,14 @@ COMMON_LIST="luci uhttpd htop -wpad-basic wpad-mbedtls"
 
 # IMAGE BUILDER
 IMAGEBUILDER_URL="https://downloads.openwrt.org/..."
-PKGS="$COMMON_LIST"
+PKGS="$COMMON_LIST -luci"
 
 # SOURCE BUILDER
 SRC_REPO="https://github.com/openwrt/openwrt.git"
 SRC_BRANCH="v24.10.0"
 SRC_TARGET="ramips"
 SRC_SUBTARGET="mt7621"
-SRC_PACKAGES="$COMMON_LIST"
+SRC_PACKAGES="$COMMON_LIST -htop"
 # Кастомные репозитории (Ключ + URL)
 #CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
 #CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci"
