@@ -95,11 +95,15 @@ services:
       git checkout -f \"FETCH_HEAD\"
       git reset --hard \"FETCH_HEAD\"
 
-      # === SWITCH TO GITHUB MIRRORS ===      
+      # === SMART FEEDS MIRROR ===
       if [ -f feeds.conf.default ]; then
-          echo \"[FIX] Switching feeds to GitHub mirrors...\"
-          sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
-          sed -i 's|https://git.openwrt.org/project/|https://github.com/openwrt/|g' feeds.conf.default
+          if grep -q \"immortalwrt\" feeds.conf.default; then
+              echo \"[INFO] ImmortalWrt detected. Keeping original feeds for fork compatibility.\"
+          else
+              echo \"[FIX] Vanilla OpenWrt detected. Switching to GitHub mirrors for speed...\"
+              sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
+              sed -i 's|https://git.openwrt.org/project/|https://github.com/openwrt/|g' feeds.conf.default
+          fi
       fi
 
       # === 2. FEEDS ===

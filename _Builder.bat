@@ -87,7 +87,9 @@ for %%f in (profiles\*.conf) do (
 )
 
 echo.
-echo    [A] Собрать ВСЕ (Параллельно)
+if "%BUILD_MODE%"=="IMAGE" (
+    echo    [A] Собрать ВСЕ ^(Параллельно^)
+)
 echo    [M] Переключить режим на %OPPOSITE_MODE%
 echo    [C] CLEAN / MAINTENANCE (Очистка кэша)
 if "%BUILD_MODE%"=="SOURCE" (
@@ -153,9 +155,6 @@ goto MENU
 :: IMPORT IPK SECTION
 :IMPORT_IPK
 cls
-echo ==========================================
-echo  IMPORTING CUSTOM IPK PACKAGES
-echo ==========================================
 if exist "system/import_ipk.ps1" (
     powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1"
     pause

@@ -1,8 +1,12 @@
-﻿# Скрипт импорта IPK v2 (Binary Integrity Mode)
+﻿# Скрипт импорта IPK v2.1 (Architecture Visibility Mode)
 $ipkDir = "custom_packages"
 $outDir = "src_packages"
 $tempDir = "system\.ipk_temp"
 $overwriteAll = $false
+
+Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host " IMPORTING CUSTOM IPK PACKAGES v0.9" -ForegroundColor Cyan
+Write-Host "==========================================" -ForegroundColor Cyan
 
 if (-not (Test-Path $ipkDir)) { Write-Host "[!] Folder $ipkDir not found." -ForegroundColor Yellow; exit }
 $ipkFiles = Get-ChildItem -Path "$ipkDir\*.ipk"
@@ -22,37 +26,46 @@ foreach ($ipk in $ipkFiles) {
     tar -xf "$tempDir\unpack\control.tar.gz" -C "$tempDir\control_data"
 
     # 2. Парсинг данных
-    $pkgName = ""; $pkgDeps = ""; $postinst = ""
+    $pkgName = ""; $pkgDeps = ""; $pkgArch = ""; $postinst = ""
     $controlContent = Get-Content "$tempDir\control_data\control"
     foreach($line in $controlContent) {
         if ($line -match "^Package: (.*)") { $pkgName = $matches[1].Trim() }
+        if ($line -match "^Architecture: (.*)") { $pkgArch = $matches[1].Trim() }
         if ($line -match "^Depends: (.*)") { 
             $depsList = ($line -split ":")[1].Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "libc" -and $_ -ne "" }
             if ($depsList) { $pkgDeps = "+" + ($depsList -join " +") }
         }
     }
 
-    # Читаем postinst и экранируем символ $ для Makefile (превращаем $ в $$)
+    if (-not $pkgName) { Write-Host "    [!] Failed to parse Package name. Skipping." -ForegroundColor Red; continue }
+
+    # Вывод информации об архитектуре
+    if ($pkgArch -eq "all") {
+        Write-Host "    Package: $pkgName (Arch: all)" -ForegroundColor Green
+    } else {
+        Write-Host "    Package: $pkgName (Arch: $pkgArch)" -ForegroundColor Yellow
+    }
+
+    # Читаем postinst и экранируем символ $ для Makefile
     if (Test-Path "$tempDir\control_data\postinst") {
         $postinst = Get-Content "$tempDir\control_data\postinst" -Raw
         $postinst = $postinst -replace '\$', '$$$$'
     }
 
-    if (-not $pkgName) { continue }
-
+    # 3. Логика перезаписи
     $targetPkgDir = "$outDir\$pkgName"
     if (Test-Path $targetPkgDir) {
         if (-not $overwriteAll) {
-            $choice = Read-Host "    Package '$pkgName' exists. Overwrite? [Y]es / [N]o / [A]ll"
+            Write-Host "    [?] Package already exists." -ForegroundColor Gray
+            $choice = Read-Host "    Overwrite? [Y]es / [N]o / [A]ll"
             if ($choice -eq 'A' -or $choice -eq 'a') { $overwriteAll = $true }
             elseif ($choice -ne 'Y' -and $choice -ne 'y') { continue }
         }
     }
 
-    # 3. Подготовка структуры
+    # 4. Подготовка структуры и копирование
     if (Test-Path $targetPkgDir) { Remove-Item -Recurse -Force $targetPkgDir }
     $null = New-Item -ItemType Directory -Path $targetPkgDir -Force
-
     # ВАЖНО: Просто копируем сжатый архив data.tar.gz (сохраняем симлинки внутри него)
     Copy-Item "$tempDir\unpack\data.tar.gz" -Destination "$targetPkgDir\data.tar.gz"
 
@@ -113,6 +126,10 @@ $(eval $(call BuildPackage,$(PKG_NAME)))
     $finalContent = $makefileContent -replace "`r`n", "`n"
     [System.IO.File]::WriteAllText("$targetPkgDir\Makefile", $finalContent, $utf8NoBom)
     
-    Write-Host "    [OK] Imported successfully." -ForegroundColor Green
+    Write-Host "    [OK] Successfully imported." -ForegroundColor Green
 }
+
 if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
+Write-Host "`n[DONE] Подготовка IPK с интеграции в SourceBuild завершена." -ForegroundColor Red
+Write-Host "[WARN] Проверьте соответствие архитектуры (Arch: $pkgArch) пакетов вашему устройству перед запуском компиляции!" -ForegroundColor Red
+Write-Host "`n" -ForegroundColor Red
