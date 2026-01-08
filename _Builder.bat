@@ -5,16 +5,12 @@ cls
 chcp 65001 >nul
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
-
 set "C_KEY=%ESC%[93m"
 :: Bright Yellow (Ярко-желтый): Для клавиш [A], [W] и важных акцентов
-
 set "C_LBL=%ESC%[36m"
 :: Cyan (Бирюзовый): Для меток, заголовков и ссылок
-
 set "C_VAL=%ESC%[92m"
 :: Bright Green (Ярко-зеленый): Для статусов "ОК", путей и активных значений
-
 set "C_RST=%ESC%[0m"
 :: Reset (Сброс): Возврат к стандартному цвету терминала
 
