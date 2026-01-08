@@ -10,6 +10,7 @@ set "C_KEY=%ESC%[93m"
 set "C_LBL=%ESC%[36m"
 :: Cyan (Бирюзовый): Для меток, заголовков и ссылок
 set "C_VAL=%ESC%[92m"
+set "C_OK=%ESC%[92m"
 :: Bright Green (Ярко-зеленый): Для статусов "ОК", путей и активных значений
 set "C_RST=%ESC%[0m"
 :: Reset (Сброс): Возврат к стандартному цвету терминала
@@ -79,7 +80,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.8 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  OpenWrt FW Builder v3.81 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  Текущий режим: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
@@ -172,15 +173,21 @@ echo ----------------------------------------------------------
 set "S_FILES=%C_ERR%Отсутствует%C_RST%"
 set "S_PACKS=%C_ERR%Отсутствует%C_RST%"
 set "S_SRCS=%C_ERR%Отсутствует%C_RST%"
+set "S_OUT_S=%C_ERR%Пусто%C_RST%"
+set "S_OUT_I=%C_ERR%Пусто%C_RST%"
 
 if exist "custom_files\!SEL_ID!" set "S_FILES=%C_OK%Готов (files/)%C_RST%"
 if exist "custom_packages\!SEL_ID!" set "S_PACKS=%C_OK%Готов (ipk/)%C_RST%"
 if exist "src_packages\!SEL_ID!" set "S_SRCS=%C_OK%Готов (make/)%C_RST%"
+if exist "firmware_output\sourcebuilder\!SEL_ID!" set "S_OUT_S=%C_OK%Найдено (source/)%C_RST%"
+if exist "firmware_output\imagebuilder\!SEL_ID!" set "S_OUT_I=%C_OK%Найдено (image/)%C_RST%"
 
 echo  - Конфигурация:  %C_VAL%profiles\!SEL_CONF!%C_RST%
 echo  - Overlay файлы: !S_FILES!
 echo  - Входящие IPK:  !S_PACKS!
 echo  - Исходники PKG: !S_SRCS!
+echo  - Выход Source:  !S_OUT_S!
+echo  - Выход Image:   !S_OUT_I!
 echo ----------------------------------------------------------
 echo.
 
@@ -197,6 +204,8 @@ if /i "!open_f!"=="Y" (
     if exist "custom_files\!SEL_ID!" start explorer "custom_files\!SEL_ID!"
     if exist "custom_packages\!SEL_ID!" start explorer "custom_packages\!SEL_ID!"
     if exist "src_packages\!SEL_ID!" start explorer "src_packages\!SEL_ID!"
+    if exist "firmware_output\sourcebuilder\!SEL_ID!" start explorer "firmware_output\sourcebuilder\!SEL_ID!"
+    if exist "firmware_output\imagebuilder\!SEL_ID!" start explorer "firmware_output\imagebuilder\!SEL_ID!"
 )
 
 echo %C_OK%Готово.%C_RST% Переход в меню...
