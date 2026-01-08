@@ -23,6 +23,10 @@
 > 2. Запустите его — он развернет структуру проекта.
 > 3. Запустите появившийся `_Builder.bat`.
 
+<img width="1477" height="613" alt="image" src="https://github.com/user-attachments/assets/f61ec516-65f3-4aa2-81f6-363177e113a7" />
+
+<img width="1477" height="998" alt="image" src="https://github.com/user-attachments/assets/16299ec8-0435-4e67-a6ef-1c3a600091c3" />
+
 ---
 
 ## 📖 Документация и Обучение
