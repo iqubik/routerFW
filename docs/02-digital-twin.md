@@ -65,7 +65,7 @@
     ```
     root@OpenWrt2:~# wget -qO- https://raw.githubusercontent.com/iqubik/routerFW/main/scripts/show_pkgs.sh | sh
     -----------------------v0.1 (Hardcoded Filter)-------------------
-    arp-scan arp-scan-database bash batctl-full bind-host block-mount bzip2 ca-certificates collectd-mod-ping coreutils-ls curl dnsmasq drill ethtool-full fastfetch gawk grep gzip htop iftop ip-full iw-full knot-host libustream-openssl20201210 luci-app-argon-config luci-app-attendedsysupgrade luci-app-commands luci-app-cpu-status luci-app-iperf3 luci-app-statistics luci-app-ttyd luci-compat luci-i18n-attendedsysupgrade-ru luci-i18n-base-ru luci-i18n-commands-ru luci-i18n-cpu-status-ru luci-i18n-firewall-ru luci-i18n-package-manager-ru luci-i18n-statistics-ru luci-i18n-ttyd-ru luci-i18n-usteer-ru luci-proto-batman-adv luci-proto-vxlan luci-theme-argon mc nano openssh-client-utils openssh-sftp-server opkg ppp-mod-pppoe procd-ujail screen sed tar tcpdump unzip urandom-seed urngd wpad-openssl
+    arp-scan arp-scan-database
     -----------------------------------------------------------------
 
     -----------------------v0.2 (Smart ROM Diff)---------------------
