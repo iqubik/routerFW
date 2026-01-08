@@ -59,7 +59,7 @@
 1.  Подключитесь к вашему роутеру по SSH.
 2.  Выполните и скопируйте результат этой команды. Она автоматически сгенерирует чистый список пакетов, которые вы установили дополнительно:
     ```bash
-wget -qO- https://raw.githubusercontent.com/iqubik/routerFW/main/scripts/show_pkgs.sh | sh
+    wget -qO- https://raw.githubusercontent.com/iqubik/routerFW/main/scripts/show_pkgs.sh | sh
     ```
 3.  Сохраните этот список в переменную `COMMON_LIST=""` внутри профиля. Это второй из двух ключей к конфигурации вашей персональной сборки.
 
