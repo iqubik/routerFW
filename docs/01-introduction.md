@@ -29,7 +29,7 @@
 Для работы с Билдером вам понадобится всего две вещи:
 
 1.  **Docker Desktop для Windows:** Это среда, в которой будут происходить все сборки.
-    *   [Скачать Docker Desktop с официального сайта](https.docker.com/products/docker-desktop/)
+    *   [Скачать Docker Desktop с официального сайта](https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe?utm_source=docker&utm_medium=webreferral&utm_campaign=dd-smartbutton&utm_location=module)
     *   *Примечание:* Для работы Docker Desktop использует подсистему WSL2. В современных версиях Windows её установка и настройка обычно проходят автоматически вместе с Docker и не вызывают сложностей. В редких случаях, если возникнут проблемы, их решение выходит за рамки данных инструкций.    
 >[Всегда свежий WSL напрямую от производителя](https://github.com/microsoft/WSL)
 
