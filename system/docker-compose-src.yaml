@@ -1,4 +1,4 @@
-# file: system/docker-compose-src.yaml v2.31
+# file: system/docker-compose-src.yaml v2.4
 services:
   builder-src-openwrt:
     build:
@@ -12,8 +12,8 @@ services:
       - src-workdir:/home/build/openwrt
       - src-dl-cache:/home/build/openwrt/dl
       - src-ccache:/ccache
-      - ../profiles:/profiles
-      - ../src_packages:/input_packages
+      - ../profiles:/profiles      
+      - ../${HOST_PKGS_DIR}:/input_packages
       - ../${HOST_FILES_DIR}:/overlay_files
       - ../${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf
@@ -95,11 +95,15 @@ services:
       git checkout -f \"FETCH_HEAD\"
       git reset --hard \"FETCH_HEAD\"
 
-      # === SWITCH TO GITHUB MIRRORS ===      
+      # === SMART FEEDS MIRROR ===
       if [ -f feeds.conf.default ]; then
-          echo \"[FIX] Switching feeds to GitHub mirrors...\"
-          sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
-          sed -i 's|https://git.openwrt.org/project/|https://github.com/openwrt/|g' feeds.conf.default
+          if grep -q \"immortalwrt\" feeds.conf.default; then
+              echo \"[INFO] ImmortalWrt detected. Keeping original feeds for fork compatibility.\"
+          else
+              echo \"[FIX] Vanilla OpenWrt detected. Switching to GitHub mirrors for speed...\"
+              sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
+              sed -i 's|https://git.openwrt.org/project/|https://github.com/openwrt/|g' feeds.conf.default
+          fi
       fi
 
       # === 2. FEEDS ===
@@ -419,7 +423,7 @@ services:
       - src-dl-cache:/home/build/openwrt/dl
       - src-ccache:/ccache
       - ../profiles:/profiles
-      - ../src_packages:/input_packages
+      - ../${HOST_PKGS_DIR}:/input_packages
       - ../${HOST_FILES_DIR}:/overlay_files
       - ../${HOST_OUTPUT_DIR}:/output
       - ./openssl.cnf:/openssl.cnf

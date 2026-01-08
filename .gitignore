@@ -6,6 +6,7 @@
 # Config directories
 /custom_files/
 /custom_packages/
+/src_packages/
 /firmware_output/
 /bck/
 /reverse/
