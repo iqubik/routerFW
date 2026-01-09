@@ -8,6 +8,8 @@ for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
 :: Bright Yellow (Ярко-желтый): Для клавиш [A], [W] и важных акцентов
 set "C_LBL=%ESC%[36m"
+:: Gray (Серый): Для меток и заголовков
+set "C_GRY=%ESC%[90m"
 :: Cyan (Бирюзовый): Для меток, заголовков и ссылок
 set "C_VAL=%ESC%[92m"
 set "C_OK=%ESC%[92m"
@@ -83,22 +85,37 @@ echo =================================================================
 echo  OpenWrt FW Builder v3.83 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  Текущий режим: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
+echo  %C_GRY%Инфо: F:Overlay(files) P:Packages(ipk) S:Source(make) ^| O:Output(bin)%C_RST%
 echo.
 
-:: === ЦИКЛ СКАНИРОВАНИЯ ===
+:: === ЦИКЛ СКАНИРОВАНИЯ (С ИНФОГРАФИКОЙ) ===
 echo %C_LBL%Профили сборки:%C_RST%
 echo.
 for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
-    :: Авто-создание структуры папок для профиля
+    
+    :: Логика проверки содержимого (есть ли файлы внутри)
+    set "st_f=%C_GRY%·%C_RST%" & dir /a /b "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
+    set "st_p=%C_GRY%·%C_RST%" & dir /a /b "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
+    set "st_s=%C_GRY%·%C_RST%" & dir /a /b "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"
+    
+    :: Проверка папки вывода (зависит от режима)
+    if "!BUILD_MODE!"=="IMAGE" (set "out_path=firmware_output\imagebuilder\!p_id!") else (set "out_path=firmware_output\sourcebuilder\!p_id!")
+    set "st_o=%C_GRY%·%C_RST%" & dir /a /b "!out_path!" 2>nul | findstr "^" >nul && set "st_o=%C_VAL%O%C_RST%"
+
+    :: Авто-создание структуры (тихо)
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
     if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
-    
     call :CREATE_PERMS_SCRIPT "!p_id!"
-    echo    %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% %%~nxf
+
+    :: Вывод строки: [Номер] Имя_Профиля  [Инфографика]
+    set "spaces=                                         "
+    set "fname=%%~nxf"
+    set "line=   %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% !fname!!spaces!"
+    echo !line:~0,60! %C_LBL%[!st_f! !st_p! !st_s! %C_RST%^|%C_LBL% !st_o!]%C_RST%
 )
 
 echo.
