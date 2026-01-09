@@ -119,7 +119,7 @@ for %%f in (profiles\*.conf) do (
 
 echo.
 echo    Индикаторы показывают состояние ресурсов и результатов сборки.
-echo    %C_GRY%Легенда: F:Files P:IPK S:Src %C_GRY%^|^%C_GRY% Выход: I:Image B:Source%C_RST%
+echo    %C_GRY%Легенда: F:Files P:Packages S:Src %C_GRY%^|^%C_GRY% Прошивки: I:Image B:Source%C_RST%
 
 echo.
 echo    %C_LBL%[%C_KEY%A%C_LBL%] Собрать ВСЕ%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] Переключить на %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%E%C_LBL%] Редактор%C_RST%
