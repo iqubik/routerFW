@@ -82,28 +82,27 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.83 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  OpenWrt FW Builder v3.85 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  Текущий режим: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
-echo  %C_GRY%Инфо: F:Overlay(files) P:Packages(ipk) S:Source(make) ^| O:Output(bin)%C_RST%
 echo.
 
-:: === ЦИКЛ СКАНИРОВАНИЯ (С ИНФОГРАФИКОЙ) ===
-echo %C_LBL%Профили сборки:%C_RST%
+:: === ЦИКЛ СКАНИРОВАНИЯ (F P S | I B) ===
+echo    %C_LBL%Профили сборки:%C_RST%
 echo.
 for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
     
-    :: Логика проверки содержимого (есть ли файлы внутри)
-    set "st_f=%C_GRY%·%C_RST%" & dir /a /b "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
-    set "st_p=%C_GRY%·%C_RST%" & dir /a /b "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
-    set "st_s=%C_GRY%·%C_RST%" & dir /a /b "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"
+    :: 1. Мониторинг ресурсов (Вход)
+    set "st_f=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
+    set "st_p=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
+    set "st_s=%C_GRY%·%C_RST%" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"
     
-    :: Проверка папки вывода (зависит от режима)
-    if "!BUILD_MODE!"=="IMAGE" (set "out_path=firmware_output\imagebuilder\!p_id!") else (set "out_path=firmware_output\sourcebuilder\!p_id!")
-    set "st_o=%C_GRY%·%C_RST%" & dir /a /b "!out_path!" 2>nul | findstr "^" >nul && set "st_o=%C_VAL%O%C_RST%"
+    :: 2. Мониторинг результатов (Выход - теперь раздельно)
+    set "st_i=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\imagebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_i=%C_VAL%I%C_RST%"
+    set "st_b=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\sourcebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_b=%C_VAL%B%C_RST%"
 
     :: Авто-создание структуры (тихо)
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
@@ -111,12 +110,16 @@ for %%f in (profiles\*.conf) do (
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
     call :CREATE_PERMS_SCRIPT "!p_id!"
 
-    :: Вывод строки: [Номер] Имя_Профиля  [Инфографика]
-    set "spaces=                                         "
+    :: Вывод строки (68 символов отступа для сдвига вправо)
+    set "spaces=                                                          "
     set "fname=%%~nxf"
     set "line=   %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% !fname!!spaces!"
-    echo !line:~0,60! %C_LBL%[!st_f! !st_p! !st_s! %C_RST%^|%C_LBL% !st_o!]%C_RST%
+    echo !line:~0,73! %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_i!!st_b!]%C_RST%
 )
+
+echo.
+echo    Индикаторы показывают состояние ресурсов и результатов сборки.
+echo    %C_GRY%Легенда: F:Files P:IPK S:Src %C_GRY%^|^%C_GRY% Выход: I:Image B:Source%C_RST%
 
 echo.
 echo    %C_LBL%[%C_KEY%A%C_LBL%] Собрать ВСЕ%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] Переключить на %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%E%C_LBL%] Редактор%C_RST%
