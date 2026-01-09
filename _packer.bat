@@ -33,11 +33,17 @@ call :ADD_FILE "system/import_ipk.ps1"
 call :ADD_FILE "scripts/show_pkgs.sh"
 call :ADD_FILE "_Builder.bat"
 call :ADD_FILE "README.md"
+call :ADD_FILE "README.en.md"
 call :ADD_FILE "docs\01-introduction.md"
 call :ADD_FILE "docs\02-digital-twin.md"
 call :ADD_FILE "docs\03-source-build.md"
 call :ADD_FILE "docs\04-adv-source-build.md"
 call :ADD_FILE "docs\index.md"
+call :ADD_FILE "docs\01-introduction.en.md"
+call :ADD_FILE "docs\02-digital-twin.en.md"
+call :ADD_FILE "docs\03-source-build.en.md"
+call :ADD_FILE "docs\04-adv-source-build.en.md"
+call :ADD_FILE "docs\index.en.md"
 
 :: --- ЗАЩИЩЕННЫЕ ПАПКИ ---
 call :ADD_FILE "scripts\etc\uci-defaults\99-permissions.sh"
@@ -71,8 +77,7 @@ echo [PACKER] Создание логики распаковщика...
 
 (
     echo @echo off
-    echo setlocal enabledelayedexpansion
-    echo cls
+    echo setlocal enabledelayedexpansion    
     echo chcp 65001 ^>nul
     echo.
     echo :: =========================================================
