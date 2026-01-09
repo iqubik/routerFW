@@ -16,6 +16,8 @@ set "C_OK=%ESC%[92m"
 :: Bright Green (Ярко-зеленый): Для статусов "ОК", путей и активных значений
 set "C_RST=%ESC%[0m"
 :: Reset (Сброс): Возврат к стандартному цвету терминала
+set "C_ERR=%ESC%[91m"
+:: Bright Red (Ярко-красный): Для ошибок и предупреждений
 
 :: === КОНФИГУРАЦИЯ ===
 :: Режим по умолчанию: IMAGE
@@ -94,7 +96,13 @@ for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
-    
+
+    :: Авто-создание структуры (тихо)
+    if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
+    if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
+    if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
+    call :CREATE_PERMS_SCRIPT "!p_id!"
+
     :: 1. Мониторинг ресурсов (Вход)
     set "st_f=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
     set "st_p=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
@@ -103,12 +111,6 @@ for %%f in (profiles\*.conf) do (
     :: 2. Мониторинг результатов (Выход - теперь раздельно)
     set "st_i=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\imagebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_i=%C_VAL%I%C_RST%"
     set "st_b=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\sourcebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_b=%C_VAL%B%C_RST%"
-
-    :: Авто-создание структуры (тихо)
-    if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
-    if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
-    if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
-    call :CREATE_PERMS_SCRIPT "!p_id!"
 
     :: Вывод строки (68 символов отступа для сдвига вправо)
     set "spaces=                                                          "
