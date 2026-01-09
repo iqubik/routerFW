@@ -3,7 +3,7 @@ rem file: _Builder.bat
 setlocal enabledelayedexpansion
 cls
 chcp 65001 >nul
-set "VER_NUM=3.92"
+set "VER_NUM=3.93"
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
