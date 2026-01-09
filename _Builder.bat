@@ -534,8 +534,7 @@ echo.
 echo  %L_SEL_IMPORT%:
 echo.
 for /L %%i in (1,1,%count%) do (
-    set "fname_tmp=!profile[%%i]:.conf=!"
-    set "fname_tmp=!fname_tmp:.conf=!"
+    set "fname_tmp=!profile[%%i]:.conf=!"    
     echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !fname_tmp!
 )
 echo.
