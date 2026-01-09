@@ -19,10 +19,12 @@ set "C_RST=%ESC%[0m"
 set "C_ERR=%ESC%[91m"
 :: Bright Red (Ярко-красный): Для ошибок и предупреждений
 
-:: === ЯЗЫКОВОЙ МОДУЛЬ (Честный детектор) ===
+:: === ЯЗЫКОВОЙ МОДУЛЬ ===
+:: ТУМБЛЕR: AUTO (детект), RU (всегда рус), EN (всегда англ)
+set "FORCE_LANG=EN"
 set "SYS_LANG=EN"
 set /a "ru_score=0"
-echo %C_LBL%[INIT]%C_RST% Анализ языка системы (Weighted Detection)...
+echo %C_LBL%[INIT]%C_RST% Language detector (Weighted Detection)...
 :: 1. Проверка реестра: UI Язык (3 балла)
 reg query "HKCU\Control Panel\Desktop" /v PreferredUILanguages 2>nul | findstr /I "ru-RU" >nul
 if not errorlevel 1 set /a "ru_score+=3"
@@ -43,11 +45,18 @@ if errorlevel 1     echo   %C_GRY%-%C_RST% Culture and Lang List %C_ERR%EN%C_RST
 chcp | findstr "866" >nul
 if not errorlevel 1 set /a "ru_score+=1"
 if not errorlevel 1 echo   %C_GRY%-%C_RST% Console CP 866        %C_OK%RU%C_RST% [+1]
-:: ВЫНЕСЕНИЕ СУЖДЕНИЯ (Порог 5 из 10)
+:: Логика суждения
 if %ru_score% GEQ 5 set "SYS_LANG=RU"
+:: === ПРИНУДИТЕЛЬНЫЙ ПЕРЕКЛЮЧАТЕЛЬ (OVERRIDE) ===
+if /i "%FORCE_LANG%"=="RU" set "SYS_LANG=RU"
+if /i "%FORCE_LANG%"=="EN" set "SYS_LANG=EN"
 :: Финальный вывод вердикта
-if "%SYS_LANG%"=="RU" echo %C_LBL%[INIT]%C_RST% Вердикт %C_OK%РУССКИЙ%C_RST% (Score %ru_score%/10)
-if "%SYS_LANG%"=="EN" echo %C_LBL%[INIT]%C_RST% Вердикт %C_ERR%ENGLISH%C_RST% (Score %ru_score%/10)
+if /i "%FORCE_LANG%"=="AUTO" (
+    if "%SYS_LANG%"=="RU" echo %C_LBL%[INIT]%C_RST% Вердикт %C_OK%РУССКИЙ%C_RST% (Score %ru_score%/10)
+    if "%SYS_LANG%"=="EN" echo %C_LBL%[INIT]%C_RST% Language %C_ERR%ENGLISH%C_RST% (Score %ru_score%/10)
+) else (
+    echo %C_LBL%[INIT]%C_RST% Lang set: %C_VAL%FORCE %FORCE_LANG%%C_RST%
+)
 echo.
 
 :: === КОНФИГУРАЦИЯ ===
@@ -96,7 +105,7 @@ call :CHECK_DIR "custom_packages"
 call :CHECK_DIR "src_packages"
 
 :MENU
-cls
+rem cls
 :: Очистка массива профилей
 for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
 set "count=0"
