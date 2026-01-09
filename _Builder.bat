@@ -80,7 +80,7 @@ if "%BUILD_MODE%"=="IMAGE" (
 )
 
 echo =================================================================
-echo  OpenWrt FW Builder v3.81 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  OpenWrt FW Builder v3.83 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  Текущий режим: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
