@@ -21,11 +21,12 @@ $overwriteAll = $false
 $importedCount = 0
 
 Write-Host "`n==========================================================" -ForegroundColor Cyan
-Write-Host "  IPK IMPORT WIZARD v2.5 [SourceBuilder Mode]" -ForegroundColor Cyan
+Write-Host "  IPK IMPORT WIZARD v2.6 [$TargetArch] [Source Mode]" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " [CONTEXT] " -NoNewline -ForegroundColor Cyan
 Write-Host "Profile: " -NoNewline -ForegroundColor Gray
-Write-Host "$($ProfileID if ($ProfileID) { $ProfileID } else { 'GLOBAL' })" -ForegroundColor White
+$ProfileDisplay = if ($ProfileID) { $ProfileID } else { "GLOBAL" }
+Write-Host "$ProfileDisplay" -ForegroundColor White
 
 Write-Host " [TARGET]  " -NoNewline -ForegroundColor Cyan
 Write-Host "Arch   : " -NoNewline -ForegroundColor Gray
@@ -113,8 +114,13 @@ foreach ($ipk in $ipkFiles) {
 
     # 6. Обработка Post-Install
     if (Test-Path "$tempDir\control_data\postinst") {
-        $postinst = Get-Content "$tempDir\control_data\postinst" -Raw
-        $postinst = $postinst -replace '\$', '$$$$' 
+        $postinst = Get-Content "$tempDir\control_data\postinst" -Raw        
+        # Убираем лишние шебанги (#!/bin/sh), если они есть внутри импортируемого кода
+        $postinst = $postinst -replace '(?m)^#!/.+$', ''        
+        # Экранируем знак доллара для Makefile (превращаем $ в $$)
+        $postinst = $postinst -replace '\$', '$$$$'         
+        # Убираем лишние пустые строки в начале и конце
+        $postinst = $postinst.Trim()
     }
 
     # 7. Логика перезаписи
