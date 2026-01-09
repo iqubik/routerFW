@@ -390,6 +390,37 @@ while ($true) {
                 if ($inputPkgs.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue }
                 $pkgs = if ([string]::IsNullOrWhiteSpace($inputPkgs)) { "luci" } else { $inputPkgs }
 
+                # --- АВТООПРЕДЕЛЕНИЕ АРХИТЕКТУРЫ (Грамотный маппинг) ---
+                $arch = switch -Wildcard ($GlobalState.Target) {
+                    'ramips'   { 'mipsel_24kc' }
+                    'ath79'    { 'mips_24kc' }
+                    'ar71xx'   { 'mips_24kc' }
+                    'lantiq'   { 'mips_24kc' }
+                    'realtek'  { 'mips_24kc' }
+                    'x86'      { if ($GlobalState.Subtarget -eq '64') { 'x86_64' } else { 'i386_pentium4' } }
+                    'mediatek' { 
+                        if ($GlobalState.Subtarget -match 'mt798|mt7622') { 'aarch64_cortex-a53' } 
+                        elseif ($GlobalState.Subtarget -eq 'mt7623') { 'arm_cortex-a7_neon-vfpv4' } 
+                        else { 'mipsel_24kc' } 
+                    }
+                    'mvebu'    { 
+                        if ($GlobalState.Subtarget -eq 'cortexa72') { 'aarch64_cortex-a72' } 
+                        else { 'arm_cortex-a9_vfpv3-d16' } 
+                    }
+                    'ipq40xx'  { 'arm_cortex-a7_neon-vfpv4' }
+                    'ipq806x'  { 'arm_cortex-a15_neon-vfpv4' }
+                    'rockchip' { 'aarch64_generic' }
+                    'bcm27xx'  { 
+                        if ($GlobalState.Subtarget -eq 'bcm2711') { 'aarch64_cortex-a72' } 
+                        elseif ($GlobalState.Subtarget -eq 'bcm2710') { 'aarch64_cortex-a53' } 
+                        else { 'arm_arm1176jzf-s_vfp' } 
+                    }
+                    'sunxi'    { 'arm_cortex-a7_neon-vfpv4' }
+                    'layerscape' { if ($GlobalState.Subtarget -eq '64b') { 'aarch64_generic' } else { 'arm_cortex-a7_neon-vfpv4' } }
+                    '*64*'     { 'aarch64_generic' }
+                    default    { '' }
+                }
+
                 # 3. Имя файла (Системная генерация + Защита)
                 $verClean = ($GlobalState.Release -replace '\.', '') -replace 'snapshots', 'snap'
                 $srcShort = if ($GlobalState.Source -eq 'ImmortalWrt') { 'iw' } else { 'ow' }
@@ -461,6 +492,7 @@ SRC_REPO="$($GlobalState.RepoUrl)"
 SRC_BRANCH="$gitBranch"
 SRC_TARGET="$($GlobalState.Target)"
 SRC_SUBTARGET="$($GlobalState.Subtarget)"
+SRC_ARCH="$arch"
 SRC_PACKAGES="`$PKGS"
 SRC_CORES="safe"
 
@@ -470,24 +502,27 @@ SRC_CORES="safe"
 SRC_EXTRA_CONFIG="CONFIG_TARGET_MULTI_PROFILE=n \
 CONFIG_BUILD_LOG=y"
 
-##ЭКОНОМИЯ МЕСТА (Для 4MB / 8MB флешек)
-#    - CONFIG_LUCI_SRCDIET=y      -> Сжимает Lua/JS в LuCI (экономит ~100-200KB)
-#    - CONFIG_IPV6=n              -> Полностью вырезает IPv6 (экономит ~300KB)
-#    - CONFIG_KERNEL_DEBUG_INFO=n -> Удаляет отладочную инфо из ядра
-#    - CONFIG_STRIP_KERNEL_EXPORTS=y -> Удаляет таблицу экспортов (если не нужны kmod)
+## SPACE SAVING (For 4MB / 8MB flash devices)
+#    - CONFIG_LUCI_SRCDIET=y      -> Compresses Lua/JS in LuCI (saves ~100-200KB)
+#    - CONFIG_IPV6=n              -> Completely removes IPv6 support (saves ~300KB)
+#    - CONFIG_KERNEL_DEBUG_INFO=n -> Removes debugging information from the kernel
+#    - CONFIG_STRIP_KERNEL_EXPORTS=y -> Strips kernel export symbols (if no external kmods needed)
 # SRC_EXTRA_CONFIG="CONFIG_LUCI_SRCDIET=y CONFIG_IPV6=n CONFIG_KERNEL_DEBUG_INFO=n"
-##ФАЙЛОВЫЕ СИСТЕМЫ (Для SD-карт / x86 / NanoPi)
-#    По умолчанию создается SquashFS (только чтение). Для одноплатников лучше EXT4.
-#    - CONFIG_TARGET_ROOTFS_SQUASHFS=n -> Отключить SquashFS
-#    - CONFIG_TARGET_ROOTFS_EXT4FS=y   -> Включить EXT4 (RW раздел)
-#    - CONFIG_TARGET_ROOTFS_TARGZ=y    -> Создать архив (для контейнеров/бэкапа)
+
+## FILE SYSTEMS (For SD cards / x86 / NanoPi)
+#    By default, SquashFS (Read-Only) is created. EXT4 is recommended for SBCs.
+#    - CONFIG_TARGET_ROOTFS_SQUASHFS=n -> Disable SquashFS
+#    - CONFIG_TARGET_ROOTFS_EXT4FS=y   -> Enable EXT4 (Read/Write partition)
+#    - CONFIG_TARGET_ROOTFS_TARGZ=y    -> Create an archive (for containers/backups)
 # CONFIG_TARGET_ROOTFS_SQUASHFS=n CONFIG_TARGET_ROOTFS_EXT4FS=y
-##ОТЛАДКА И ЛОГИ
-#    - CONFIG_KERNEL_PRINTK=n     -> Отключает вывод лога загрузки на экран (тихий бут)
-#    - CONFIG_BUILD_LOG=y         -> Сохраняет логи сборки каждого пакета (для отладки ошибок)
+
+## DEBUGGING AND LOGS
+#    - CONFIG_KERNEL_PRINTK=n     -> Disables boot log output to console (quiet boot)
+#    - CONFIG_BUILD_LOG=y         -> Saves build logs for each package (to debug build errors)
 # CONFIG_BUILD_LOG=y
-##ПРИНУДИТЕЛЬНОЕ ВКЛЮЧЕНИЕ МОДУЛЕЙ
-#    Если пакет не ставится через SRC_PACKAGES, можно включить его тут.
+
+## FORCED MODULE INCLUSION
+#    If a package fails to install via SRC_PACKAGES, you can force-enable it here.
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
 "@
                 $content | Out-File -FilePath $confPath -Encoding utf8 -Force

@@ -1,13 +1,13 @@
 ﻿# file : system/import_ipk.ps1
-# Скрипт импорта IPK v2.1 (Architecture Visibility Mode)
+# Скрипт импорта IPK v2.5 (Strict Architecture Validation & Mapping)
 param (
     [Parameter(Mandatory=$false)]
     [string]$ProfileID = "",
     [Parameter(Mandatory=$false)]
-    [string]$TargetArch = ""  # Например: mediatek, x86, ramips
+    [string]$TargetArch = ""  # Подхватывается из батника (SRC_ARCH)
 )
 
-# Настройка путей: если профиль передан, работаем в подпапках, иначе в корне
+# --- ИНИЦИАЛИЗАЦИЯ ПУТЕЙ ---
 if ($ProfileID -ne "") {
     $ipkDir = "custom_packages\$ProfileID"
     $outDir = "src_packages\$ProfileID"
@@ -18,16 +18,24 @@ if ($ProfileID -ne "") {
 
 $tempDir = "system\.ipk_temp"
 $overwriteAll = $false
+$importedCount = 0
 
-Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  IPK IMPORT WIZARD v1.0 [SourceBuilder Mode]" -ForegroundColor Cyan
+Write-Host "`n==========================================================" -ForegroundColor Cyan
+Write-Host "  IPK IMPORT WIZARD v2.6 [$TargetArch] [Source Mode]" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " [CONTEXT] " -NoNewline -ForegroundColor Cyan
 Write-Host "Profile: " -NoNewline -ForegroundColor Gray
-Write-Host "$($ProfileID -f 'GLOBAL')" -ForegroundColor White
+$ProfileDisplay = if ($ProfileID) { $ProfileID } else { "GLOBAL" }
+Write-Host "$ProfileDisplay" -ForegroundColor White
+
 Write-Host " [TARGET]  " -NoNewline -ForegroundColor Cyan
 Write-Host "Arch   : " -NoNewline -ForegroundColor Gray
-Write-Host "$($TargetArch -f 'NOT DEFINED')" -ForegroundColor White
+if ($TargetArch) { 
+    Write-Host "$TargetArch" -ForegroundColor Green 
+} else { 
+    Write-Host "NOT DEFINED (Validation Disabled)" -ForegroundColor Red 
+}
+
 Write-Host " [PATHS]   " -NoNewline -ForegroundColor Cyan
 Write-Host "Source : " -NoNewline -ForegroundColor Gray
 Write-Host "$ipkDir" -ForegroundColor Gray
@@ -37,100 +45,105 @@ Write-Host "           Temp   : " -NoNewline -ForegroundColor Gray
 Write-Host "$tempDir" -ForegroundColor Gray
 Write-Host "==========================================================" -ForegroundColor Cyan
 
+# --- ПРОВЕРКИ ОКРУЖЕНИЯ ---
 if (-not (Test-Path $ipkDir)) { Write-Host "[!] Folder $ipkDir not found." -ForegroundColor Yellow; exit }
 $ipkFiles = Get-ChildItem -Path "$ipkDir\*.ipk"
-if ($ipkFiles.Count -eq 0) { Write-Host "[!] No .ipk files found." -ForegroundColor Yellow; exit }
+if ($ipkFiles.Count -eq 0) { Write-Host "[!] No .ipk files found in $ipkDir" -ForegroundColor Yellow; exit }
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir | Out-Null }
 
 foreach ($ipk in $ipkFiles) {
-    Write-Host "`n[+] Processing: $($ipk.Name)..." -ForegroundColor Cyan
+    Write-Host "[+] Processing: $($ipk.Name)..." -ForegroundColor Cyan
     
     # 1. Распаковка метаданных
     if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
     $null = New-Item -ItemType Directory -Path "$tempDir\unpack" -Force
-    # 2. Распаковка IPK
+    
+    # 2. Распаковка IPK (используем встроенный tar Windows)
     tar -xf "$ipkDir\$($ipk.Name)" -C "$tempDir\unpack"
+    
     # 3. Распаковка control.tar.gz
     $null = New-Item -ItemType Directory -Path "$tempDir\control_data" -Force
-    tar -xf "$tempDir\unpack\control.tar.gz" -C "$tempDir\control_data"
+    if (Test-Path "$tempDir\unpack\control.tar.gz") {
+        tar -xf "$tempDir\unpack\control.tar.gz" -C "$tempDir\control_data"
+    }
 
-    # 2. Парсинг данных
+    # 4. Глубокий парсинг файла Control
     $pkgName = ""; $pkgDeps = ""; $pkgArch = ""; $postinst = ""
-    $controlContent = Get-Content "$tempDir\control_data\control"
-    foreach($line in $controlContent) {
-        if ($line -match "^Package: (.*)") { $pkgName = $matches[1].Trim() }
-        if ($line -match "^Architecture: (.*)") { $pkgArch = $matches[1].Trim() }
-        if ($line -match "^Depends: (.*)") { 
-            # 1. Разбиваем строку зависимостей
-            $depsRaw = ($line -split ":")[1].Trim() -replace ",", " "
-            $depsList = $depsRaw -split "\s+" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "libc" -and $_ -ne "" }            
-            # 2. ФИКС: Маппинг устаревших имен на новые (для OpenWrt 23.xx / 24.xx)
-            $depsList = $depsList | ForEach-Object {
-                if ($_ -eq "libnetfilter-queue1") { "libnetfilter-queue" }
-                elseif ($_ -eq "libnfnetlink0") { "libnfnetlink" }
-                else { $_ }
-            }
-            if ($depsList) { $pkgDeps = "+" + ($depsList -join " +") }
-        }
-    }
-
-    if (-not $pkgName) { Write-Host "    [!] Failed to parse Package name. Skipping." -ForegroundColor Red; continue }
-
-    # Вывод информации об архитектуре и проверка совместимости
-    if ($pkgArch -eq "all") {
-        Write-Host "    Package: $pkgName (Arch: all)" -ForegroundColor Green
-    } else {
-        Write-Host "    Package: $pkgName (Arch: $pkgArch)" -ForegroundColor Yellow
-        
-        # === ЖЕСТКАЯ ПРОВЕРКА АРХИТЕКТУРЫ ===
-        if ($TargetArch -ne "") {
-            $isCompatible = $true
-            # Логика соответствия TargetArch (из профиля) и Architecture (из IPK)
-            switch -Wildcard ($TargetArch.ToLower()) {
-                "*mediatek*" { if ($pkgArch -notmatch "aarch64|arm") { $isCompatible = $false } }
-                "*rockchip*" { if ($pkgArch -notmatch "aarch64|arm") { $isCompatible = $false } }
-                "*x86*"      { if ($pkgArch -notmatch "x86|i386|amd64") { $isCompatible = $false } }
-                "*ramips*"   { if ($pkgArch -notmatch "mipsel|mips") { $isCompatible = $false } }
-                "*ath79*"    { if ($pkgArch -notmatch "mips") { $isCompatible = $false } }
-            }
-
-            if (-not $isCompatible) {
-                Write-Host "    [!] WARNING: Package ($pkgArch) may be INCOMPATIBLE with target $TargetArch!" -ForegroundColor Red
-                $confirm = Read-Host "    Are you sure you want to continue? [Y/N]"
-                if ($confirm -ne "Y" -and $confirm -ne "y") {
-                    Write-Host "    [SKIP] Import cancelled by user." -ForegroundColor Gray
-                    continue
+    if (Test-Path "$tempDir\control_data\control") {
+        $controlContent = Get-Content "$tempDir\control_data\control"
+        foreach($line in $controlContent) {
+            if ($line -match "^Package: (.*)") { $pkgName = $matches[1].Trim() }
+            if ($line -match "^Architecture: (.*)") { $pkgArch = $matches[1].Trim() }
+            if ($line -match "^Depends: (.*)") { 
+                $depsRaw = ($line -split ":")[1].Trim() -replace ",", " "
+                $depsList = $depsRaw -split "\s+" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "libc" -and $_ -ne "" }            
+                
+                # Маппинг зависимостей
+                $depsList = $depsList | ForEach-Object {
+                    if ($_ -eq "libnetfilter-queue1") { "libnetfilter-queue" }
+                    elseif ($_ -eq "libnfnetlink0") { "libnfnetlink" }
+                    else { $_ }
                 }
-            } else {
-                Write-Host "    [OK] Architecture verified for target $TargetArch." -ForegroundColor Green
+                if ($depsList) { $pkgDeps = "+" + ($depsList -join " +") }
             }
         }
     }
 
-    # Читаем postinst и экранируем символ $ для Makefile
-    if (Test-Path "$tempDir\control_data\postinst") {
-        $postinst = Get-Content "$tempDir\control_data\postinst" -Raw
-        $postinst = $postinst -replace '\$', '$$$$'
+    if (-not $pkgName) { Write-Host "    [!] Error: Could not parse package name. Skipping." -ForegroundColor Red; continue }
+
+    # --- 5. УМНАЯ ВАЛИДАЦИЯ АРХИТЕКТУРЫ ---
+    if ($pkgArch -eq "all") {
+        Write-Host "    Architecture: all (Universal) - OK" -ForegroundColor Green
+    } elseif ($TargetArch -ne "") {
+        if ($pkgArch -eq $TargetArch) {
+            Write-Host "    Architecture: $pkgArch (Match) - OK" -ForegroundColor Green
+        } else {
+            Write-Host "    ----------------------------------------------------------" -ForegroundColor Red
+            Write-Host "    CRITICAL ERROR: ARCHITECTURE MISMATCH!" -ForegroundColor Red
+            Write-Host "    Package: $pkgArch" -ForegroundColor Yellow
+            Write-Host "    Profile: $TargetArch" -ForegroundColor White
+            Write-Host "    ----------------------------------------------------------" -ForegroundColor Red
+            Write-Host "    [SKIP] Import of $pkgName blocked to prevent bricking." -ForegroundColor Gray
+            continue
+        }
+    } else {
+        Write-Host "    Architecture: $pkgArch (Unchecked)" -ForegroundColor Yellow
+        $confirm = Read-Host "    No arch in profile. Continue anyway? [Y/N]"
+        if ($confirm -ne "Y" -and $confirm -ne "y") { continue }
     }
 
-    # 3. Логика перезаписи
+    # 6. Обработка Post-Install
+    if (Test-Path "$tempDir\control_data\postinst") {
+        $postinst = Get-Content "$tempDir\control_data\postinst" -Raw        
+        # Убираем лишние шебанги (#!/bin/sh), если они есть внутри импортируемого кода
+        $postinst = $postinst -replace '(?m)^#!/.+$', ''        
+        # Экранируем знак доллара для Makefile (превращаем $ в $$)
+        $postinst = $postinst -replace '\$', '$$$$'         
+        # Убираем лишние пустые строки в начале и конце
+        $postinst = $postinst.Trim()
+    }
+
+    # 7. Логика перезаписи
     $targetPkgDir = "$outDir\$pkgName"
     if (Test-Path $targetPkgDir) {
         if (-not $overwriteAll) {
-            Write-Host "    [?] Package already exists." -ForegroundColor Gray
+            Write-Host "    [?] Package '$pkgName' already exists." -ForegroundColor Gray
             $choice = Read-Host "    Overwrite? [Y]es / [N]o / [A]ll"
             if ($choice -eq 'A' -or $choice -eq 'a') { $overwriteAll = $true }
             elseif ($choice -ne 'Y' -and $choice -ne 'y') { continue }
         }
+        Remove-Item -Recurse -Force $targetPkgDir
+    }
+    
+    # 8. Финализация импорта
+    $null = New-Item -ItemType Directory -Path $targetPkgDir -Force
+    if (Test-Path "$tempDir\unpack\data.tar.gz") {
+        Copy-Item "$tempDir\unpack\data.tar.gz" -Destination "$targetPkgDir\data.tar.gz"
+    } else {
+        Write-Host "    [!] Error: data.tar.gz not found!" -ForegroundColor Red; continue
     }
 
-    # 4. Подготовка структуры и копирование
-    if (Test-Path $targetPkgDir) { Remove-Item -Recurse -Force $targetPkgDir }
-    $null = New-Item -ItemType Directory -Path $targetPkgDir -Force
-    # ВАЖНО: Просто копируем сжатый архив data.tar.gz (сохраняем симлинки внутри него)
-    Copy-Item "$tempDir\unpack\data.tar.gz" -Destination "$targetPkgDir\data.tar.gz"
-
-    # 4. Генерация умного Makefile
+    # --- 9. ГЕНЕРАЦИЯ УМНОГО MAKEFILE ---
     $template = @'
 include $(TOPDIR)/rules.mk
 
@@ -140,6 +153,7 @@ PKG_RELEASE:=1
 
 include $(INCLUDE_DIR)/package.mk
 # Запрещаем системе сборки изменять готовые бинарники (решает ошибки Strip/Patchelf)
+
 STRIP:=:
 PATCHELF:=:
 
@@ -163,7 +177,6 @@ define Package/$(PKG_NAME)/install
 	mkdir -p $(1)
 	# Распаковка внутри Linux сохраняет симлинки и структуру
 	tar -xzf $(PKG_BUILD_DIR)/data.tar.gz -C $(1)
-	
 	# Принудительная правка прав для скриптов и бинарников
 	[ -d $(1)/etc/init.d ] && chmod +x $(1)/etc/init.d/* || true
 	[ -d $(1)/usr/bin ] && chmod +x $(1)/usr/bin/* || true
@@ -188,17 +201,16 @@ $(eval $(call BuildPackage,$(PKG_NAME)))
     $makefileContent = $template -f $pkgName, $pkgDeps, $postinst
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     $finalContent = $makefileContent -replace "`r`n", "`n"
-    [System.IO.File]::WriteAllText("$targetPkgDir\Makefile", $finalContent, $utf8NoBom)
+    [System.IO.File]::WriteAllText("$targetPkgDir\Makefile", $finalContent, $utf8NoBom)    
     
-    Write-Host "    [OK] Successfully imported." -ForegroundColor Green
+    $importedCount++
+    Write-Host "    [OK] Successfully imported.`n" -ForegroundColor Green
 }
 
+# Очистка
 if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
-Write-Host "`n[DONE] Import process finished." -ForegroundColor Cyan
-if ($ProfileID -ne "") {
-    Write-Host "[INFO] Packages imported to: $outDir" -ForegroundColor Green
-}
-if ($pkgArch -and $pkgArch -ne "all") {
-    Write-Host "[WARN] Make sure the architecture (last processed: $pkgArch) matches your device!" -ForegroundColor Red
-}
-Write-Host "`n"
+
+Write-Host "==========================================================" -ForegroundColor Cyan
+Write-Host "  DONE: $importedCount packages imported." -ForegroundColor Cyan
+if ($ProfileID) { Write-Host "  Location: $outDir" -ForegroundColor Gray }
+Write-Host "==========================================================`n"

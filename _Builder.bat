@@ -239,22 +239,23 @@ echo.
 :: Режим по умолчанию: IMAGE
 set "BUILD_MODE=IMAGE"
 echo %L_INIT_ENV%
-:: Проверка Docker
-docker --version >nul 2>&1
-if %errorlevel% neq 0 (
+
+:: Вывод версии Docker
+for /f "tokens=*" %%i in ('docker --version 2^>nul') do set "D_VER=%%i"
+if "%D_VER%"=="" (
     echo %L_ERR_DOCKER%
     echo %L_ERR_DOCKER_MSG%
-    echo.
-    pause
-    exit /b
+    pause & exit /b
 )
-:: Проверка docker-compose
-docker-compose --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo %L_ERR_COMPOSE%
-    pause
-    exit /b
-)
+echo   %C_GRY%-%C_RST% %D_VER%
+
+:: Вывод версии Compose
+for /f "tokens=*" %%i in ('docker-compose --version 2^>nul') do set "C_VER=%%i"
+echo   %C_GRY%-%C_RST% %C_VER%
+
+:: Вывод корня проекта
+echo   %C_GRY%-%C_RST% Root: %C_VAL%%CD%%C_RST%
+
 echo %L_INIT_NET%
 docker network prune --force >nul 2>&1
 echo.
@@ -272,6 +273,58 @@ call :CHECK_DIR "custom_files"
 call :CHECK_DIR "firmware_output"
 call :CHECK_DIR "custom_packages"
 call :CHECK_DIR "src_packages"
+
+:: === АВТО-ПАТЧИНГ АРХИТЕКТУРЫ (ADVANCED MAPPING v3.0) ===
+echo %C_LBL%[INIT]%C_RST% Scanning profiles for missing architecture tags...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$profiles = Get-ChildItem 'profiles/*.conf';" ^
+    "foreach ($p in $profiles) {" ^
+    "    $content = Get-Content $p.FullName -Raw;" ^
+    "    if ($content -notmatch 'SRC_ARCH=') {" ^
+    "        $target = ''; $sub = '';" ^
+    "        if ($content -match 'SRC_TARGET=[''^\"]([^''\"\r\n]+)') { $target = $matches[1] }" ^
+    "        if ($content -match 'SRC_SUBTARGET=[''^\"]([^''\"\r\n]+)') { $sub = $matches[1] }" ^
+    "        if ($content -match 'IMAGEBUILDER_URL=.*/targets/([^/]+)/([^/]+)/') { $target = $matches[1]; $sub = $matches[2] }" ^
+    "        if ($target -eq '') { continue }" ^
+    "        $arch = switch -Wildcard ($target) {" ^
+    "            'ramips'   { 'mipsel_24kc' }" ^
+    "            'ath79'    { 'mips_24kc' }" ^
+    "            'ar71xx'   { 'mips_24kc' }" ^
+    "            'lantiq'   { 'mips_24kc' }" ^
+    "            'realtek'  { 'mips_24kc' }" ^
+    "            'x86'      { if ($sub -eq '64') { 'x86_64' } else { 'i386_pentium4' } }" ^
+    "            'mediatek' { " ^
+    "                if ($sub -match 'mt798|mt7622') { 'aarch64_cortex-a53' } " ^
+    "                elseif ($sub -eq 'mt7623') { 'arm_cortex-a7_neon-vfpv4' } " ^
+    "                else { 'mipsel_24kc' } " ^
+    "            }" ^
+    "            'mvebu'    { " ^
+    "                if ($sub -eq 'cortexa72') { 'aarch64_cortex-a72' } " ^
+    "                else { 'arm_cortex-a9_vfpv3-d16' } " ^
+    "            }" ^
+    "            'ipq40xx'  { 'arm_cortex-a7_neon-vfpv4' }" ^
+    "            'ipq806x'  { 'arm_cortex-a15_neon-vfpv4' }" ^
+    "            'rockchip' { 'aarch64_generic' }" ^
+    "            'bcm27xx'  { " ^
+    "                if ($sub -eq 'bcm2711') { 'aarch64_cortex-a72' } " ^
+    "                elseif ($sub -eq 'bcm2710') { 'aarch64_cortex-a53' } " ^
+    "                else { 'arm_arm1176jzf-s_vfp' } " ^
+    "            }" ^
+    "            'sunxi'    { 'arm_cortex-a7_neon-vfpv4' }" ^
+    "            'layerscape' { if ($sub -eq '64b') { 'aarch64_generic' } else { 'arm_cortex-a7_neon-vfpv4' } }" ^
+    "            '*64*'     { 'aarch64_generic' }" ^
+    "            default    { '' }" ^
+    "        };" ^
+    "        if ($arch -ne '') {" ^
+    "            $content = $content.TrimEnd() + [char]13 + [char]10 + 'SRC_ARCH=\"' + $arch + '\"' + [char]13 + [char]10;" ^
+    "            [System.IO.File]::WriteAllText($p.FullName, $content);" ^
+    "            Write-Host ('  [PATCHED] ' + $p.Name + ' -> ' + $arch) -ForegroundColor Green" ^
+    "        } else {" ^
+    "            Write-Host ('  [WARN] No arch for ' + $p.Name + ' (' + $target + '/' + $sub + ')') -ForegroundColor Yellow" ^
+    "        }" ^
+    "    }" ^
+    "}"
+echo.
 
 :MENU
 cls
@@ -292,7 +345,7 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "TARGET_VAR=SRC_BRANCH"
 )
 echo =================================================================
-echo  OpenWrt FW Builder v3.9 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  OpenWrt FW Builder v3.91 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  %L_CUR_MODE%: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
@@ -309,18 +362,36 @@ for %%f in (profiles\*.conf) do (
     if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
     call :CREATE_PERMS_SCRIPT "!p_id!"
+    
+    :: Извлекаем имя БЕЗ расширения для отображения в меню
+    set "fname_display=%%~nf"
+
+    :: Извлекаем SRC_ARCH для отображения
+    set "this_arch=--------"
+    for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%%~nxf" ^| findstr "SRC_ARCH"`) do (
+        set "VAL=%%a"
+        set "VAL=!VAL:"=!"
+        for /f "tokens=* delims= " %%b in ("!VAL!") do set "this_arch=%%b"
+    )
+
     :: 1. Мониторинг ресурсов (Вход)
     set "st_f=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
     set "st_p=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
     set "st_s=%C_GRY%·%C_RST%" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"    
-    :: 2. Мониторинг результатов (Выход - OI: Image, OS: Source)
-    set "st_oi=%C_GRY%··%C_RST%" & dir /a-d /b "firmware_output\imagebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_oi=%C_VAL%OI%C_RST%"
-    set "st_os=%C_GRY%··%C_RST%" & dir /a-d /b "firmware_output\sourcebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_os=%C_VAL%OS%C_RST%"
-    :: Вывод строки
-    set "spaces=                                                          "
-    set "fname=%%~nxf"
-    set "line=   %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% !fname!!spaces!"
-    echo !line:~0,71! %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_oi!!st_os!]%C_RST%
+
+    :: 2. Мониторинг результатов (Выход)
+    set "st_oi=%C_GRY%··%C_RST%"
+    dir /s /a-d /b "firmware_output\imagebuilder\!p_id!\*.bin" "firmware_output\imagebuilder\!p_id!\*.img" "firmware_output\imagebuilder\!p_id!\*.trx" "firmware_output\imagebuilder\!p_id!\*.gz" 2>nul | findstr "^" >nul && set "st_oi=%C_VAL%OI%C_RST%"
+    set "st_os=%C_GRY%··%C_RST%"
+    dir /s /a-d /b "firmware_output\sourcebuilder\!p_id!\*.bin" "firmware_output\sourcebuilder\!p_id!\*.img" "firmware_output\sourcebuilder\!p_id!\*.trx" "firmware_output\sourcebuilder\!p_id!\*.gz" 2>nul | findstr "^" >nul && set "st_os=%C_VAL%OS%C_RST%"
+    
+    :: Вывод КРАСИВОЙ СТРОКИ
+    set "spaces=                                                                    "
+    set "line=   %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% !fname_display!!spaces!"
+    set "arch_disp=!this_arch!!spaces!"
+    
+    :: Отрисовка: Имя (57 симв) | Архитектура (13 симв) | Статусы
+    echo !line:~0,57! %C_VAL%!arch_disp:~0,13!%C_RST% %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_oi!!st_os!]%C_RST%
 )
 echo.
 echo    %L_LEGEND_IND%
@@ -462,7 +533,9 @@ echo.
 echo  %L_SEL_IMPORT%:
 echo.
 for /L %%i in (1,1,%count%) do (
-    echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !profile[%%i]!
+    set "fname_tmp=!profile[%%i]!"
+    set "fname_tmp=!fname_tmp:.conf=!"
+    echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !fname_tmp!
 )
 echo.
 echo    %C_LBL%[%C_KEY%0%C_LBL%]%C_RST% %L_BACK%
@@ -478,16 +551,17 @@ if %n_i% lss 1 goto INVALID
 set "SEL_CONF=!profile[%n_i%]!"
 set "SEL_ID=!profile[%n_i%]:.conf=!"
 
-:: Извлекаем SRC_TARGET для валидации
-set "P_TARGET="
-for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "SRC_TARGET"`) do (
+:: Извлекаем SRC_ARCH для строгой валидации
+set "P_ARCH="
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "SRC_ARCH"`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
-    for /f "tokens=* delims= " %%b in ("!VAL!") do set "P_TARGET=%%b"
+    for /f "tokens=* delims= " %%b in ("!VAL!") do set "P_ARCH=%%b"
 )
+
 echo.
 if exist "system/import_ipk.ps1" (
-    powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1" -ProfileID "!SEL_ID!" -TargetArch "!P_TARGET!"
+    powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1" -ProfileID "!SEL_ID!" -TargetArch "!P_ARCH!"
     pause
 ) else (
     echo %C_KEY%%L_ERR_PS1_IPK%
