@@ -26,7 +26,7 @@
 ## 🖥 Интерфейс
 
 > **Внешний вид: Главное окно**
-<img width="1477" height="613" alt="image" src="https://github.com/user-attachments/assets/f61ec516-65f3-4aa2-81f6-363177e113a7" />
+<img width="1483" height="762" alt="image" src="https://github.com/user-attachments/assets/709e6d4e-9adc-418a-bf2a-443903ca5e87" />
 
 > **Внешний вид: Множественная сборка**
 <img width="1477" height="998" alt="image" src="https://github.com/user-attachments/assets/16299ec8-0435-4e67-a6ef-1c3a600091c3" />
