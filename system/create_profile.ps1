@@ -20,8 +20,101 @@
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# --- БЛОК ЛОКАЛИЗАЦИИ ---
+$FORCE_LANG = "AUTO" # Варианты: AUTO, RU, EN
+$ru_score = 0
+try {
+    $uiLang = Get-ItemProperty "HKCU:\Control Panel\Desktop" -Name PreferredUILanguages -ErrorAction SilentlyContinue
+    if ($uiLang.PreferredUILanguages -match "ru-RU") { $ru_score += 3 }
+    $insLang = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Nls\Language" -Name InstallLanguage -ErrorAction SilentlyContinue
+    if ($insLang.InstallLanguage -eq "0419") { $ru_score += 2 }
+    $cultureName = (Get-Culture).Name
+    $userLangs = (Get-WinUserLanguageList).LanguageTag
+    if ($cultureName -match "ru" -or $userLangs -match "ru") { $ru_score += 4 }
+} catch {}
+if ([console]::OutputEncoding.CodePage -eq 866) { $ru_score += 1 }
+$DetectedLang = if ($ru_score -ge 5) { "RU" } else { "EN" }
+# Логика приоритета: FORCE_LANG > env:SYS_LANG > Detected
+if ($FORCE_LANG -ne "AUTO") {
+    $Lang = $FORCE_LANG
+} elseif ($env:SYS_LANG) {
+    $Lang = $env:SYS_LANG
+} else {
+    $Lang = $DetectedLang
+}
+
+# --- СЛОВАРЬ (DICTIONARY) ---
+$L = @{}
+if ($Lang -eq "RU") {
+    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.3 UX++)"
+    $L.StructureLabel = "СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:"
+    $L.PathLabel      = "ПУТЬ: "
+    $L.PromptSelect   = "Выберите номер"
+    $L.PromptBack     = "Назад"
+    $L.PromptExit     = "Выход"
+    $L.ErrInput       = "Ошибка: Некорректный ввод."
+    $L.Step1_Title    = "Шаг 1: Выбор источника прошивки"
+    $L.Step1_OW       = "OpenWrt (Официальная, стабильная)"
+    $L.Step1_IW       = "ImmortalWrt (Больше пакетов, оптимизации)"
+    $L.Step2_Title    = "Шаг 2: Выбор релиза"
+    $L.Step2_Fetch    = "Получение списка..."
+    $L.Step3_Title    = "Шаг 3: Выбор Target"
+    $L.Step4_Title    = "Шаг 4: Выбор Subtarget"
+    $L.Step5_Title    = "Шаг 5: Выбор модели устройства"
+    $L.Step5_Err      = "Ошибка загрузки profiles.json."
+    $L.Step6_Title    = "Шаг 6: Финализация"
+    $L.Step6_ErrIB    = "ОШИБКА: ImageBuilder не найден!"
+    $L.Step6_Mirror   = "Выберите источник загрузки IB:"
+    $L.Step6_DefPkgs  = "Пакеты по умолчанию:"
+    $L.Step6_AddPkgs  = "Дополнительные пакеты [luci] (Z - Назад)"
+    $L.Step6_FileName = "Введите имя файла конфига (без .conf)"
+    $L.Step6_ErrName  = "Ошибка: некорректное имя."
+    $L.Step6_AutoCorr = "  -> Автокоррекция:"
+    $L.Step6_Exists   = "[!] Файл уже существует!"
+    $L.Step6_Overwrite= "Перезаписать? (y/n) [n]"
+    $L.Step6_Saved    = "Конфиг успешно сохранен:"
+    $L.FinalAction    = "Нажмите Enter для создания нового профиля или 'Q' для выхода..."
+    # Конфиг-комментарии
+    $L.Conf_Default   = "Пакеты по умолчанию (Target Default +/- Device Specific)"
+    $L.Conf_Custom    = "Ваши дополнительные пакеты"
+    $L.Conf_SizeDesc  = "ЭКОНОМИЯ МЕСТА (Для 4MB / 8MB флешек)"
+} else {
+    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.26 UX+)"
+    $L.StructureLabel = "TYPICAL FIRMWARE FILENAME STRUCTURE:"
+    $L.PathLabel      = "PATH: "
+    $L.PromptSelect   = "Select number"
+    $L.PromptBack     = "Back"
+    $L.PromptExit     = "Exit"
+    $L.ErrInput       = "Error: Invalid input."
+    $L.Step1_Title    = "Step 1: Firmware Source Selection"
+    $L.Step1_OW       = "OpenWrt (Official, stable)"
+    $L.Step1_IW       = "ImmortalWrt (More packages, optimized)"
+    $L.Step2_Title    = "Step 2: Release Selection"
+    $L.Step2_Fetch    = "Fetching list..."
+    $L.Step3_Title    = "Step 3: Target Selection"
+    $L.Step4_Title    = "Step 4: Subtarget Selection"
+    $L.Step5_Title    = "Step 5: Device Model Selection"
+    $L.Step5_Err      = "Error loading profiles.json."
+    $L.Step6_Title    = "Step 6: Finalization"
+    $L.Step6_ErrIB    = "ERROR: ImageBuilder not found!"
+    $L.Step6_Mirror   = "Select IB download source:"
+    $L.Step6_DefPkgs  = "Default packages:"
+    $L.Step6_AddPkgs  = "Additional packages [luci] (Z - Back)"
+    $L.Step6_FileName = "Enter config filename (without .conf)"
+    $L.Step6_ErrName  = "Error: invalid name."
+    $L.Step6_AutoCorr = "  -> Autocorrected:"
+    $L.Step6_Exists   = "[!] File already exists!"
+    $L.Step6_Overwrite= "Overwrite? (y/n) [n]"
+    $L.Step6_Saved    = "Config successfully saved:"
+    $L.FinalAction    = "Press Enter for new profile or 'Q' to exit..."
+    # Config comments
+    $L.Conf_Default   = "Default packages (Target Default +/- Device Specific)"
+    $L.Conf_Custom    = "Your custom packages"
+    $L.Conf_SizeDesc  = "SPACE SAVING (For 4MB / 8MB flash)"
+}
+
 # --- ИНИЦИАЛИЗАЦИЯ ОКРУЖЕНИЯ ---
-$ProfilesDir = Join-Path (Split-Path -Parent $PSScriptRoot) "profiles" # Это корень/profiles
+$ProfilesDir = Join-Path (Split-Path -Parent $PSScriptRoot) "profiles"
 
 # Создаем рабочую папку для профилей, если её нет
 if (-not (Test-Path $ProfilesDir)) { New-Item -ItemType Directory -Path $ProfilesDir | Out-Null }
@@ -54,12 +147,12 @@ function Show-Header {
     param([string]$StepName, [int]$StepNum)
     Clear-Host
     Write-Host "==========================================================================" -ForegroundColor Cyan
-    Write-Host "  UNIVERSAL Profile Creator (v2.26 UX+)" -ForegroundColor Cyan
+    Write-Host "  $($L.HeaderTitle) [$Lang]" -ForegroundColor Cyan
     Write-Host "  $StepName" -ForegroundColor Yellow
     Write-Host "==========================================================================" -ForegroundColor Cyan
     
     # --- ВИЗУАЛИЗАЦИЯ ИМЕНИ ФАЙЛА ---
-    Write-Host "  СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:" -ForegroundColor Gray
+    Write-Host "  $($L.StructureLabel)" -ForegroundColor Gray
     Write-Host "  " -NoNewline
 
     # Функция-помощник для покраски сегментов
@@ -95,7 +188,7 @@ function Show-Header {
     
     # 2. Выводим разноцветную строку
     if ($crumbs.Count -gt 0) {
-        Write-Host "  PATH: " -NoNewline -ForegroundColor Gray
+        Write-Host "  $($L.PathLabel)" -NoNewline -ForegroundColor Gray
         for ($i = 0; $i -lt $crumbs.Count; $i++) {
             # Значение (Ярко-зеленый)
             Write-Host $crumbs[$i] -NoNewline -ForegroundColor Green
@@ -120,9 +213,9 @@ function Read-Selection {
     #>
     param($MaxCount, $AllowBack = $true)
     do {
-        $prompt = "`nВыберите номер (1-$MaxCount)"
-        if ($AllowBack) { $prompt += ", [Z] Назад" }
-        $prompt += ", [Q] Выход: "
+        $prompt = "`n$($L.PromptSelect) (1-$MaxCount)"
+        if ($AllowBack) { $prompt += ", [Z] $($L.PromptBack)" }
+        $prompt += ", [Q] $($L.PromptExit): "
         $inputVal = Read-Host $prompt
         # Игнорируем пустой ввод
         if ([string]::IsNullOrWhiteSpace($inputVal)) { continue }
@@ -136,7 +229,7 @@ function Read-Selection {
             $idx = [int]$val
             if ($idx -ge 1 -and $idx -le $MaxCount) { return $idx }
         }
-        Write-Host "Ошибка: Некорректный ввод." -ForegroundColor Red
+        Write-Host "$($L.ErrInput)" -ForegroundColor Red
     } while ($true)
 }
 
@@ -144,22 +237,18 @@ function Read-Selection {
 # Переменная $Step определяет текущий экран.
 # Это позволяет легко реализовать кнопки "Назад" ($Step--) и повтор шагов.
 # --- ОСНОВНОЙ ЦИКЛ ---
-
 $Step = 1
 
 while ($true) {
     try {
         switch ($Step) {
-            
-            # ==========================================
             # ШАГ 1: ВЫБОР ИСТОЧНИКА
-            # ==========================================
             1 {
                 # Сброс состояния при возврате в начало
                 $GlobalState.Source = $null
-                Show-Header "Шаг 1: Выбор источника прошивки" 1
-                Write-Host " 1. OpenWrt (Официальная, стабильная)"
-                Write-Host " 2. ImmortalWrt (Больше пакетов, оптимизации)"
+                Show-Header "$($L.Step1_Title)" 1
+                Write-Host " 1. $($L.Step1_OW)"
+                Write-Host " 2. $($L.Step1_IW)"
                 $sel = Read-Selection -MaxCount 2 -AllowBack $false
                 if ($sel -eq 1) {
                     $GlobalState.Source  = "OpenWrt"
@@ -173,13 +262,11 @@ while ($true) {
                 $GlobalState.LastStep = 1; $Step++ 
             }
 
-            # ==========================================
             # ШАГ 2: ВЫБОР РЕЛИЗА
-            # ==========================================
             2 {
                 $GlobalState.Release = $null
-                Show-Header "Шаг 2: Выбор релиза ($($GlobalState.Source))" 2
-                Write-Host "Получение списка..."
+                Show-Header "$($L.Step2_Title) ($($GlobalState.Source))" 2
+                Write-Host "$($L.Step2_Fetch)"
                 $url = "$($GlobalState.BaseUrl)/releases/"
                 $html = (Invoke-WebRequest -Uri $url -UseBasicParsing).Content
                 # Regex парсит ссылки вида "23.05.0/" или "snapshots/"
@@ -193,12 +280,10 @@ while ($true) {
                 $GlobalState.LastStep = 2; $Step++
             }
 
-            # ==========================================
             # ШАГ 3: ВЫБОР АРХИТЕКТУРЫ (TARGET)
-            # ==========================================
             3 {
                 $GlobalState.Target = $null
-                Show-Header "Шаг 3: Выбор Target" 3
+                Show-Header "$($L.Step3_Title)" 3
                 $rel = $GlobalState.Release
                 $baseUrl = $GlobalState.BaseUrl
                 # Формируем URL в зависимости от того, релиз это или снапшот
@@ -215,9 +300,7 @@ while ($true) {
                 $GlobalState.LastStep = 3; $Step++
             }
 
-            # ==========================================
             # ШАГ 4: ВЫБОР ПОД-АРХИТЕКТУРЫ (SUBTARGET)
-            # ==========================================
             4 {
                 $GlobalState.Subtarget = $null
                 $rel = $GlobalState.Release; $baseUrl = $GlobalState.BaseUrl; $tar = $GlobalState.Target
@@ -236,7 +319,7 @@ while ($true) {
                     $GlobalState.LastStep = 4; $Step++ 
                     continue
                 } else {
-                    Show-Header "Шаг 4: Выбор Subtarget" 4
+                    Show-Header "$($L.Step4_Title)" 4
                     for ($i=0; $i -lt $subtargets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $subtargets[$i]) }
                     $idx = Read-Selection -MaxCount $subtargets.Count
                     if ($idx -eq -1) { $Step--; continue }
@@ -245,18 +328,16 @@ while ($true) {
                 }
             }
 
-            # ==========================================
             # ШАГ 5: ВЫБОР МОДЕЛИ И АНАЛИЗ ПАКЕТОВ
-            # ==========================================
             5 {
                 $GlobalState.ModelID = $null; $GlobalState.ModelName = $null
-                Show-Header "Шаг 5: Выбор модели устройства" 5
+                Show-Header "$($L.Step5_Title)" 5
                 $finalUrl = "$($GlobalState.CurrentTargetUrl)$($GlobalState.Subtarget)/"
                 $GlobalState.FinalUrl = $finalUrl
                 try {
                     $data = Invoke-RestMethod -Uri "$($finalUrl)profiles.json"
                 } catch {
-                    Write-Host "Ошибка загрузки profiles.json." -ForegroundColor Red; Start-Sleep 2; $Step--; continue
+                    Write-Host "$($L.Step5_Err)" -ForegroundColor Red; Start-Sleep 2; $Step--; continue
                 }
                 # Получаем список ID профилей и их названий
                 $profileIds = @($data.profiles.PSObject.Properties.Name | Sort-Object)
@@ -287,34 +368,29 @@ while ($true) {
                 $GlobalState.LastStep = 5; $Step++
             }
 
-            # ==========================================
             # ШАГ 6: ГЕНЕРАЦИЯ КОНФИГА
-            # ==========================================
             6 {
                 # 1. Поиск ImageBuilder
-                Show-Header "Шаг 6: Финализация" 6
+                Show-Header "$($L.Step6_Title)" 6
                 $folderHtml = (Invoke-WebRequest -Uri $GlobalState.FinalUrl -UseBasicParsing).Content
                 if ($folderHtml -match 'href="((openwrt|immortalwrt)-imagebuilder-[^"]+\.tar\.(xz|zst))"') {
-                    # --- ВЫБОР ЗЕРКАЛА (ТОЛЬКО ДЛЯ IMMORTALWRT) ---
                     $ibFileName = $Matches[1]; $currentUrl = "$($GlobalState.FinalUrl)$ibFileName"
                     if ($GlobalState.Source -eq "ImmortalWrt") {
-                        Write-Host "Выберите источник загрузки IB:`n 1. Official`n 2. KyaruCloud (CDN)" -ForegroundColor Yellow
-                        $mirrorSel = Read-Host "`nВаш выбор (1-2) [Default: 2]"
+                        Write-Host "$($L.Step6_Mirror)`n 1. Official`n 2. KyaruCloud (CDN)" -ForegroundColor Yellow
+                        $mirrorSel = Read-Host "`n$($L.PromptSelect) (1-2) [Default: 2]"
                         $GlobalState.IBUrl = if ($mirrorSel -eq '1') { $currentUrl } else { $currentUrl.Replace("https://downloads.immortalwrt.org", "https://immortalwrt.kyarucloud.moe") }
                     } else { $GlobalState.IBUrl = $currentUrl }
                 } else {
-                    Write-Host "ОШИБКА: ImageBuilder не найден!" -ForegroundColor Red; Read-Host; $Step--; continue
+                    Write-Host "$($L.Step6_ErrIB)" -ForegroundColor Red; Read-Host; $Step--; continue
                 }
 
                 # 2. Отображение пакетов
-                # ---------------------------------------------------------
-                Write-Host "Пакеты по умолчанию:`n$($GlobalState.DefPkgs)`n" -ForegroundColor Gray
-                $inputPkgs = Read-Host "Дополнительные пакеты [luci] (Z - Назад)"
+                Write-Host "$($L.Step6_DefPkgs)`n$($GlobalState.DefPkgs)`n" -ForegroundColor Gray
+                $inputPkgs = Read-Host "$($L.Step6_AddPkgs)"
                 if ($inputPkgs.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue }
                 $pkgs = if ([string]::IsNullOrWhiteSpace($inputPkgs)) { "luci" } else { $inputPkgs }
 
                 # 3. Имя файла (Системная генерация + Защита)
-                # ---------------------------------------------------------
                 $verClean = ($GlobalState.Release -replace '\.', '') -replace 'snapshots', 'snap'
                 $srcShort = if ($GlobalState.Source -eq 'ImmortalWrt') { 'iw' } else { 'ow' }
                 $modClean = $GlobalState.ModelID -replace '-', '_'
@@ -322,8 +398,8 @@ while ($true) {
 
                 $profileName = $null
                 do {
-                    Write-Host "`nВведите имя файла конфига (без .conf)" -ForegroundColor Gray
-                    $inputName = Read-Host "Имя файла [$defaultName] (Z - Назад)"
+                    Write-Host "`n$($L.Step6_FileName)" -ForegroundColor Gray
+                    $inputName = Read-Host "[$defaultName] (Z - $($L.PromptBack))"
                     
                     # Навигация
                     if ($inputName.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue 2 }
@@ -336,28 +412,24 @@ while ($true) {
                         # Форматирование: только мелкие буквы, цифры и подчеркивания
                         $cleanName = $inputName.Trim().ToLower() -replace '[\s\-\.]+', '_'
                         $cleanName = $cleanName -replace '[^a-z0-9_]', ''
-                        
                         if ([string]::IsNullOrWhiteSpace($cleanName)) {
-                            Write-Host "Ошибка: некорректное имя." -ForegroundColor Red
+                            Write-Host "$($L.Step6_ErrName)" -ForegroundColor Red
                             continue
                         }
                         $profileName = $cleanName
-                        if ($inputName -ne $profileName) {
-                            Write-Host "  -> Автокоррекция: $profileName" -ForegroundColor Cyan
-                        }
+                        if ($inputName -ne $profileName) { Write-Host "$($L.Step6_AutoCorr) $profileName" -ForegroundColor Cyan }
                     }
 
                     # Проверка на существование
                     if (Test-Path (Join-Path $ProfilesDir "$profileName.conf")) {
-                        Write-Host " [!] Файл '$profileName.conf' уже существует!" -ForegroundColor Yellow
-                        $ovr = Read-Host " Перезаписать? (y/n) [n]"
+                        Write-Host " $($L.Step6_Exists) '$profileName.conf'" -ForegroundColor Yellow
+                        $ovr = Read-Host " $($L.Step6_Overwrite)"
                         if ($ovr.Trim().ToLower() -ne 'y') { continue }
                     }
                     break 
                 } while ($true)
 
                 # 4. Сохранение
-                # ---------------------------------------------------------                
                 $confPath = Join-Path $ProfilesDir "$profileName.conf"
                 $gitBranch = if ($GlobalState.Release -eq "snapshots") { "master" } else { "v$($GlobalState.Release)" }
                 
@@ -368,10 +440,10 @@ while ($true) {
 PROFILE_NAME="$profileName"
 TARGET_PROFILE="$($GlobalState.ModelID)"
 
-# Пакеты по умолчанию (Target Default +/- Device Specific)
+# $($L.Conf_Default)
 DEFAULT_PACKAGES="$($GlobalState.DefPkgs)"
 
-# Ваши дополнительные пакеты
+# $($L.Conf_Custom)
 COMMON_LIST="$pkgs"
 
 # === IMAGE BUILDER CONFIG
@@ -419,16 +491,16 @@ CONFIG_BUILD_LOG=y"
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
 "@
                 $content | Out-File -FilePath $confPath -Encoding utf8 -Force
-                Write-Host "`n[OK] Конфиг успешно сохранен: $confPath" -ForegroundColor Green
+                Write-Host "`n[OK] $($L.Step6_Saved) $confPath" -ForegroundColor Green
                 
-                Write-Host "`nНажмите Enter для создания нового профиля или 'Q' для выхода..."
+                Write-Host "`n$($L.FinalAction)"
                 $finalAction = Read-Host
                 if ($finalAction -eq 'q') { exit }
                 $Step = 1
             } # <-- Закрывает Шаг 6
         } # <-- Закрывает Switch
     } catch {
-        Write-Host "`nКРИТИЧЕСКАЯ ОШИБКА: $($_.Exception.Message)" -ForegroundColor Red
-        Read-Host "Нажмите Enter для повтора..."
+        Write-Host "`nFATAL ERROR: $($_.Exception.Message)" -ForegroundColor Red
+        Read-Host "Press Enter to retry..."
     }
 } # <-- Закрывает While

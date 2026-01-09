@@ -95,14 +95,14 @@ foreach ($ipk in $ipkFiles) {
             }
 
             if (-not $isCompatible) {
-                Write-Host "    [!] ВНИМАНИЕ: Пакет ($pkgArch) может быть НЕ СОВМЕСТИМ с целью $TargetArch!" -ForegroundColor Red
-                $confirm = Read-Host "    Вы уверены, что хотите продолжить импорт? [Y/N]"
+                Write-Host "    [!] WARNING: Package ($pkgArch) may be INCOMPATIBLE with target $TargetArch!" -ForegroundColor Red
+                $confirm = Read-Host "    Are you sure you want to continue? [Y/N]"
                 if ($confirm -ne "Y" -and $confirm -ne "y") {
-                    Write-Host "    [SKIP] Импорт отменен пользователем." -ForegroundColor Gray
+                    Write-Host "    [SKIP] Import cancelled by user." -ForegroundColor Gray
                     continue
                 }
             } else {
-                Write-Host "    [OK] Архитектура подтверждена для цели $TargetArch." -ForegroundColor Green
+                Write-Host "    [OK] Architecture verified for target $TargetArch." -ForegroundColor Green
             }
         }
     }
@@ -194,11 +194,11 @@ $(eval $(call BuildPackage,$(PKG_NAME)))
 }
 
 if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
-Write-Host "`n[DONE] Процедура завершена." -ForegroundColor Cyan
+Write-Host "`n[DONE] Import process finished." -ForegroundColor Cyan
 if ($ProfileID -ne "") {
-    Write-Host "[INFO] Пакеты импортированы в: $outDir" -ForegroundColor Green
+    Write-Host "[INFO] Packages imported to: $outDir" -ForegroundColor Green
 }
 if ($pkgArch -and $pkgArch -ne "all") {
-    Write-Host "[WARN] Убедитесь, что архитектура (последняя обработанная: $pkgArch) соответствует вашему устройству!" -ForegroundColor Red
+    Write-Host "[WARN] Make sure the architecture (last processed: $pkgArch) matches your device!" -ForegroundColor Red
 }
 Write-Host "`n"

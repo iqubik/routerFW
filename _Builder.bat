@@ -21,9 +21,10 @@ set "C_ERR=%ESC%[91m"
 
 :: === ЯЗЫКОВОЙ МОДУЛЬ ===
 :: ТУМБЛЕR: AUTO (детект), RU (всегда рус), EN (всегда англ)
-set "FORCE_LANG=EN"
+set "FORCE_LANG=AUTO"
 set "SYS_LANG=EN"
 set /a "ru_score=0"
+:: Строки детектора (всегда на двух языках для процесса инициализации)
 echo %C_LBL%[INIT]%C_RST% Language detector (Weighted Detection)...
 :: 1. Проверка реестра: UI Язык (3 балла)
 reg query "HKCU\Control Panel\Desktop" /v PreferredUILanguages 2>nul | findstr /I "ru-RU" >nul
@@ -50,10 +51,185 @@ if %ru_score% GEQ 5 set "SYS_LANG=RU"
 :: === ПРИНУДИТЕЛЬНЫЙ ПЕРЕКЛЮЧАТЕЛЬ (OVERRIDE) ===
 if /i "%FORCE_LANG%"=="RU" set "SYS_LANG=RU"
 if /i "%FORCE_LANG%"=="EN" set "SYS_LANG=EN"
+:: === СЛОВАРЬ (DICTIONARY) ===
+if "%SYS_LANG%"=="RU" (
+    set "L_VERDICT=Вердикт"
+    set "L_LANG_NAME=РУССКИЙ"
+    set "L_INIT_ENV=[INIT] Проверка окружения..."
+    set "L_ERR_DOCKER=[ERROR] Docker не обнаружен!"
+    set "L_ERR_DOCKER_MSG=Убедитесь, что Docker Desktop установлен и запущен."
+    set "L_ERR_COMPOSE=[ERROR] docker-compose не найден в PATH!"
+    set "L_INIT_NET=[INIT] Очистка неиспользуемых сетей Docker..."
+    set "L_INIT_UNPACK=[INIT] Проверка распаковщика..."
+    set "L_MODE_IMG=IMAGE BUILDER (Быстрая сборка)"
+    set "L_MODE_SRC=SOURCE BUILDER (Полная компиляция)"
+    set "L_CUR_MODE=Текущий режим"
+    set "L_PROFILES=Профили сборки"
+    set "L_LEGEND_IND=Индикаторы показывают состояние ресурсов и результатов сборки."
+    set "L_LEGEND_TEXT=Легенда: F:Файлы P:Пакеты S:Исх | Прошивки: OI:Образ OS:Сборка"
+    set "L_BTN_ALL=Собрать ВСЕ"
+    set "L_BTN_SWITCH=Переключить на"
+    set "L_BTN_EDIT=Редактор"
+    set "L_BTN_CLEAN=Обслуживание"
+    set "L_BTN_WIZ=Мастер профилей"
+    set "L_BTN_EXIT=Выход"
+    set "L_BTN_IPK=Импорт IPK"
+    set "L_CHOICE=Ваш выбор"
+    set "L_RUNNING=Сборка запущена..."
+    set "L_EDIT_TITLE=МЕНЕДЖЕР РЕСУРСОВ И РЕДАКТОР ПРОФИЛЯ"
+    set "L_SEL_PROF=Выберите профиль для работы"
+    set "L_BACK=Назад"
+    set "L_ANALYSIS=[АНАЛИЗ СОСТОЯНИЯ ПРОФИЛЯ"
+    set "L_MISSING=Отсутствует"
+    set "L_EMPTY=Пусто"
+    set "L_READY=Готов"
+    set "L_FOUND=Найдено"
+    set "L_ST_CONF=Конфигурация"
+    set "L_ST_OVER=Overlay файлы"
+    set "L_ST_IPK=Входящие IPK"
+    set "L_ST_SRC=Исходники PKG"
+    set "L_ST_OUTS=Выход Source"
+    set "L_ST_OUTI=Выход Image"
+    set "L_ACTION=ДЕЙСТВИЕ"
+    set "L_OPEN_FILE=Открыть файл"
+    set "L_OPEN_EXPL=Открыть также папки ресурсов в Проводнике?"
+    set "L_START_EXPL=[INFO] Запуск проводника..."
+    set "L_DONE_MENU=Готово. Переход в меню..."
+    set "L_WARN_MASS=Массовая компиляция из исходников! Это займет много времени."
+    set "L_MASS_START=МАССОВЫЙ ЗАПУСК"
+    set "L_IMPORT_IPK_TITLE=ИМПОРТ ПАКЕТОВ (IPK) ДЛЯ ПРОФИЛЯ"
+    set "L_SEL_IMPORT=Выберите профиль для импорта пакетов"
+    set "L_ERR_PS1_IPK=[ERROR] system/import_ipk.ps1 не найден!"
+    set "L_CLEAN_TITLE=МЕНЮ ОЧИСТКИ И ОБСЛУЖИВАНИЯ"
+    set "L_CLEAN_TYPE=Выберите тип данных для очистки"
+    set "L_CLEAN_IMG_SDK=Очистить кэш ImageBuilder (SDK) (Ядра и пакеты OpenWrt)"
+    set "L_CLEAN_IMG_IPK=Очистить кэш пакетов (IPK) (Папка dl/)"
+    set "L_CLEAN_FULL=FULL FACTORY RESET (Сброс проекта)"
+    set "L_CLEAN_SRC_SOFT=SOFT CLEAN (make clean) (Очистка бинарников)"
+    set "L_CLEAN_SRC_HARD=HARD RESET (Удалить src-workdir) (Сброс кода и тулчейна)"
+    set "L_CLEAN_SRC_DL=Очистить кэш исходников (dl) (Удалить архивы кода)"
+    set "L_CLEAN_SRC_CC=Очистить CCACHE (Кэш компилятора)"
+    set "L_DOCKER_PRUNE=Prune Docker (Глобальная очистка мусора)"
+    set "L_PRUNE_RUN=[DOCKER] Выполняю system prune..."
+    set "L_CLEAN_PROF_SEL=Для какого профиля выполнить очистку?"
+    set "L_CLEAN_ALL_PROF=ДЛЯ ВСЕХ ПРОФИЛЕЙ (Глобальная очистка)"
+    set "L_CONFIRM_YES=Введите YES для подтверждения"
+    set "L_CLEAN_RUN=[CLEAN] Запуск процедуры..."
+    set "L_K_TITLE=MENUCONFIG ИНТЕРАКТИВ"
+    set "L_K_DESC=Будет создан manual_config в папке"
+    set "L_K_SEL=Выберите профиль для настройки"
+    set "L_K_WARN_EX=В папке профиля найден сохраненный конфиг: manual_config"
+    set "L_K_WARN_L1=1. Мы ЗАГРУЗИМ его в редактор [вы продолжите настройку]."
+    set "L_K_WARN_L2=2. После выхода из меню файл будет ПЕРЕЗАПИСАН новыми данными."
+    set "L_K_CONT=Продолжить? [Y/N]"
+    set "L_K_SAVE=Фиксация конфигурации..."
+    set "L_K_SAVED=Сохранено"
+    set "L_K_STR=строк"
+    set "L_K_EMPTY_DIFF=Дифф пуст, сохраняю полный конфиг."
+    set "L_K_FINAL=Конфигурация сохранена в firmware_output"
+    set "L_K_STAY=Остаться в контейнере для работы с файлами? [y/N]"
+    set "L_K_SHELL_H1=[SHELL] Вход в консоль. Текущая папка"
+    set "L_K_SHELL_H2=Подсказка: введите mc для запуска файлового менеджера."
+    set "L_K_SHELL_H3=Чтобы выйти в Windows и продолжить, введите exit."
+    set "L_K_LAUNCH=[INFO] Запуск интерактивного Menuconfig..."
+    set "L_WIZ_START=ЗАПУСК МАСТЕРА СОЗДАНИЯ ПРОФИЛЯ"
+    set "L_WIZ_DONE=Мастер завершил работу."
+    set "L_ERR_WIZ=[ERROR] Файл create_profile.ps1 не найден!"
+    set "L_ERR_INPUT=Ошибка ввода."
+    set "L_PROC_PROF=Профиль"
+    set "L_ERR_VAR_NF=не найден."
+    set "L_ERR_SKIP=Возможно, этот профиль предназначен для другого режима."
+) else (
+    set "L_VERDICT=Verdict"
+    set "L_LANG_NAME=ENGLISH"
+    set "L_INIT_ENV=[INIT] Checking environment..."
+    set "L_ERR_DOCKER=[ERROR] Docker not found!"
+    set "L_ERR_DOCKER_MSG=Make sure Docker Desktop is installed and running."
+    set "L_ERR_COMPOSE=[ERROR] docker-compose not found in PATH!"
+    set "L_INIT_NET=[INIT] Pruning unused Docker networks..."
+    set "L_INIT_UNPACK=[INIT] Checking unpacker..."
+    set "L_MODE_IMG=IMAGE BUILDER (Fast Build)"
+    set "L_MODE_SRC=SOURCE BUILDER (Full Compilation)"
+    set "L_CUR_MODE=Current Mode"
+    set "L_PROFILES=Build Profiles"
+    set "L_LEGEND_IND=Indicators show the state of resources and build results."
+    set "L_LEGEND_TEXT=Legend: F:Files P:Packages S:Src | Firmwares: OI:Image OS:Build"
+    set "L_BTN_ALL=Build ALL"
+    set "L_BTN_SWITCH=Switch to"
+    set "L_BTN_EDIT=Editor"
+    set "L_BTN_CLEAN=Maintenance"
+    set "L_BTN_WIZ=Profile Wizard"
+    set "L_BTN_EXIT=Exit"
+    set "L_BTN_IPK=Import IPK"
+    set "L_CHOICE=Your choice"
+    set "L_RUNNING=Build started..."
+    set "L_EDIT_TITLE=RESOURCE MANAGER AND PROFILE EDITOR"
+    set "L_SEL_PROF=Select profile to work with"
+    set "L_BACK=Back"
+    set "L_ANALYSIS=[PROFILE STATE ANALYSIS"
+    set "L_MISSING=Missing"
+    set "L_EMPTY=Empty"
+    set "L_READY=Ready"
+    set "L_FOUND=Found"
+    set "L_ST_CONF=Configuration"
+    set "L_ST_OVER=Overlay files"
+    set "L_ST_IPK=Inbound IPKs"
+    set "L_ST_SRC=Source PKGs"
+    set "L_ST_OUTS=Source Output"
+    set "L_ST_OUTI=Image Output"
+    set "L_ACTION=ACTION"
+    set "L_OPEN_FILE=Open file"
+    set "L_OPEN_EXPL=Open resource folders in Explorer too?"
+    set "L_START_EXPL=[INFO] Launching Explorer..."
+    set "L_DONE_MENU=Done. Returning to menu..."
+    set "L_WARN_MASS=Massive source compilation! This will take a lot of time/CPU."
+    set "L_MASS_START=MASSIVE LAUNCH"
+    set "L_IMPORT_IPK_TITLE=PACKAGE IMPORT (IPK) FOR PROFILE"
+    set "L_SEL_IMPORT=Select profile for package import"
+    set "L_ERR_PS1_IPK=[ERROR] system/import_ipk.ps1 not found!"
+    set "L_CLEAN_TITLE=CLEANUP AND MAINTENANCE MENU"
+    set "L_CLEAN_TYPE=Select data type to clean"
+    set "L_CLEAN_IMG_SDK=Clean ImageBuilder Cache (SDK) (OpenWrt kernels/pkgs)"
+    set "L_CLEAN_IMG_IPK=Clean Package Cache (IPK) (dl/ folder)"
+    set "L_CLEAN_FULL=FULL FACTORY RESET (Reset project)"
+    set "L_CLEAN_SRC_SOFT=SOFT CLEAN (make clean) (Clean binaries)"
+    set "L_CLEAN_SRC_HARD=HARD RESET (Remove src-workdir) (Reset code/toolchain)"
+    set "L_CLEAN_SRC_DL=Clean Source Cache (dl) (Remove source archives)"
+    set "L_CLEAN_SRC_CC=Clean CCACHE (Compiler cache)"
+    set "L_DOCKER_PRUNE=Prune Docker (Global Docker cleanup)"
+    set "L_PRUNE_RUN=[DOCKER] Running system prune..."
+    set "L_CLEAN_PROF_SEL=Which profile to clean?"
+    set "L_CLEAN_ALL_PROF=FOR ALL PROFILES (Global cleanup)"
+    set "L_CONFIRM_YES=Type YES to confirm"
+    set "L_CLEAN_RUN=[CLEAN] Starting procedure..."
+    set "L_K_TITLE=MENUCONFIG INTERACTIVE"
+    set "L_K_DESC=manual_config will be created in folder"
+    set "L_K_SEL=Select profile to configure"
+    set "L_K_WARN_EX=Found saved config in profile folder: manual_config"
+    set "L_K_WARN_L1=1. We will LOAD it into editor [continue configuration]."
+    set "L_K_WARN_L2=2. After exit, the file will be OVERWRITTEN with new data."
+    set "L_K_CONT=Continue? [Y/N]"
+    set "L_K_SAVE=[SAVE] Committing configuration..."
+    set "L_K_SAVED=Saved"
+    set "L_K_STR=lines"
+    set "L_K_EMPTY_DIFF=Diff is empty, saving full config."
+    set "L_K_FINAL=Configuration saved to firmware_output"
+    set "L_K_STAY=Stay in container for file work? [y/N]"
+    set "L_K_SHELL_H1=[SHELL] Entering console. Current folder"
+    set "L_K_SHELL_H2=Tip: type mc to launch file manager."
+    set "L_K_SHELL_H3=To exit to Windows and continue, type exit."
+    set "L_K_LAUNCH=[INFO] Launching Interactive Menuconfig..."
+    set "L_WIZ_START=STARTING PROFILE WIZARD"
+    set "L_WIZ_DONE=Wizard finished."
+    set "L_ERR_WIZ=[ERROR] create_profile.ps1 not found!"
+    set "L_ERR_INPUT=Input error."
+    set "L_PROC_PROF=Profile"
+    set "L_ERR_VAR_NF=not found."
+    set "L_ERR_SKIP=Maybe this profile is for a different mode."
+)
 :: Финальный вывод вердикта
 if /i "%FORCE_LANG%"=="AUTO" (
-    if "%SYS_LANG%"=="RU" echo %C_LBL%[INIT]%C_RST% Вердикт %C_OK%РУССКИЙ%C_RST% (Score %ru_score%/10)
-    if "%SYS_LANG%"=="EN" echo %C_LBL%[INIT]%C_RST% Language %C_ERR%ENGLISH%C_RST% (Score %ru_score%/10)
+    echo %C_LBL%[INIT]%C_RST% %L_VERDICT% %C_OK%%L_LANG_NAME%%C_RST% (Score %ru_score%/10)
 ) else (
     echo %C_LBL%[INIT]%C_RST% Lang set: %C_VAL%FORCE %FORCE_LANG%%C_RST%
 )
@@ -62,41 +238,34 @@ echo.
 :: === КОНФИГУРАЦИЯ ===
 :: Режим по умолчанию: IMAGE
 set "BUILD_MODE=IMAGE"
-
-echo [INIT] Проверка окружения...
-
+echo %L_INIT_ENV%
 :: Проверка Docker
 docker --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Docker не обнаружен!
-    echo Убедитесь, что Docker Desktop установлен и запущен.
+    echo %L_ERR_DOCKER%
+    echo %L_ERR_DOCKER_MSG%
     echo.
     pause
     exit /b
 )
-
 :: Проверка docker-compose
 docker-compose --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] docker-compose не найден в PATH!
+    echo %L_ERR_COMPOSE%
     pause
     exit /b
 )
-
-echo [INIT] Очистка неиспользуемых сетей Docker...
+echo %L_INIT_NET%
 docker network prune --force >nul 2>&1
 echo.
-
 :: === 0. РАСПАКОВКА ===
 if exist _unpacker.bat (
-    echo [INIT] Проверка распаковщика...
+    echo %L_INIT_UNPACK%
     call _unpacker.bat
 )
-
 :: Запоминаем корень проекта
 set "PROJECT_DIR=%CD%"
 for %%I in (.) do set "DIR_NAME=%%~nxI"
-
 :: === 1. ИНИЦИАЛИЗАЦИЯ ПАПОК ===
 call :CHECK_DIR "profiles"
 call :CHECK_DIR "custom_files"
@@ -105,7 +274,7 @@ call :CHECK_DIR "custom_packages"
 call :CHECK_DIR "src_packages"
 
 :MENU
-rem cls
+cls
 :: Очистка массива профилей
 for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
 set "count=0"
@@ -113,23 +282,23 @@ set "count=0"
 :: Настройка интерфейса
 if "%BUILD_MODE%"=="IMAGE" (
     color 0B
-    set "MODE_TITLE=IMAGE BUILDER (Быстрая сборка)"
+    set "MODE_TITLE=%L_MODE_IMG%"
     set "OPPOSITE_MODE=SOURCE"
     set "TARGET_VAR=IMAGEBUILDER_URL"
 ) else (
     color 0D
-    set "MODE_TITLE=SOURCE BUILDER (Полная компиляция)"
+    set "MODE_TITLE=%L_MODE_SRC%"
     set "OPPOSITE_MODE= IMAGE"
     set "TARGET_VAR=SRC_BRANCH"
 )
 echo =================================================================
-echo  OpenWrt FW Builder v3.88 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
-echo  Текущий режим: [%C_VAL%%MODE_TITLE%%C_RST%]
+echo  OpenWrt FW Builder v3.9 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  %L_CUR_MODE%: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
 
 :: === ЦИКЛ СКАНИРОВАНИЯ (F P S | I B) ===
-echo    %C_LBL%Профили сборки:%C_RST%
+echo    %C_LBL%%L_PROFILES%:%C_RST%
 echo.
 for %%f in (profiles\*.conf) do (
     set /a count+=1
@@ -144,30 +313,27 @@ for %%f in (profiles\*.conf) do (
     set "st_f=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
     set "st_p=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
     set "st_s=%C_GRY%·%C_RST%" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"    
-    :: 2. Мониторинг результатов (Выход - теперь раздельно)
-    set "st_i=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\imagebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_i=%C_VAL%I%C_RST%"
-    set "st_b=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\sourcebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_b=%C_VAL%B%C_RST%"
-    :: Вывод строки (68 символов отступа для сдвига вправо)
+    :: 2. Мониторинг результатов (Выход - OI: Image, OS: Source)
+    set "st_oi=%C_GRY%··%C_RST%" & dir /a-d /b "firmware_output\imagebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_oi=%C_VAL%OI%C_RST%"
+    set "st_os=%C_GRY%··%C_RST%" & dir /a-d /b "firmware_output\sourcebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_os=%C_VAL%OS%C_RST%"
+    :: Вывод строки
     set "spaces=                                                          "
     set "fname=%%~nxf"
     set "line=   %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% !fname!!spaces!"
-    echo !line:~0,73! %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_i!!st_b!]%C_RST%
+    echo !line:~0,71! %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_oi!!st_os!]%C_RST%
 )
-
 echo.
-echo    Индикаторы показывают состояние ресурсов и результатов сборки.
-echo    %C_GRY%Легенда: F:Files P:Packages S:Src %C_GRY%^|^%C_GRY% Прошивки: I:Image B:Source%C_RST%
-
+echo    %L_LEGEND_IND%
+echo    %C_GRY%!L_LEGEND_TEXT!%C_RST%
 echo.
-echo    %C_LBL%[%C_KEY%A%C_LBL%] Собрать ВСЕ%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] Переключить на %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%E%C_LBL%] Редактор%C_RST%
-echo    %C_LBL%[%C_KEY%C%C_LBL%] Обслуживание%C_RST%     %C_LBL%[%C_KEY%W%C_LBL%] Мастер профилей%C_RST%          %C_LBL%[%C_KEY%0%C_LBL%] Выход%C_RST%
-
+echo    %C_LBL%[%C_KEY%A%C_LBL%] %L_BTN_ALL%%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] %L_BTN_SWITCH% %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%E%C_LBL%] %L_BTN_EDIT%%C_RST%
+echo    %C_LBL%[%C_KEY%C%C_LBL%] %L_BTN_CLEAN%%C_RST%     %C_LBL%[%C_KEY%W%C_LBL%] %L_BTN_WIZ%%C_RST%          %C_LBL%[%C_KEY%0%C_LBL%] %L_BTN_EXIT%%C_RST%
 if "%BUILD_MODE%"=="SOURCE" (
-    echo    %C_LBL%[%C_KEY%K%C_LBL%] %C_VAL%Menuconfig/mc%C_RST%    %C_LBL%[%C_KEY%I%C_LBL%] %C_VAL%Импорт IPK%C_RST%
+    echo    %C_LBL%[%C_KEY%K%C_LBL%] %C_VAL%Menuconfig/mc%C_RST%    %C_LBL%[%C_KEY%I%C_LBL%] %C_VAL%%L_BTN_IPK%%C_RST%
 )
 echo.
 set "choice="
-set /p choice=%C_LBL%Ваш выбор: %C_RST%
+set /p choice=%C_LBL%%L_CHOICE%: %C_RST%
 
 :: Если нажали Enter (пусто), просто обновляем меню
 if "%choice%"=="" goto MENU
@@ -190,7 +356,7 @@ if %num_choice% lss 1 goto INVALID
 :: === ОДИНОЧНАЯ СБОРКА ===
 set "SELECTED_CONF=!profile[%choice%]!"
 call :BUILD_ROUTINE "%SELECTED_CONF%"
-echo Сборка запущена...
+echo %L_RUNNING%
 pause
 goto MENU
 
@@ -198,19 +364,19 @@ goto MENU
 cls
 :: Используем зеленый цвет (%C_OK%) для заголовка
 echo %C_KEY%==========================================================%C_RST%
-echo  %C_VAL%МЕНЕДЖЕР РЕСУРСОВ И РЕДАКТОР ПРОФИЛЯ%C_RST%
+echo  %C_VAL%%L_EDIT_TITLE%%C_RST%
 echo %C_KEY%==========================================================%C_RST%
 echo.
-echo  Выберите профиль для работы:
+echo  %L_SEL_PROF%:
 echo.
 for /L %%i in (1,1,%count%) do (
     echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !profile[%%i]!
 )
 echo.
-echo    %C_LBL%[%C_KEY%0%C_LBL%] Назад%C_RST%
+echo    %C_LBL%[%C_KEY%0%C_LBL%] %L_BACK%%C_RST%
 echo.
 set "e_choice="
-set /p e_choice=%C_OK%Ваш выбор: %C_RST%
+set /p e_choice=%C_OK%%L_CHOICE%: %C_RST%
 if "%e_choice%"=="0" goto MENU
 set /a n_e=%e_choice% 2>nul
 if %n_e% gtr %count% goto INVALID
@@ -220,37 +386,37 @@ set "SEL_ID=!profile[%n_e%]:.conf=!"
 
 :: --- БЛОК ОТЛАДКИ / СОСТОЯНИЯ (DEBUG INFO) ---
 echo.
-echo %C_OK%[АНАЛИЗ СОСТОЯНИЯ ПРОФИЛЯ: !SEL_ID!]%C_RST%
+echo %C_OK%%L_ANALYSIS%: !SEL_ID!]%C_RST%
 echo ----------------------------------------------------------
 :: Проверка наличия папок для отладки
-set "S_FILES=%C_ERR%Отсутствует%C_RST%"
-set "S_PACKS=%C_ERR%Отсутствует%C_RST%"
-set "S_SRCS=%C_ERR%Отсутствует%C_RST%"
-set "S_OUT_S=%C_ERR%Пусто%C_RST%"
-set "S_OUT_I=%C_ERR%Пусто%C_RST%"
-if exist "custom_files\!SEL_ID!" set "S_FILES=%C_OK%Готов (files/)%C_RST%"
-if exist "custom_packages\!SEL_ID!" set "S_PACKS=%C_OK%Готов (ipk/)%C_RST%"
-if exist "src_packages\!SEL_ID!" set "S_SRCS=%C_OK%Готов (make/)%C_RST%"
-if exist "firmware_output\sourcebuilder\!SEL_ID!" set "S_OUT_S=%C_OK%Найдено (source/)%C_RST%"
-if exist "firmware_output\imagebuilder\!SEL_ID!" set "S_OUT_I=%C_OK%Найдено (image/)%C_RST%"
-echo  - Конфигурация:  %C_VAL%profiles\!SEL_CONF!%C_RST%
-echo  - Overlay файлы: !S_FILES!
-echo  - Входящие IPK:  !S_PACKS!
-echo  - Исходники PKG: !S_SRCS!
-echo  - Выход Source:  !S_OUT_S!
-echo  - Выход Image:   !S_OUT_I!
+set "S_FILES=%C_ERR%%L_MISSING%%C_RST%"
+set "S_PACKS=%C_ERR%%L_MISSING%%C_RST%"
+set "S_SRCS=%C_ERR%%L_MISSING%%C_RST%"
+set "S_OUT_S=%C_ERR%%L_EMPTY%%C_RST%"
+set "S_OUT_I=%C_ERR%%L_EMPTY%%C_RST%"
+if exist "custom_files\!SEL_ID!" set "S_FILES=%C_OK%%L_READY% (files/)%C_RST%"
+if exist "custom_packages\!SEL_ID!" set "S_PACKS=%C_OK%%L_READY% (ipk/)%C_RST%"
+if exist "src_packages\!SEL_ID!" set "S_SRCS=%C_OK%%L_READY% (make/)%C_RST%"
+if exist "firmware_output\sourcebuilder\!SEL_ID!" set "S_OUT_S=%C_OK%%L_FOUND% (source/)%C_RST%"
+if exist "firmware_output\imagebuilder\!SEL_ID!" set "S_OUT_I=%C_OK%%L_FOUND% (image/)%C_RST%"
+echo  - %L_ST_CONF%:  %C_VAL%profiles\!SEL_CONF!%C_RST%
+echo  - %L_ST_OVER%: !S_FILES!
+echo  - %L_ST_IPK%:  !S_PACKS!
+echo  - %L_ST_SRC%: !S_SRCS!
+echo  - %L_ST_OUTS%:  !S_OUT_S!
+echo  - %L_ST_OUTI%:   !S_OUT_I!
 echo ----------------------------------------------------------
 echo.
 set "open_f="
-echo %C_OK%[ДЕЙСТВИЕ]%C_RST% Открыть файл %C_VAL%!SEL_CONF!%C_RST% в редакторе...
-set /p open_f=%C_LBL%Открыть также папки ресурсов в Проводнике? [%C_KEY%Y%C_LBL%/%C_KEY%N%C_LBL%]: %C_RST%
+echo %C_OK%[%L_ACTION%]%C_RST% %L_OPEN_FILE% %C_VAL%!SEL_CONF!%C_RST% in editor...
+set /p open_f=%C_LBL%%L_OPEN_EXPL% [%C_KEY%Y%C_LBL%/%C_KEY%N%C_LBL%]: %C_RST%
 
 :: 1. Открываем файл конфигурации (всегда)
 start notepad "profiles\!SEL_CONF!"
 
 :: 2. Открываем папки ресурсов (если Y)
 if /i "!open_f!"=="Y" (
-    echo %C_OK%[INFO]%C_RST% Запуск проводника...
+    echo %L_START_EXPL%
     if exist "custom_files\!SEL_ID!" start explorer "custom_files\!SEL_ID!"
     if exist "custom_packages\!SEL_ID!" start explorer "custom_packages\!SEL_ID!"
     if exist "src_packages\!SEL_ID!" start explorer "src_packages\!SEL_ID!"
@@ -258,24 +424,23 @@ if /i "!open_f!"=="Y" (
     if exist "firmware_output\imagebuilder\!SEL_ID!" start explorer "firmware_output\imagebuilder\!SEL_ID!"
 )
 
-echo %C_OK%Готово.%C_RST% Переход в меню...
+echo %L_DONE_MENU%
 timeout /t 2 >nul
 goto MENU
 
 :BUILD_ALL
 if "%BUILD_MODE%"=="SOURCE" (
     echo.
-    echo [WARNING] Массовая компиляция из исходников!
-    echo Это займет много времени и ресурсов CPU.
+    echo [WARNING] %L_WARN_MASS%
     pause
 )
 echo.
-echo === МАССОВЫЙ ЗАПУСК [%BUILD_MODE%] ===
+echo === %L_MASS_START% [%BUILD_MODE%] ===
 for /L %%i in (1,1,%count%) do (
     set "CURRENT_CONF=!profile[%%i]!"
     call :BUILD_ROUTINE "!CURRENT_CONF!"
 )
-echo === Процессы запущены ===
+echo === Processes launched ===
 pause
 goto MENU
 
@@ -291,19 +456,19 @@ goto MENU
 :IMPORT_IPK
 cls
 echo %C_LBL%==========================================================%C_RST%
-echo  ИМПОРТ ПАКЕТОВ (IPK) ДЛЯ ПРОФИЛЯ
+echo  %L_IMPORT_IPK_TITLE%
 echo %C_LBL%==========================================================%C_RST%
 echo.
-echo  Выберите профиль для импорта пакетов:
+echo  %L_SEL_IMPORT%:
 echo.
 for /L %%i in (1,1,%count%) do (
     echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !profile[%%i]!
 )
 echo.
-echo    %C_LBL%[%C_KEY%0%C_LBL%]%C_RST% Назад
+echo    %C_LBL%[%C_KEY%0%C_LBL%]%C_RST% %L_BACK%
 echo.
 set "i_choice="
-set /p i_choice=%C_LBL%Ваш выбор: %C_RST%
+set /p i_choice=%C_LBL%%L_CHOICE%: %C_RST%
 
 if "%i_choice%"=="0" goto MENU
 set /a n_i=%i_choice% 2>nul
@@ -325,7 +490,7 @@ if exist "system/import_ipk.ps1" (
     powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1" -ProfileID "!SEL_ID!" -TargetArch "!P_TARGET!"
     pause
 ) else (
-    echo %C_KEY%[ERROR]%C_RST% system/import_ipk.ps1 не найден!
+    echo %C_KEY%%L_ERR_PS1_IPK%
     pause
 )
 goto MENU
@@ -337,57 +502,46 @@ goto MENU
 cls
 color 0E
 echo ==========================================================
-echo  МЕНЮ ОЧИСТКИ И ОБСЛУЖИВАНИЯ [%BUILD_MODE%]
+echo  %L_CLEAN_TITLE% [%BUILD_MODE%]
 echo ==========================================================
 echo.
-echo  Выберите тип данных для очистки:
+echo  %L_CLEAN_TYPE%:
 echo.
 
 if "%BUILD_MODE%"=="SOURCE" goto VIEW_SRC_MENU
 
 :VIEW_IMG_MENU
-echo    [1] Очистить кэш ImageBuilder (SDK)
-echo        (Архив с ядрами и пакетами от OpenWrt)
+echo    [1] %L_CLEAN_IMG_SDK%
 echo.
-echo    [2] Очистить кэш пакетов (IPK)
-echo        (Папка dl/ с загруженными пакетами)
+echo    [2] %L_CLEAN_IMG_IPK%
 echo.
-echo    [3] FULL FACTORY RESET (Сброс проекта)
-echo        (Удалить все кэши для выбранного профиля)
+echo    [3] %L_CLEAN_FULL%
 goto VIEW_COMMON
 
 :VIEW_SRC_MENU
-echo    [1] SOFT CLEAN (make clean)
-echo        (Очистка бинарников внутри контейнера.
-echo         Сохраняет Toolchain, удаляет собранную прошивку)
+echo    [1] %L_CLEAN_SRC_SOFT%
 echo.
-echo    [2] HARD RESET (Удалить src-workdir)
-echo        (Удаляет исходный код и Toolchain.
-echo         Используйте, если сломался компилятор или git)
+echo    [2] %L_CLEAN_SRC_HARD%
 echo.
-echo    [3] Очистить кэш исходников (dl)
-echo        (Удаляет скачанные архивы исходного кода.
-echo         Безопасно удалять, если нужно освободить много места)
+echo    [3] %L_CLEAN_SRC_DL%
 echo.
-echo    [4] Очистить CCACHE
-echo        (Сброс кэша компилятора)
+echo    [4] %L_CLEAN_SRC_CC%
 echo.
-echo    [5] FULL FACTORY RESET (Сброс проекта)
-echo        (Удаляет абсолютно все данные для профиля)
+echo    [5] %L_CLEAN_FULL%
 
 :VIEW_COMMON
 echo.
-echo    [9] Prune Docker (Глобальная очистка мусора Docker)
-echo    [0] Назад в главное меню
+echo    [9] %L_DOCKER_PRUNE%
+echo    [0] %L_BACK%
 echo.
 set "clean_choice="
-set /p clean_choice="Ваш выбор: "
+set /p clean_choice="%L_CHOICE%: "
 
 if "%clean_choice%"=="" goto CLEAN_MENU
 if "%clean_choice%"=="0" goto MENU
 if "%clean_choice%"=="9" (
     echo.
-    echo [DOCKER] Выполняю system prune...
+    echo %L_PRUNE_RUN%
     docker system prune -f
     pause
     goto CLEAN_MENU
@@ -420,10 +574,10 @@ goto SELECT_PROFILE_FOR_CLEAN
 :SELECT_PROFILE_FOR_CLEAN
 cls
 echo ==========================================================
-echo  ОЧИСТКА: %CLEAN_DESC%
+echo  CLEAN: %CLEAN_DESC%
 echo ==========================================================
 echo.
-echo  Для какого профиля выполнить очистку?
+echo  %L_CLEAN_PROF_SEL%:
 echo.
 
 :: Выводим список профилей (используем массив из главного меню)
@@ -431,12 +585,12 @@ for /L %%i in (1,1,%count%) do (
     echo    [%%i] !profile[%%i]!
 )
 echo.
-echo    [A] ДЛЯ ВСЕХ ПРОФИЛЕЙ (Глобальная очистка)
-echo    [0] Отмена
+echo    [A] %L_CLEAN_ALL_PROF%
+echo    [0] %L_BACK%
 echo.
 
 set "p_choice="
-set /p p_choice="Выберите профиль или A: "
+set /p p_choice="%L_CHOICE% [1-%count% / A]: "
 if "%p_choice%"=="" goto SELECT_PROFILE_FOR_CLEAN
 if /i "%p_choice%"=="0" goto CLEAN_MENU
 if /i "%p_choice%"=="A" (
@@ -456,19 +610,19 @@ set "TARGET_PROFILE_ID=!profile[%p_choice%]:.conf=!"
 :CONFIRM_CLEAN
 echo.
 if "%TARGET_PROFILE_ID%"=="ALL" color 0C
-echo Выбрано: %CLEAN_DESC%
-echo Цель:    %TARGET_PROFILE_NAME%
+echo Selection: %CLEAN_DESC%
+echo Target:    %TARGET_PROFILE_NAME%
 echo.
-if "%TARGET_PROFILE_ID%"=="ALL" echo ВНИМАНИЕ: Это удалит данные для ВСЕХ профилей!
+if "%TARGET_PROFILE_ID%"=="ALL" echo WARNING: This will delete data for ALL profiles!
 echo.
 set "confirm="
-set /p confirm="Введите YES для подтверждения: "
+set /p confirm="%L_CONFIRM_YES%: "
 
 :: Если нажали Enter или ввели не YES - отмена
 if /i not "!confirm!"=="YES" goto CLEAN_MENU
 color 0E
 echo.
-echo [CLEAN] Запуск процедуры...
+echo %L_CLEAN_RUN%
 
 :: === МАРШРУТИЗАЦИЯ ВЫПОЛНЕНИЯ ===
 if "%CLEAN_TYPE%"=="SRC_SOFT" goto EXEC_SRC_SOFT
@@ -493,16 +647,16 @@ set "V_TAG=%~1"
 set "P_ID=%~2"
 
 if "%P_ID%"=="ALL" (
-    echo   Поиск всех томов с меткой: %V_TAG%
+    echo   Searching all volumes with tag: %V_TAG%
     for /f "tokens=*" %%v in ('docker volume ls -q -f "name=%V_TAG%"') do (
-        echo   Удаление: %%v
+        echo   Deleting: %%v
         docker volume rm %%v >nul 2>&1
     )
 ) else (
-    echo   Поиск тома для профиля: %P_ID% ... %V_TAG%
+    echo   Searching volume for profile: %P_ID% ... %V_TAG%
     :: Ищем том, который содержит И имя профиля, И тег типа
     for /f "tokens=*" %%v in ('docker volume ls -q ^| findstr "%P_ID%" ^| findstr "%V_TAG%"') do (
-        echo   Удаление: %%v
+        echo   Deleting: %%v
         docker volume rm %%v
     )
 )
@@ -521,7 +675,7 @@ if "%P_ID%"=="ALL" goto REL_ALL
 goto REL_SINGLE
 
 :REL_ALL
-echo   [LOCK] Снятие блокировок со всех контейнеров (удаление)...
+echo   [LOCK] Releasing all containers (removing)...
 if "%BUILD_MODE%"=="IMAGE" goto REL_ALL_IMG
 goto REL_ALL_SRC
 
@@ -535,7 +689,7 @@ for /f "tokens=*" %%c in ('docker ps -aq -f "name=builder-src"') do docker rm -f
 exit /b
 
 :REL_SINGLE
-echo   [LOCK] Освобождение контейнера профиля %P_ID%...
+echo   [LOCK] Releasing container for profile %P_ID%...
 if "%BUILD_MODE%"=="IMAGE" goto REL_SINGLE_IMG
 goto REL_SINGLE_SRC
 
@@ -554,12 +708,12 @@ exit /b
 :EXEC_SRC_SOFT
 :: Soft Clean требует наличия контейнера, поэтому здесь мы НЕ вызываем RELEASE_LOCKS
 if "%TARGET_PROFILE_ID%"=="ALL" (
-    echo [ERROR] Soft Clean не поддерживается для режима ALL.
-    echo Это займет слишком много времени. Выполняйте по одному.
+    echo [ERROR] Soft Clean is not supported for ALL mode.
+    echo It takes too much time. Perform one by one.
     pause
     goto CLEAN_MENU
 )
-echo [CLEAN] Запуск контейнера %TARGET_PROFILE_ID% для make clean...
+echo [CLEAN] Starting container %TARGET_PROFILE_ID% for make clean...
 :: Настраиваем переменные для docker-compose
 set "SELECTED_CONF=%TARGET_PROFILE_NAME%"
 set "HOST_FILES_DIR=./custom_files/%TARGET_PROFILE_ID%"
@@ -573,26 +727,26 @@ goto CLEAN_MENU
 :EXEC_SRC_WORK
 call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-workdir" "%TARGET_PROFILE_ID%"
-echo [INFO] Рабочая директория очищена. Исходники (DL) сохранены.
+echo [INFO] Work directory cleaned. Sources (DL) preserved.
 pause
 goto CLEAN_MENU
 
 :EXEC_SRC_DL
 call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-dl-cache" "%TARGET_PROFILE_ID%"
-echo [INFO] Кэш загрузок очищен.
+echo [INFO] DL cache cleaned.
 pause
 goto CLEAN_MENU
 
 :EXEC_SRC_CCACHE
 call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-ccache" "%TARGET_PROFILE_ID%"
-echo [INFO] Кэш компилятора очищен.
+echo [INFO] Compiler cache cleaned.
 pause
 goto CLEAN_MENU
 
 :EXEC_SRC_ALL
-echo [CLEAN] Полный сброс SourceBuilder для %TARGET_PROFILE_ID%...
+echo [CLEAN] Full SourceBuilder reset for %TARGET_PROFILE_ID%...
 :: Здесь используем down -v (или принудительное удаление), так как чистим всё
 if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "PROJ_NAME=srcbuild_%TARGET_PROFILE_ID%"
@@ -610,7 +764,7 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
 call :HELPER_DEL_VOLUME "src-workdir" "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-dl-cache" "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-ccache" "%TARGET_PROFILE_ID%"
-echo [INFO] Полная очистка завершена.
+echo [INFO] Full cleanup completed.
 pause
 goto CLEAN_MENU
 
@@ -619,7 +773,7 @@ goto CLEAN_MENU
 :: Сначала освобождаем контейнер, иначе том занят
 call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "imagebuilder-cache" "%TARGET_PROFILE_ID%"
-echo [INFO] SDK очищен.
+echo [INFO] SDK cleaned.
 pause
 goto CLEAN_MENU
 
@@ -627,12 +781,12 @@ goto CLEAN_MENU
 :: Сначала освобождаем контейнер
 call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "ipk-cache" "%TARGET_PROFILE_ID%"
-echo [INFO] Кэш IPK пакетов очищен.
+echo [INFO] IPK cache cleaned.
 pause
 goto CLEAN_MENU
 
 :EXEC_IMG_ALL
-echo [CLEAN] Полный сброс ImageBuilder для %TARGET_PROFILE_ID%...
+echo [CLEAN] Full ImageBuilder reset for %TARGET_PROFILE_ID%...
 if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "PROJ_NAME=build_%TARGET_PROFILE_ID%"
     set "SELECTED_CONF=dummy"
@@ -644,29 +798,29 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
 )
 call :HELPER_DEL_VOLUME "imagebuilder-cache" "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "ipk-cache" "%TARGET_PROFILE_ID%"
-echo [INFO] Полная очистка завершена.
+echo [INFO] Full cleanup completed.
 pause
 goto CLEAN_MENU
 
 :WIZARD
 cls
 echo ==========================================
-echo  ЗАПУСК МАСТЕРА СОЗДАНИЯ ПРОФИЛЯ
+echo  %L_WIZ_START%
 echo ==========================================
 echo.
 if exist "system/create_profile.ps1" (
     powershell -ExecutionPolicy Bypass -File "system/create_profile.ps1"
     echo.
-    echo Мастер завершил работу.
+    echo %L_WIZ_DONE%
     pause
 ) else (
-    echo [ERROR] Файл create_profile.ps1 не найден!
+    echo %L_ERR_WIZ%
     pause
 )
 goto MENU
 
 :INVALID
-echo Ошибка ввода.
+echo %L_ERR_INPUT%
 pause
 goto MENU
 
@@ -677,24 +831,23 @@ goto MENU
 if not "%BUILD_MODE%"=="SOURCE" goto MENU
 cls
 echo ==========================================================
-echo  %C_KEY%MENUCONFIG INTERACTIVE%C_RST%
+echo  %C_KEY%%L_K_TITLE%%C_RST%
 echo ==========================================================
 echo.
-echo  В результате работы MenuConfig будет создан %C_KEY%manual_config%C_RST%
-echo  в папке: %C_LBL%firmware_output\sourcebuilder\%C_VAL%[ИМЯ_ПРОФИЛЯ]%C_RST%
+echo  %L_K_DESC%: %C_LBL%firmware_output\sourcebuilder\%C_VAL%[PROFILE_ID]%C_RST%
 echo.
-echo  Выберите профиль для настройки:
+echo  %L_K_SEL%:
 echo.
 
 for /L %%i in (1,1,%count%) do (
     echo    [%%i] !profile[%%i]!
 )
 echo.
-echo    [0] Отмена
+echo    [0] %L_BACK%
 echo.
 
 set "k_choice="
-set /p k_choice="Ваш выбор: "
+set /p k_choice="%L_CHOICE%: "
 
 if "%k_choice%"=="" goto MENUCONFIG_SELECTION
 if "%k_choice%"=="0" goto MENU
@@ -714,7 +867,7 @@ set "IS_LEGACY="
 set "SELECTED_CONF=%CONF_FILE%"
 
 echo.
-echo [SETUP] Подготовка окружения для %PROFILE_ID%...
+echo [SETUP] Preparing environment for %PROFILE_ID%...
 
 :: 1. Определение версии
 for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "%TARGET_VAR%"`) do (
@@ -742,16 +895,15 @@ if not exist "%WIN_OUT_PATH%" mkdir "%WIN_OUT_PATH%"
 :: === ПРОВЕРКА НА ПЕРЕЗАПИСЬ ===
 if exist "%WIN_OUT_PATH%\manual_config" (
     echo.
-    echo [WARNING] В папке профиля найден сохраненный конфиг: manual_config
+    echo %L_K_WARN_EX%
     echo.
-    echo    1. Мы ЗАГРУЗИМ его в редактор [вы продолжите настройку].
-    echo    2. После выхода из меню файл будет ПЕРЕЗАПИСАН новыми данными.
+    echo    %L_K_WARN_L1%
+    echo    %L_K_WARN_L2%
     echo.
     set "overwrite="
-    :: FIX: Используем [Y/N] вместо (Y/N), чтобы скобка не закрывала блок IF раньше времени
-    set /p "overwrite=Продолжить? [Y/N]: "
+    set /p "overwrite=%L_K_CONT%: "
     if /i not "!overwrite!"=="Y" (
-        echo Отмена операции.
+        echo Cancelled.
         pause
         goto MENU
     )
@@ -859,8 +1011,8 @@ echo echo [START] Launching Menuconfig UI... >> "%RUNNER_SCRIPT%"
 echo make menuconfig >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 
-echo # --- 5. Save (FINAL ROBUST VERSION) --- >> "%RUNNER_SCRIPT%"
-echo echo "[SAVE] Фиксация конфигурации..." >> "%RUNNER_SCRIPT%"
+echo # --- 5. Save --- >> "%RUNNER_SCRIPT%"
+echo echo "%L_K_SAVE%" >> "%RUNNER_SCRIPT%"
 echo # Сначала чистим зависимости >> "%RUNNER_SCRIPT%"
 echo make defconfig ^> /dev/null >> "%RUNNER_SCRIPT%"
 echo # Генерируем дифф во временный файл >> "%RUNNER_SCRIPT%"
@@ -869,11 +1021,10 @@ echo. >> "%RUNNER_SCRIPT%"
 echo # Проверка и сохранение >> "%RUNNER_SCRIPT%"
 echo if [ -s /tmp/compact_config ]; then >> "%RUNNER_SCRIPT%"
 echo     cp /tmp/compact_config /output/manual_config >> "%RUNNER_SCRIPT%"
-echo     # Считаем строки через cat и wc, чтобы не использовать проблемный знак "меньше" >> "%RUNNER_SCRIPT%"
 echo     L_COUNT=$(cat /output/manual_config ^| wc -l) >> "%RUNNER_SCRIPT%"
-echo     echo -e "\033[92m[SUCCESS]\033[0m Сохранено: \033[93m$L_COUNT\033[0m строк." >> "%RUNNER_SCRIPT%"
+echo     echo -e "\033[92m[SUCCESS]\033[0m %L_K_SAVED%: \033[93m$L_COUNT\033[0m %L_K_STR%." >> "%RUNNER_SCRIPT%"
 echo else >> "%RUNNER_SCRIPT%"
-echo     echo -e "\033[91m[WARNING]\033[0m Дифф пуст, сохраняю полный конфиг." >> "%RUNNER_SCRIPT%"
+echo     echo -e "\033[91m[WARNING]\033[0m %L_K_EMPTY_DIFF%" >> "%RUNNER_SCRIPT%"
 echo     cp .config /output/manual_config >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
@@ -883,18 +1034,18 @@ echo touch /output/manual_config >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 
 echo # --- 6. Interactive Shell Option --- >> "%RUNNER_SCRIPT%"
-echo printf "\n\033[92m[SUCCESS]\033[0m Конфигурация сохранена в firmware_output\n" >> "%RUNNER_SCRIPT%"
-echo read -p "Остаться в контейнере для работы с файлами? [y/N]: " stay >> "%RUNNER_SCRIPT%"
+echo printf "\n\033[92m[SUCCESS]\033[0m %L_K_FINAL% \n" >> "%RUNNER_SCRIPT%"
+echo read -p "%L_K_STAY% " stay >> "%RUNNER_SCRIPT%"
 echo if [[ "$stay" =~ ^^[Yy]$ ]]; then >> "%RUNNER_SCRIPT%"
-echo     echo -e "\n\033[92m[SHELL] Вход в консоль. Текущая папка: $(pwd)\033[0m" >> "%RUNNER_SCRIPT%"
+echo     echo -e "\n\033[92m%L_K_SHELL_H1%: $(pwd)\033[0m" >> "%RUNNER_SCRIPT%"
 echo     echo -e "----------------------------------------------------------" >> "%RUNNER_SCRIPT%"
-echo     echo -e "Подсказка: введите \033[93mmc\033[0m для запуска файлового менеджера." >> "%RUNNER_SCRIPT%"
-echo     echo -e "Чтобы выйти в Windows и продолжить, введите \033[93mexit\033[0m." >> "%RUNNER_SCRIPT%"
+echo     echo -e "%L_K_SHELL_H2%" >> "%RUNNER_SCRIPT%"
+echo     echo -e "%L_K_SHELL_H3%" >> "%RUNNER_SCRIPT%"
 echo     echo -e "----------------------------------------------------------\n" >> "%RUNNER_SCRIPT%"
 echo     /bin/bash >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
 
-echo [INFO] Запуск интерактивного Menuconfig...
+echo %L_K_LAUNCH%
 echo.
 
 :: Важно: добавлена опция -it для интерактивного режима shell
@@ -902,7 +1053,7 @@ set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/dock
 if exist "%RUNNER_SCRIPT%" del "%RUNNER_SCRIPT%"
 
 echo.
-echo Процедура завершена.
+echo %L_DONE_MENU%
 pause
 exit /b
 
@@ -917,7 +1068,7 @@ set "IS_LEGACY="
 
 echo.
 echo ----------------------------------------------------
-echo [PROCESSING] Профиль: %CONF_FILE%
+echo [PROCESSING] %L_PROC_PROF%: %CONF_FILE%
 echo [MODE]       %BUILD_MODE%
 
 :: 1. ИЗВЛЕЧЕНИЕ ПЕРЕМЕННОЙ
@@ -927,8 +1078,8 @@ for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| find
     for /f "tokens=* delims= " %%b in ("!VAL!") do set "TARGET_VAL=%%b"
 )
 if "%TARGET_VAL%"=="" (
-    echo [SKIP] %TARGET_VAR% не найден.
-    echo Возможно, этот профиль предназначен для другого режима.
+    echo [SKIP] %TARGET_VAR% %L_ERR_VAR_NF%
+    echo %L_ERR_SKIP%
     exit /b
 )
 
@@ -944,7 +1095,6 @@ if "%BUILD_MODE%"=="IMAGE" (
     :: --- IMAGE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/imagebuilder/%PROFILE_ID%"
     set "PROJ_NAME=build_%PROFILE_ID%"
-    :: СТАЛО: Указываем путь к файлу в папке system
     set "COMPOSE_ARG=-f system/docker-compose.yaml"
     set "WINDOW_TITLE=I: %PROFILE_ID%"
     if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-oldwrt") else (set "SERVICE_NAME=builder-openwrt")
@@ -952,21 +1102,18 @@ if "%BUILD_MODE%"=="IMAGE" (
     :: --- SOURCE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
     set "PROJ_NAME=srcbuild_%PROFILE_ID%"
-    :: СТАЛО: Добавляем system/ перед именем файла
     set "COMPOSE_ARG=-f system/docker-compose-src.yaml"
     set "WINDOW_TITLE=S: %PROFILE_ID%"
     if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-src-oldwrt") else (set "SERVICE_NAME=builder-src-openwrt")
 )
 
-:: Создаем папку (используем прямой путь, mkdir в Windows понимает слэши /)
+:: Создаем папку
 if not exist "%REL_OUT_PATH%" mkdir "%REL_OUT_PATH%"
-echo [LAUNCH] Запуск: %PROFILE_ID%
+echo [LAUNCH] Starting: %PROFILE_ID%
 echo [INFO]   Target: !TARGET_VAL!
 echo [INFO]   Service: %SERVICE_NAME%
 
-:: 4. ЗАПУСК (Удален проблемный /D "%PROJECT_DIR%")
-:: Мы уже находимся в корневой папке, поэтому запуск будет идти из нее.
-:: Переменные окружения обернуты в кавычки для безопасности.
+:: 4. ЗАПУСК
 START "%WINDOW_TITLE%" cmd /c "set "SELECTED_CONF=%CONF_FILE%" && set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" && set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" && docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
 exit /b
 

@@ -1,4 +1,4 @@
-# file: system\docker-compose.yaml V1.41
+# file: system\docker-compose.yaml V1.5en
 services:
   builder-openwrt:
     build:
@@ -22,7 +22,7 @@ services:
         exit 1
       fi
 
-      # === 0. ПОВЫШЕНИЕ СТАБИЛЬНОСТИ СЕТИ (FIX FRAGILITY) ===
+      # === 0. ПОВЫШЕНИЕ СТАБИЛЬНОСТИ СЕТИ (ИСПРАВЛЕНИЕ ХРУПКОСТИ) ===
       # Создаем глобальный конфиг wgetrc, который подхватит OPKG внутри make image
       echo \"tries = 5\" > ~/.wgetrc
       echo \"timeout = 20\" >> ~/.wgetrc
@@ -31,7 +31,7 @@ services:
       # Иногда бывают проблемы с SSL на старых образах, опционально:
       # echo \"check_certificate = off\" >> ~/.wgetrc
 
-      # === 1. ПОДГОТОВКА КОНФИГА ===
+      # === 1. ПОДГОТОВКА КОНФИГУРАЦИИ ===
       echo \"[INIT] Normalizing config...\"
       # Используем двойные слэши \\xEF, чтобы YAML и Bash передали их в sed корректно
       cat \"/profiles/$$CONF_FILE\" | sed '1s/^\\xEF\\xBB\\xBF//' | tr -d '\\r' > /tmp/clean_config.env
@@ -39,11 +39,11 @@ services:
 
       # Проверка на ошибки парсинга
       if [ -z \"$$IMAGEBUILDER_URL\" ]; then
-         echo \"[ERROR] IMAGEBUILDER_URL is empty! Config was not parsed correctly.\"
+         echo \"[ERROR] IMAGEBUILDER_URL is empty! Config parse failed.\"
          exit 1
       fi
 
-      # === ЗАСЕКАЕМ ВРЕМЯ ===
+      # === ЗАСЕКАЕМ ВРЕМЯ И ФОРМИРУЕМ МЕТКУ ===
       START_TIME=$$(date +%s)
       TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
 
@@ -52,9 +52,9 @@ services:
       CACHE_FILE=\"/cache/$$ARCHIVE_NAME\"
       TEMP_CACHE_FILE=\"/cache/$$ARCHIVE_NAME.tmp\"
 
-      # Функция ожидания, если другой контейнер уже качает файл
+      # Функция ожидания, если другой контейнер уже скачивает файл
       wait_for_download() {
-          echo \"[CACHE BUSY] Another build is downloading SDK. Waiting...\"
+          echo \"[CACHE BUSY] SDK download in progress by another instance. Waiting...\"
           while [ -f \"$$TEMP_CACHE_FILE\" ]; do
               sleep 5
           done
@@ -63,22 +63,23 @@ services:
 
       if [ ! -f \"$$CACHE_FILE\" ]; then        
           if [ -f \"$$TEMP_CACHE_FILE\" ]; then
-              wait_for_download || echo \"[CACHE RETRY] Neighbor failed, downloading...\"
+              wait_for_download || echo \"[CACHE RETRY] Previous download failed. Retrying...\"
           fi
           
           if [ ! -f \"$$CACHE_FILE\" ]; then
               echo \"[CACHE MISS] Downloading $$ARCHIVE_NAME...\"
-              # Используем dot:giga для чистоты логов + параметры надежности
+              # Используем параметры надежности для wget
               wget --progress=dot:giga --tries=5 --timeout=20 --retry-connrefused -O \"$$TEMP_CACHE_FILE\" \"$$IMAGEBUILDER_URL\"
               mv \"$$TEMP_CACHE_FILE\" \"$$CACHE_FILE\"
           else
              echo \"[CACHE HIT] File appeared after wait: $$ARCHIVE_NAME\"
           fi
       else
-        echo \"[CACHE HIT] Using $$ARCHIVE_NAME\"
+        echo \"[CACHE HIT] Using cached $$ARCHIVE_NAME\"
       fi
 
-      echo \"Extracting...\"
+      # Распаковка архива
+      echo \"[INIT] Extracting SDK...\"
       if echo \"$$IMAGEBUILDER_URL\" | grep -q '.zst$$'; then
           tar -I zstd -xf \"$$CACHE_FILE\" --strip-components=1 2>/dev/null || true
       else
@@ -87,18 +88,18 @@ services:
 
       # --- 3. ПОДГОТОВКА ОКРУЖЕНИЯ ---
       if [ -f /openssl.cnf ]; then
-         echo \"Applying OpenSSL Fix...\"
+         echo \"[PATCH] Applying OpenSSL Fix...\"
          mkdir -p /builder/shared-workdir/build/staging_dir/host/etc/ssl
          cp /openssl.cnf /builder/shared-workdir/build/staging_dir/host/etc/ssl/openssl.cnf
       fi
 
-      # Копируем кастомные IPK
+      # Копируем пользовательские IPK пакеты
       [ -d /input_packages ] && cp /input_packages/*.ipk packages/ 2>/dev/null || true
-      #fix для древних сборок
+      # Фикс временных меток для старых сборок
       export SOURCE_DATE_EPOCH=$$(date +%s)
 
       # === ИЗМЕНЕНИЕ РАЗМЕРА РАЗДЕЛОВ ===
-      # RootFS Size
+      # Размер RootFS
       if [ -n \"$$ROOTFS_SIZE\" ]; then
         echo \"[CONFIG] Setting RootFS size to $$ROOTFS_SIZE MB...\"
         touch .config
@@ -108,14 +109,14 @@ services:
         echo \"[CONFIG] Using default RootFS size\"
       fi
 
-      # Kernel Size
+      # Размер ядра (Kernel)
       if [ -n \"$$KERNEL_SIZE\" ]; then
         echo \"[CONFIG] Setting Kernel size to $$KERNEL_SIZE MB...\"
         touch .config
         sed -i '/CONFIG_TARGET_KERNEL_PARTSIZE/d' .config
         echo \"CONFIG_TARGET_KERNEL_PARTSIZE=$$KERNEL_SIZE\" >> .config
       else
-        echo \"[CONFIG] Using default KernelFS size\"
+        echo \"[CONFIG] Using default Kernel size\"
       fi
 
       # --- 4. ЗАГРУЗКА КЛЮЧЕЙ И РЕПОЗИТОРИЕВ ---
@@ -138,37 +139,37 @@ services:
          sed -i '/fantastic_/d' repositories.conf
          clean_repos=$$(echo "$$CUSTOM_REPOS" | sed 's# src/gz#\\nsrc/gz#g')
          echo \"$$clean_repos\" >> repositories.conf
-         echo \"--- Repositories list: ---\"
+         echo \"--- Current Repositories: ---\"
          cat repositories.conf
-         echo \"--------------------------\"
+         echo \"----------------------------\"
       fi
-      # === ПОДГОТОВКА OVERLAY (Удаление hooks.sh) ===
+
+      # === ПОДГОТОВКА OVERLAY (Очистка файлов) ===
       echo \"[OVERLAY] Preparing custom files...\"
 
-      # --- 5. OVERLAY ---
+      # --- 5. ФОРМИРОВАНИЕ ЧИСТОГО OVERLAY ---
       mkdir -p /tmp/clean_overlay
       
-      # 2. Копируем туда файлы (флаг -a сохраняет права доступа, /. копирует и скрытые файлы)
+      # Копируем файлы (флаг -a сохраняет права доступа)
       if [ -d \"/overlay_files\" ]; then
           cp -a /overlay_files/. /tmp/clean_overlay/ 2>/dev/null || true
       fi
 
-      # 3. БЕЗОПАСНО удаляем hooks.sh и прочий мусор из копии
+      # Безопасное удаление hooks.sh и служебного мусора из сборки
       if [ -f \"/tmp/clean_overlay/hooks.sh\" ]; then
-          echo \"[OVERLAY] Removing hooks.sh from firmware build...\"
+          echo \"[OVERLAY] Removing hooks.sh from target...\"
           rm -f \"/tmp/clean_overlay/hooks.sh\"
       fi
-      # Можно также удалить README или другие служебные файлы
       rm -f \"/tmp/clean_overlay/README.md\"      
-      # --- 3. СБОРКА ---
+
       # --- 6. ЗАПУСК СБОРКИ (С ПОВТОРОМ ПРИ СБОЕ) ---
-      echo \"Starting make image for $$TARGET_PROFILE...\"      
+      echo \"[BUILD] Starting make image for $$TARGET_PROFILE...\"      
       MAKE_ARGS=\"PROFILE=\\\"$$TARGET_PROFILE\\\" FILES=\\\"/overlay_files\\\" PACKAGES=\\\"$$PKGS\\\"\"
       
       if [ -n \"$$EXTRA_IMAGE_NAME\" ]; then MAKE_ARGS=\"$$MAKE_ARGS EXTRA_IMAGE_NAME=\\\"$$EXTRA_IMAGE_NAME\\\"\"; fi
       if [ -n \"$$DISABLED_SERVICES\" ]; then MAKE_ARGS=\"$$MAKE_ARGS DISABLED_SERVICES=\\\"$$DISABLED_SERVICES\\\"\"; fi
       
-      # === ЦИКЛ RETRY ===
+      # === ЦИКЛ ПОВТОРНЫХ ПОПЫТОК ===
       MAX_RETRIES=3
       COUNT=1
       SUCCESS=0
@@ -178,16 +179,14 @@ services:
           echo \"[BUILD] Attempt $$COUNT of $$MAX_RETRIES...\"
           echo \"--------------------------------------------------\"
           
-          # Запускаем make. Если успешно - выходим из цикла (break)
+          # Выполнение сборки. Если успешно - выход из цикла.
           if eval make image $$MAKE_ARGS; then
               SUCCESS=1
               break
           else
               echo \"[WARN] Build failed!\"
-              # Проверяем, не была ли это ошибка сети (код 255 или 2 часто бывает при сбоях opkg)
-              echo \"[RETRY] Cleaning temporary build files and retrying in 5 seconds...\"
+              echo \"[RETRY] Cleaning temporary files. Next attempt in 5 seconds...\"
               sleep 5
-              # Опционально: можно сделать make clean, но для ImageBuilder это не обязательно
               COUNT=$$((COUNT+1))
           fi
       done
@@ -197,21 +196,21 @@ services:
           exit 1
       fi
 
-      # --- 7. СОХРАНЕНИЕ ---
-      echo \"Saving artifacts...\"
+      # --- 7. СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ---
+      echo \"[FINISH] Saving artifacts...\"
       TARGET_DIR=\"/output/$$TIMESTAMP\"
       mkdir -p \"$$TARGET_DIR\"
       find bin/targets -type f -not -path \"*/packages/*\" | while read f; do
           cp \"$$f\" \"$$TARGET_DIR/\"
       done
 
-      # --- 5. РАСЧЕТ ВРЕМЕНИ ---
+      # --- 8. ИТОГОВЫЙ ОТЧЕТ И РАСЧЕТ ВРЕМЕНИ ---
       END_TIME=$$(date +%s)
       ELAPSED=$$((END_TIME - START_TIME))
       echo \"\"
       echo \"============================================================\"
-      echo \"=== Сборка $$PROFILE_NAME завершена за $${ELAPSED}с.\"
-      echo \"=== Файлы сохранены в: firmware_output/imagebuilder/$$PROFILE_NAME/$$TIMESTAMP\"
+      echo \"=== Build $$PROFILE_NAME completed in $${ELAPSED}s.\"
+      echo \"=== Artifacts saved to: firmware_output/imagebuilder/$$PROFILE_NAME/$$TIMESTAMP\"
       echo \"============================================================\"
       "
 
