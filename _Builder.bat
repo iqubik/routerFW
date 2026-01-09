@@ -327,7 +327,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 echo.
 
 :MENU
-rem cls
+cls
 :: Очистка массива профилей
 for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
 set "count=0"
@@ -390,8 +390,8 @@ for %%f in (profiles\*.conf) do (
     set "line=   %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% !fname_display!!spaces!"
     set "arch_disp=!this_arch!!spaces!"
     
-    :: Отрисовка: Имя (40 симв) | Архитектура (18 симв) | Статусы
-    echo !line:~0,60! %C_VAL%!arch_disp:~0,10!%C_RST% %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_oi!!st_os!]%C_RST%
+    :: Отрисовка: Имя (57 симв) | Архитектура (13 симв) | Статусы
+    echo !line:~0,57! %C_VAL%!arch_disp:~0,13!%C_RST% %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_oi!!st_os!]%C_RST%
 )
 echo.
 echo    %L_LEGEND_IND%
