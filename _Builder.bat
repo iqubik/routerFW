@@ -852,7 +852,7 @@ echo     # Считаем строки через cat и wc, чтобы не и�
 echo     L_COUNT=$(cat /output/manual_config ^| wc -l) >> "%RUNNER_SCRIPT%"
 echo     echo -e "\033[92m[SUCCESS]\033[0m Сохранено: \033[93m$L_COUNT\033[0m строк." >> "%RUNNER_SCRIPT%"
 echo else >> "%RUNNER_SCRIPT%"
-echo     echo "[WARNING] Дифф пуст, сохраняю полный конфиг..." >> "%RUNNER_SCRIPT%"
+echo     echo -e "\033[91m[WARNING]\033[0m Дифф пуст, сохраняю полный конфиг." >> "%RUNNER_SCRIPT%"
 echo     cp .config /output/manual_config >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
