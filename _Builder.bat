@@ -818,13 +818,25 @@ echo. >> "%RUNNER_SCRIPT%"
 echo # --- 5. Save --- >> "%RUNNER_SCRIPT%"
 echo echo [SAVE] Saving configuration... >> "%RUNNER_SCRIPT%"
 echo cp .config /output/manual_config >> "%RUNNER_SCRIPT%"
-echo echo [DONE] Saved to manual_config >> "%RUNNER_SCRIPT%"
+echo echo "[DONE] Saved to manual_config" >> "%RUNNER_SCRIPT%"
+echo. >> "%RUNNER_SCRIPT%"
+echo # --- 6. Interactive Shell Option --- >> "%RUNNER_SCRIPT%"
+echo printf "\n\033[92m[SUCCESS]\033[0m Конфигурация сохранена в firmware_output\n" >> "%RUNNER_SCRIPT%"
+echo read -p "Остаться в контейнере для работы с файлами? [y/N]: " stay >> "%RUNNER_SCRIPT%"
+echo if [[ "$stay" =~ ^^[Yy]$ ]]; then >> "%RUNNER_SCRIPT%"
+echo     echo -e "\n\033[92m[SHELL] Вход в консоль. Текущая папка: $(pwd)\033[0m" >> "%RUNNER_SCRIPT%"
+echo     echo -e "----------------------------------------------------------" >> "%RUNNER_SCRIPT%"
+echo     echo -e "Подсказка: введите \033[93mmc\033[0m для запуска файлового менеджера." >> "%RUNNER_SCRIPT%"
+echo     echo -e "Чтобы выйти в Windows и продолжить, введите \033[93mexit\033[0m." >> "%RUNNER_SCRIPT%"
+echo     echo -e "----------------------------------------------------------\n" >> "%RUNNER_SCRIPT%"
+echo     /bin/bash >> "%RUNNER_SCRIPT%"
+echo fi >> "%RUNNER_SCRIPT%"
 
 echo [INFO] Запуск интерактивного Menuconfig...
 echo.
 
-:: Запуск (добавляем явное указание переменной перед вызовом для надежности)
-set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
+:: Важно: добавлена опция -it для интерактивного режима shell
+set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm -it %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
 
 if exist "%RUNNER_SCRIPT%" del "%RUNNER_SCRIPT%"
 
