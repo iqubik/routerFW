@@ -442,7 +442,7 @@ echo.
 echo  %L_SEL_PROF%:
 echo.
 for /L %%i in (1,1,%count%) do (
-    echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !profile[%%i]!
+    echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !profile[%%i]:.conf=!
 )
 echo.
 echo    %C_LBL%[%C_KEY%0%C_LBL%] %L_BACK%%C_RST%
@@ -534,7 +534,7 @@ echo.
 echo  %L_SEL_IMPORT%:
 echo.
 for /L %%i in (1,1,%count%) do (
-    set "fname_tmp=!profile[%%i]!"
+    set "fname_tmp=!profile[%%i]:.conf=!"
     set "fname_tmp=!fname_tmp:.conf=!"
     echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !fname_tmp!
 )
@@ -657,7 +657,7 @@ echo.
 
 :: Выводим список профилей (используем массив из главного меню)
 for /L %%i in (1,1,%count%) do (
-    echo    [%%i] !profile[%%i]!
+    echo    [%%i] !profile[%%i]:.conf=!
 )
 echo.
 echo    [A] %L_CLEAN_ALL_PROF%
@@ -915,7 +915,7 @@ echo  %L_K_SEL%:
 echo.
 
 for /L %%i in (1,1,%count%) do (
-    echo    [%%i] !profile[%%i]!
+    echo    [%%i] !profile[%%i]:.conf=!
 )
 echo.
 echo    [0] %L_BACK%
