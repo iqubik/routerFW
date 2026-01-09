@@ -106,7 +106,7 @@ echo    %C_LBL%[%C_KEY%A%C_LBL%] Собрать ВСЕ%C_RST%      %C_LBL%[%C_KE
 echo    %C_LBL%[%C_KEY%C%C_LBL%] Обслуживание%C_RST%     %C_LBL%[%C_KEY%W%C_LBL%] Мастер профилей%C_RST%          %C_LBL%[%C_KEY%0%C_LBL%] Выход%C_RST%
 
 if "%BUILD_MODE%"=="SOURCE" (
-    echo    %C_LBL%[%C_KEY%K%C_LBL%] %C_VAL%Menuconfig%C_RST%       %C_LBL%[%C_KEY%I%C_LBL%] %C_VAL%Импорт IPK%C_RST%
+    echo    %C_LBL%[%C_KEY%K%C_LBL%] %C_VAL%Menuconfig/mc%C_RST%    %C_LBL%[%C_KEY%I%C_LBL%] %C_VAL%Импорт IPK%C_RST%
 )
 echo.
 set "choice="
