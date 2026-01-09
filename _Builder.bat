@@ -3,6 +3,7 @@ rem file: _Builder.bat
 setlocal enabledelayedexpansion
 cls
 chcp 65001 >nul
+set "VER_NUM=3.92"
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
@@ -345,7 +346,7 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "TARGET_VAR=SRC_BRANCH"
 )
 echo =================================================================
-echo  OpenWrt FW Builder v3.91 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  OpenWrt FW Builder %VER_NUM% [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  %L_CUR_MODE%: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
