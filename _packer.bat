@@ -71,8 +71,7 @@ echo [PACKER] Создание логики распаковщика...
 
 (
     echo @echo off
-    echo setlocal enabledelayedexpansion
-    echo cls
+    echo setlocal enabledelayedexpansion    
     echo chcp 65001 ^>nul
     echo.
     echo :: =========================================================

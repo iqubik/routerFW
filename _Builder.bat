@@ -19,13 +19,44 @@ set "C_RST=%ESC%[0m"
 set "C_ERR=%ESC%[91m"
 :: Bright Red (Ярко-красный): Для ошибок и предупреждений
 
+:: === ЯЗЫКОВОЙ МОДУЛЬ (Честный детектор) ===
+set "SYS_LANG=EN"
+set /a "ru_score=0"
+echo %C_LBL%[INIT]%C_RST% Анализ языка системы (Weighted Detection)...
+:: 1. Проверка реестра: UI Язык (3 балла)
+reg query "HKCU\Control Panel\Desktop" /v PreferredUILanguages 2>nul | findstr /I "ru-RU" >nul
+if not errorlevel 1 set /a "ru_score+=3"
+if not errorlevel 1 echo   %C_GRY%-%C_RST% UI Language Registry  %C_OK%RU%C_RST% [+3]
+if errorlevel 1     echo   %C_GRY%-%C_RST% UI Language Registry  %C_ERR%EN%C_RST%
+:: 2. Проверка реестра: Язык дистрибутива (2 балла)
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Nls\Language" /v InstallLanguage 2>nul | findstr /I "0419" >nul
+if not errorlevel 1 set /a "ru_score+=2"
+if not errorlevel 1 echo   %C_GRY%-%C_RST% OS Install Locale     %C_OK%RU%C_RST% [+2]
+if errorlevel 1     echo   %C_GRY%-%C_RST% OS Install Locale     %C_ERR%EN%C_RST%
+:: 3. Проверка PowerShell: Культура и список языков (4 балла)
+for /f "usebackq tokens=*" %%a in (`powershell -NoProfile -Command "(Get-Culture).Name + (Get-WinUserLanguageList).LanguageTag" 2^>nul`) do set "PS_CHECK=%%a"
+echo !PS_CHECK! | findstr /I "ru" >nul
+if not errorlevel 1 set /a "ru_score+=4"
+if not errorlevel 1 echo   %C_GRY%-%C_RST% Culture and Lang List %C_OK%RU%C_RST% [+4]
+if errorlevel 1     echo   %C_GRY%-%C_RST% Culture and Lang List %C_ERR%EN%C_RST%
+:: 4. Проверка кодировки консоли (1 балл)
+chcp | findstr "866" >nul
+if not errorlevel 1 set /a "ru_score+=1"
+if not errorlevel 1 echo   %C_GRY%-%C_RST% Console CP 866        %C_OK%RU%C_RST% [+1]
+:: ВЫНЕСЕНИЕ СУЖДЕНИЯ (Порог 5 из 10)
+if %ru_score% GEQ 5 set "SYS_LANG=RU"
+:: Финальный вывод вердикта
+if "%SYS_LANG%"=="RU" echo %C_LBL%[INIT]%C_RST% Вердикт %C_OK%РУССКИЙ%C_RST% (Score %ru_score%/10)
+if "%SYS_LANG%"=="EN" echo %C_LBL%[INIT]%C_RST% Вердикт %C_ERR%ENGLISH%C_RST% (Score %ru_score%/10)
+echo.
+
 :: === КОНФИГУРАЦИЯ ===
 :: Режим по умолчанию: IMAGE
 set "BUILD_MODE=IMAGE"
 
 echo [INIT] Проверка окружения...
 
-:: [AUDIT FIX] Проверка Docker
+:: Проверка Docker
 docker --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Docker не обнаружен!
@@ -35,7 +66,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: [AUDIT FIX] Проверка docker-compose
+:: Проверка docker-compose
 docker-compose --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] docker-compose не найден в PATH!
@@ -82,9 +113,8 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "OPPOSITE_MODE= IMAGE"
     set "TARGET_VAR=SRC_BRANCH"
 )
-
 echo =================================================================
-echo  OpenWrt FW Builder v3.86 %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  OpenWrt FW Builder v3.88 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  Текущий режим: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
@@ -96,22 +126,18 @@ for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
-
     :: Авто-создание структуры (тихо)
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
     if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
     call :CREATE_PERMS_SCRIPT "!p_id!"
-
     :: 1. Мониторинг ресурсов (Вход)
     set "st_f=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
     set "st_p=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
-    set "st_s=%C_GRY%·%C_RST%" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"
-    
+    set "st_s=%C_GRY%·%C_RST%" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"    
     :: 2. Мониторинг результатов (Выход - теперь раздельно)
     set "st_i=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\imagebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_i=%C_VAL%I%C_RST%"
     set "st_b=%C_GRY%·%C_RST%" & dir /a-d /b "firmware_output\sourcebuilder\!p_id!" 2>nul | findstr "^" >nul && set "st_b=%C_VAL%B%C_RST%"
-
     :: Вывод строки (68 символов отступа для сдвига вправо)
     set "spaces=                                                          "
     set "fname=%%~nxf"
@@ -147,7 +173,6 @@ if "%BUILD_MODE%"=="SOURCE" (
 )
 if /i "%choice%"=="C" goto CLEAN_MENU
 if /i "%choice%"=="A" goto BUILD_ALL
-
 set /a num_choice=%choice% 2>nul
 if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
 if %num_choice% gtr %count% goto INVALID
@@ -177,12 +202,10 @@ echo    %C_LBL%[%C_KEY%0%C_LBL%] Назад%C_RST%
 echo.
 set "e_choice="
 set /p e_choice=%C_OK%Ваш выбор: %C_RST%
-
 if "%e_choice%"=="0" goto MENU
 set /a n_e=%e_choice% 2>nul
 if %n_e% gtr %count% goto INVALID
 if %n_e% lss 1 goto INVALID
-
 set "SEL_CONF=!profile[%n_e%]!"
 set "SEL_ID=!profile[%n_e%]:.conf=!"
 
@@ -190,20 +213,17 @@ set "SEL_ID=!profile[%n_e%]:.conf=!"
 echo.
 echo %C_OK%[АНАЛИЗ СОСТОЯНИЯ ПРОФИЛЯ: !SEL_ID!]%C_RST%
 echo ----------------------------------------------------------
-
 :: Проверка наличия папок для отладки
 set "S_FILES=%C_ERR%Отсутствует%C_RST%"
 set "S_PACKS=%C_ERR%Отсутствует%C_RST%"
 set "S_SRCS=%C_ERR%Отсутствует%C_RST%"
 set "S_OUT_S=%C_ERR%Пусто%C_RST%"
 set "S_OUT_I=%C_ERR%Пусто%C_RST%"
-
 if exist "custom_files\!SEL_ID!" set "S_FILES=%C_OK%Готов (files/)%C_RST%"
 if exist "custom_packages\!SEL_ID!" set "S_PACKS=%C_OK%Готов (ipk/)%C_RST%"
 if exist "src_packages\!SEL_ID!" set "S_SRCS=%C_OK%Готов (make/)%C_RST%"
 if exist "firmware_output\sourcebuilder\!SEL_ID!" set "S_OUT_S=%C_OK%Найдено (source/)%C_RST%"
 if exist "firmware_output\imagebuilder\!SEL_ID!" set "S_OUT_I=%C_OK%Найдено (image/)%C_RST%"
-
 echo  - Конфигурация:  %C_VAL%profiles\!SEL_CONF!%C_RST%
 echo  - Overlay файлы: !S_FILES!
 echo  - Входящие IPK:  !S_PACKS!
@@ -212,7 +232,6 @@ echo  - Выход Source:  !S_OUT_S!
 echo  - Выход Image:   !S_OUT_I!
 echo ----------------------------------------------------------
 echo.
-
 set "open_f="
 echo %C_OK%[ДЕЙСТВИЕ]%C_RST% Открыть файл %C_VAL%!SEL_CONF!%C_RST% в редакторе...
 set /p open_f=%C_LBL%Открыть также папки ресурсов в Проводнике? [%C_KEY%Y%C_LBL%/%C_KEY%N%C_LBL%]: %C_RST%
@@ -292,7 +311,6 @@ for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| finds
     set "VAL=!VAL:"=!"
     for /f "tokens=* delims= " %%b in ("!VAL!") do set "P_TARGET=%%b"
 )
-
 echo.
 if exist "system/import_ipk.ps1" (
     powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1" -ProfileID "!SEL_ID!" -TargetArch "!P_TARGET!"
@@ -410,7 +428,6 @@ echo.
 
 set "p_choice="
 set /p p_choice="Выберите профиль или A: "
-
 if "%p_choice%"=="" goto SELECT_PROFILE_FOR_CLEAN
 if /i "%p_choice%"=="0" goto CLEAN_MENU
 if /i "%p_choice%"=="A" (
@@ -440,7 +457,6 @@ set /p confirm="Введите YES для подтверждения: "
 
 :: Если нажали Enter или ввели не YES - отмена
 if /i not "!confirm!"=="YES" goto CLEAN_MENU
-
 color 0E
 echo.
 echo [CLEAN] Запуск процедуры...
@@ -451,11 +467,9 @@ if "%CLEAN_TYPE%"=="SRC_WORK" goto EXEC_SRC_WORK
 if "%CLEAN_TYPE%"=="SRC_DL"   goto EXEC_SRC_DL
 if "%CLEAN_TYPE%"=="SRC_CCACHE" goto EXEC_SRC_CCACHE
 if "%CLEAN_TYPE%"=="SRC_ALL"  goto EXEC_SRC_ALL
-
 if "%CLEAN_TYPE%"=="IMG_SDK"  goto EXEC_IMG_SDK
 if "%CLEAN_TYPE%"=="IMG_IPK"  goto EXEC_IMG_IPK
 if "%CLEAN_TYPE%"=="IMG_ALL"  goto EXEC_IMG_ALL
-
 goto CLEAN_MENU
 
 :: =========================================================
@@ -528,7 +542,6 @@ docker-compose -f system/docker-compose-src.yaml -p !PROJ_NAME! down >nul 2>&1
 exit /b
 
 :: --- SOURCE ACTIONS ---
-
 :EXEC_SRC_SOFT
 :: Soft Clean требует наличия контейнера, поэтому здесь мы НЕ вызываем RELEASE_LOCKS
 if "%TARGET_PROFILE_ID%"=="ALL" (
@@ -543,7 +556,6 @@ set "SELECTED_CONF=%TARGET_PROFILE_NAME%"
 set "HOST_FILES_DIR=./custom_files/%TARGET_PROFILE_ID%"
 set "HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/%TARGET_PROFILE_ID%"
 set "PROJ_NAME=srcbuild_%TARGET_PROFILE_ID%"
-
 :: Запускаем (добавляем CCACHE_DIR=dummy на всякий случай, если он не задан в yaml по умолчанию)
 docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && if [ -f Makefile ]; then make clean; echo 'Make Clean Completed'; else echo 'Makefile not found'; fi"
 pause
@@ -594,7 +606,6 @@ pause
 goto CLEAN_MENU
 
 :: --- IMAGE ACTIONS ---
-
 :EXEC_IMG_SDK
 :: Сначала освобождаем контейнер, иначе том занят
 call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
@@ -622,7 +633,6 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
 ) else (
     call :HELPER_RELEASE_LOCKS "ALL"
 )
-
 call :HELPER_DEL_VOLUME "imagebuilder-cache" "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "ipk-cache" "%TARGET_PROFILE_ID%"
 echo [INFO] Полная очистка завершена.
@@ -756,11 +766,13 @@ echo # --- DEBUG INFO --- >> "%RUNNER_SCRIPT%"
 echo echo "[DEBUG] User: $(whoami)" >> "%RUNNER_SCRIPT%"
 echo echo "[DEBUG] Dir: $(pwd)" >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
+
 echo # --- 1. Load Environment --- >> "%RUNNER_SCRIPT%"
 echo echo [INIT] Loading profile vars from: $CONF_FILE >> "%RUNNER_SCRIPT%"
 echo cat "/profiles/$CONF_FILE" ^| sed '1s/^\xEF\xBB\xBF//' ^| tr -d '\r' ^> /tmp/env.sh >> "%RUNNER_SCRIPT%"
 echo source /tmp/env.sh >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
+
 echo # --- 2. Check Git State --- >> "%RUNNER_SCRIPT%"
 echo if [ -f "Makefile" ]; then >> "%RUNNER_SCRIPT%"
 echo     echo "[INFO] Makefile found. Skipping download." >> "%RUNNER_SCRIPT%"
@@ -878,7 +890,6 @@ echo.
 
 :: Важно: добавлена опция -it для интерактивного режима shell
 set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --build --rm -it %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
-
 if exist "%RUNNER_SCRIPT%" del "%RUNNER_SCRIPT%"
 
 echo.
@@ -906,7 +917,6 @@ for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| find
     set "VAL=!VAL:"=!"
     for /f "tokens=* delims= " %%b in ("!VAL!") do set "TARGET_VAL=%%b"
 )
-
 if "%TARGET_VAL%"=="" (
     echo [SKIP] %TARGET_VAR% не найден.
     echo Возможно, этот профиль предназначен для другого режима.
@@ -941,7 +951,6 @@ if "%BUILD_MODE%"=="IMAGE" (
 
 :: Создаем папку (используем прямой путь, mkdir в Windows понимает слэши /)
 if not exist "%REL_OUT_PATH%" mkdir "%REL_OUT_PATH%"
-
 echo [LAUNCH] Запуск: %PROFILE_ID%
 echo [INFO]   Target: !TARGET_VAL!
 echo [INFO]   Service: %SERVICE_NAME%
@@ -950,7 +959,6 @@ echo [INFO]   Service: %SERVICE_NAME%
 :: Мы уже находимся в корневой папке, поэтому запуск будет идти из нее.
 :: Переменные окружения обернуты в кавычки для безопасности.
 START "%WINDOW_TITLE%" cmd /c "set "SELECTED_CONF=%CONF_FILE%" && set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" && set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" && docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
-
 exit /b
 
 :: =========================================================
