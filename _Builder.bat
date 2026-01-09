@@ -3,7 +3,7 @@ rem file: _Builder.bat
 setlocal enabledelayedexpansion
 cls
 chcp 65001 >nul
-set "VER_NUM=3.93"
+set "VER_NUM=3.94"
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
@@ -363,6 +363,7 @@ for %%f in (profiles\*.conf) do (
     if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
     call :CREATE_PERMS_SCRIPT "!p_id!"
+    call :CREATE_WIFI_ON_SCRIPT "!p_id!"
     
     :: Извлекаем имя БЕЗ расширения для отображения в меню
     set "fname_display=%%~nf"
@@ -1204,4 +1205,18 @@ if exist "custom_files\%~1\etc\uci-defaults\99-permissions.sh" exit /b
 if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci-defaults" >nul 2>&1
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJZYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJZYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJZYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
+exit /b
+
+:CREATE_WIFI_ON_SCRIPT
+:: Создает uci-default скрипт для включения Wi-Fi
+if exist "custom_files\%~1\etc\uci-defaults\10-enable-wifi" exit /b
+if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci-defaults" >nul 2>&1
+(
+    echo #!/bin/sh
+    echo uci set wireless.radio0.disabled='0'
+    echo uci set wireless.radio1.disabled='0'
+    echo uci commit wireless
+    echo wifi reload
+    echo exit 0
+) > "custom_files\%~1\etc\uci-defaults\10-enable-wifi"
 exit /b
