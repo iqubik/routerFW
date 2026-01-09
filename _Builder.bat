@@ -239,22 +239,23 @@ echo.
 :: Режим по умолчанию: IMAGE
 set "BUILD_MODE=IMAGE"
 echo %L_INIT_ENV%
-:: Проверка Docker
-docker --version >nul 2>&1
-if %errorlevel% neq 0 (
+
+:: Вывод версии Docker
+for /f "tokens=*" %%i in ('docker --version 2^>nul') do set "D_VER=%%i"
+if "%D_VER%"=="" (
     echo %L_ERR_DOCKER%
     echo %L_ERR_DOCKER_MSG%
-    echo.
-    pause
-    exit /b
+    pause & exit /b
 )
-:: Проверка docker-compose
-docker-compose --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo %L_ERR_COMPOSE%
-    pause
-    exit /b
-)
+echo   %C_GRY%-%C_RST% %D_VER%
+
+:: Вывод версии Compose
+for /f "tokens=*" %%i in ('docker-compose --version 2^>nul') do set "C_VER=%%i"
+echo   %C_GRY%-%C_RST% %C_VER%
+
+:: Вывод корня проекта
+echo   %C_GRY%-%C_RST% Root: %C_VAL%%CD%%C_RST%
+
 echo %L_INIT_NET%
 docker network prune --force >nul 2>&1
 echo.
@@ -273,8 +274,42 @@ call :CHECK_DIR "firmware_output"
 call :CHECK_DIR "custom_packages"
 call :CHECK_DIR "src_packages"
 
+:: === АВТО-ПАТЧИНГ АРХИТЕКТУРЫ (IDEMPOTENT) ===
+echo %C_LBL%[INIT]%C_RST% Scanning profiles for missing architecture tags...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$profiles = Get-ChildItem 'profiles/*.conf';" ^
+    "foreach ($p in $profiles) {" ^
+    "    $content = Get-Content $p.FullName -Raw;" ^
+    "    if ($content -notmatch 'SRC_ARCH=') {" ^
+    "        $target = ''; $sub = '';" ^
+    "        if ($content -match 'SRC_TARGET=[''^\"]([^''\"\r\n]+)') { $target = $matches[1] }" ^
+    "        if ($content -match 'SRC_SUBTARGET=[''^\"]([^''\"\r\n]+)') { $sub = $matches[1] }" ^
+    "        if ($content -match 'IMAGEBUILDER_URL=.*/targets/([^/]+)/([^/]+)/') { $target = $matches[1]; $sub = $matches[2] }" ^
+    "        if ($target -eq '') { continue }" ^
+    "        $arch = switch ($target) {" ^
+    "            'ramips'   { 'mipsel_24kc' }" ^
+    "            'ath79'    { 'mips_24kc' }" ^
+    "            'x86'      { 'x86_64' }" ^
+    "            'mvebu'    { 'arm_cortex-a9_vfpv3-d16' }" ^
+    "            'mediatek' { if ($sub -match 'mt798') { 'aarch64_cortex-a53' } else { 'mipsel_24kc' } }" ^
+    "            'rockchip' { 'aarch64_generic' }" ^
+    "            'ipq40xx'  { 'arm_cortex-a7_neon-vfpv4' }" ^
+    "            'bcm27xx'  { if ($sub -eq 'bcm2711') { 'aarch64_cortex-a72' } else { 'arm_raspi' } }" ^
+    "            default    { '' }" ^
+    "        };" ^
+    "        if ($arch -ne '') {" ^
+    "            $content = $content.TrimEnd() + [char]13 + [char]10 + 'SRC_ARCH=\"' + $arch + '\"' + [char]13 + [char]10;" ^
+    "            [System.IO.File]::WriteAllText($p.FullName, $content);" ^
+    "            Write-Host ('  [PATCHED] ' + $p.Name + ' -> ' + $arch) -ForegroundColor Green" ^
+    "        } else {" ^
+    "            Write-Host ('  [WARN] No arch for ' + $p.Name + ' (' + $target + '/' + $sub + ')') -ForegroundColor Yellow" ^
+    "        }" ^
+    "    }" ^
+    "}"
+echo.
+
 :MENU
-cls
+rem cls
 :: Очистка массива профилей
 for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
 set "count=0"
@@ -292,7 +327,7 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "TARGET_VAR=SRC_BRANCH"
 )
 echo =================================================================
-echo  OpenWrt FW Builder v3.9 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
+echo  OpenWrt FW Builder v3.91 [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
 echo  %L_CUR_MODE%: [%C_VAL%%MODE_TITLE%%C_RST%]
 echo =================================================================
 echo.
@@ -478,16 +513,17 @@ if %n_i% lss 1 goto INVALID
 set "SEL_CONF=!profile[%n_i%]!"
 set "SEL_ID=!profile[%n_i%]:.conf=!"
 
-:: Извлекаем SRC_TARGET для валидации
-set "P_TARGET="
-for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "SRC_TARGET"`) do (
+:: Извлекаем SRC_ARCH для строгой валидации
+set "P_ARCH="
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "SRC_ARCH"`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
-    for /f "tokens=* delims= " %%b in ("!VAL!") do set "P_TARGET=%%b"
+    for /f "tokens=* delims= " %%b in ("!VAL!") do set "P_ARCH=%%b"
 )
+
 echo.
 if exist "system/import_ipk.ps1" (
-    powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1" -ProfileID "!SEL_ID!" -TargetArch "!P_TARGET!"
+    powershell -ExecutionPolicy Bypass -File "system/import_ipk.ps1" -ProfileID "!SEL_ID!" -TargetArch "!P_ARCH!"
     pause
 ) else (
     echo %C_KEY%%L_ERR_PS1_IPK%
