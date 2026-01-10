@@ -7,7 +7,7 @@ mode con: cols=120 lines=40
 powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
 cls
 chcp 65001 >nul
-set "VER_NUM=3.97"
+set "VER_NUM=3.98"
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
@@ -78,7 +78,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_LEGEND_IND=Индикаторы показывают состояние ресурсов и результатов сборки."
     set "L_LEGEND_TEXT=Легенда: F:Файлы P:Пакеты S:Исх | Прошивки: OI:Образ OS:Сборка"
     set "L_BTN_ALL=Собрать ВСЕ"
-    set "L_BTN_SWITCH=Режим"
+    set "L_BTN_SWITCH=Режим на "
     set "L_BTN_EDIT=Редактор"
     set "L_BTN_CLEAN=Обслуживание"
     set "L_BTN_WIZ=Мастер профилей"
@@ -347,7 +347,7 @@ cls
 for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
 set "count=0"
 
-:: 1. ЛОГИКА РЕЖИМА И ЯЗЫКА (Обновляем переменные словаря)
+:: 1. ЛОГИКА РЕЖИМА И ЯЗЫКА
 if "%BUILD_MODE%"=="IMAGE" (
     color 0B
     set "MODE_TITLE=!L_MODE_IMG!"
@@ -360,13 +360,13 @@ if "%BUILD_MODE%"=="IMAGE" (
     set "TARGET_VAR=SRC_BRANCH"
 )
 
-:: 2. ОТРИСОВКА ЗАГОЛОВКА (Рамка 118 символов)
+:: 2. ОТРИСОВКА ЗАГОЛОВКА
 echo !C_GRY!┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐!C_RST!
 echo   !C_VAL!OpenWrt FW Builder !VER_NUM!!C_RST! [!C_VAL!!SYS_LANG!!C_RST!]          !C_LBL!https://github.com/iqubik/routerFW!C_RST!
 echo   !L_CUR_MODE!: [!C_VAL!!MODE_TITLE!!C_RST!]
 echo !C_GRY!└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘!C_RST!
 echo.
-echo    !C_GRY! ID   !H_PROF!                                      !H_ARCH!         !H_RES!!C_RST!
+echo    !C_GRY! ID   !H_PROF!                                      !H_ARCH!          !H_RES!!C_RST!
 echo    !C_GRY!────────────────────────────────────────────────────────────────────────────────────────────────────────────!C_RST!
 
 :: Очистка массива профилей
@@ -398,10 +398,10 @@ for %%f in (profiles\*.conf) do (
         for /f "tokens=* delims= " %%b in ("!VAL!") do set "this_arch=%%b"
     )
 
-    :: Состояние ресурсов (F P S)
-    set "st_f=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=!C_OK!F!C_RST!"
-    set "st_p=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=!C_OK!P!C_RST!"
-    set "st_s=!C_GRY!·!C_RST!" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=!C_OK!S!C_RST!"    
+    :: --- ХИРУРГИЧЕСКАЯ РАСКРАСКА РЕСУРСОВ (F-LBL, P-KEY, S-VAL) ---
+    set "st_f=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=!C_LBL!F!C_RST!"
+    set "st_p=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=!C_KEY!P!C_RST!"
+    set "st_s=!C_GRY!·!C_RST!" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=!C_VAL!S!C_RST!"   
 
     :: Состояние вывода (OI OS)
     set "st_oi=!C_GRY!··!C_RST!"
@@ -418,12 +418,11 @@ for %%f in (profiles\*.conf) do (
     set "tmp_arch=!this_arch!                    "
     set "n_arch=!tmp_arch:~0,20!"
 
-    :: ВЫВОД СТРОКИ
-    echo    !C_LBL![!C_KEY!!id_pad!!C_LBL!]!C_RST! !n_name! !C_VAL!!n_arch!!C_RST! !C_LBL![!st_f!!st_p!!st_s! !C_GRY!^|^!C_LBL! !st_oi! !st_os!]!C_RST!
+    :: ВЫВОД СТРОКИ (Серые скобки, Бирюзовая архитектура, Четкий разделитель)
+    echo    !C_GRY![!C_KEY!!id_pad!!C_GRY!]!C_RST! !n_name! !C_LBL!!n_arch!!C_RST! !C_GRY![!st_f!!st_p!!st_s! !C_RST!^|!C_GRY! !st_oi!!st_os!]!C_RST!
 )
 
-:: 4. ПОДВАЛ (Кнопки из словаря L_...)
-:: Подготовка паддинга для кнопок
+:: 4. ПОДВАЛ
 set "b_all=!L_BTN_ALL!                  " & set "b_all=!b_all:~0,18!"
 set "b_clean=!L_BTN_CLEAN!              " & set "b_clean=!b_clean:~0,18!"
 set "b_wiz=!L_BTN_WIZ!                  " & set "b_wiz=!b_wiz:~0,22!"
@@ -440,14 +439,16 @@ if "%BUILD_MODE%"=="SOURCE" (
 )
 echo.
 set "choice="
-set /p choice=!C_LBL!!L_CHOICE!: !C_RST!
+set /p choice=!C_LBL!!L_CHOICE!!C_VAL! ⚡ !C_RST!
+:: === ПРОВЕРКА ВВОДА (FIX CRASH) ===
+if not defined choice goto MENU
+if "%choice%"=="" goto MENU
 
 :: Если нажали 0 (Выход)
 if /i "%choice%"=="0" (
     echo.
     :: Используем локализованный вопрос и красный цвет ошибки для привлечения внимания
     set /p "exit_confirm=!C_ERR!!L_EXIT_CONFIRM!!C_RST!"
-    
     if /i "!exit_confirm!"=="Y" (
         echo.
         :: Используем локализованное прощание и зеленый цвет успеха
@@ -467,6 +468,7 @@ if "%BUILD_MODE%"=="SOURCE" (
 )
 if /i "%choice%"=="C" goto CLEAN_MENU
 if /i "%choice%"=="A" goto BUILD_ALL
+:: Проверка на числовой ввод
 set /a num_choice=%choice% 2>nul
 if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
 if %num_choice% gtr %count% goto INVALID
