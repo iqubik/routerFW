@@ -3,7 +3,7 @@ rem file: _Builder.bat
 setlocal enabledelayedexpansion
 cls
 chcp 65001 >nul
-set "VER_NUM=3.94"
+set "VER_NUM=3.96"
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
@@ -410,7 +410,16 @@ set /p choice=%C_LBL%%L_CHOICE%: %C_RST%
 
 :: Если нажали Enter (пусто), просто обновляем меню
 if "%choice%"=="" goto MENU
-if /i "%choice%"=="0" exit /b
+if /i "%choice%"=="0" (
+    echo.
+    set /p "exit_confirm=%C_ERR%Выйти из программы? (Y/N): %C_RST%"
+    if /i "!exit_confirm!"=="Y" (
+        echo %C_OK%До новых встреч!%C_RST%
+        timeout /t 2 >nul
+        exit /b
+    )
+    goto MENU
+)
 if /i "%choice%"=="R" goto MENU
 if /i "%choice%"=="M" goto SWITCH_MODE
 if /i "%choice%"=="W" goto WIZARD
@@ -1165,17 +1174,19 @@ echo "!TARGET_VAL!" | findstr /C:"/17." >nul && set IS_LEGACY=1
 echo "!TARGET_VAL!" | findstr /C:"19.07" >nul && set IS_LEGACY=1
 echo "!TARGET_VAL!" | findstr /C:"18.06" >nul && set IS_LEGACY=1
 
-:: 3. НАСТРОЙКА DOCKER
+:: 3. НАСТРОЙКА ПУТЕЙ И DOCKER
 if "%BUILD_MODE%"=="IMAGE" (
-    :: --- IMAGE BUILDER ---
+    :: --- ПУТИ ДЛЯ IMAGE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/imagebuilder/%PROFILE_ID%"
+    set "HOST_PKGS_DIR=./custom_packages/%PROFILE_ID%"
     set "PROJ_NAME=build_%PROFILE_ID%"
     set "COMPOSE_ARG=-f system/docker-compose.yaml"
     set "WINDOW_TITLE=I: %PROFILE_ID%"
     if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-oldwrt") else (set "SERVICE_NAME=builder-openwrt")
 ) else (
-    :: --- SOURCE BUILDER ---
+    :: --- ПУТИ ДЛЯ SOURCE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
+    set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%"
     set "PROJ_NAME=srcbuild_%PROFILE_ID%"
     set "COMPOSE_ARG=-f system/docker-compose-src.yaml"
     set "WINDOW_TITLE=S: %PROFILE_ID%"
@@ -1188,8 +1199,8 @@ echo [LAUNCH] Starting: %PROFILE_ID%
 echo [INFO]   Target: !TARGET_VAL!
 echo [INFO]   Service: %SERVICE_NAME%
 
-:: 4. ЗАПУСК
-START "%WINDOW_TITLE%" cmd /c "set "SELECTED_CONF=%CONF_FILE%" && set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" && set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" && docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% & echo. & echo === WORK FINISHED === & pause"
+:: 4. ЗАПУСК (Используем уже вычисленные переменные путей)
+START "%WINDOW_TITLE%" cmd /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo %C_ERR%[FATAL ERROR] Docker process failed.%C_RST%) ^&^& echo. ^&^& echo %C_OK%=== WORK FINISHED ===%C_RST% ^&^& pause ^"
 exit /b
 
 :: =========================================================
