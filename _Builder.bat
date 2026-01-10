@@ -1,9 +1,13 @@
 @echo off
 rem file: _Builder.bat
 setlocal enabledelayedexpansion
+:: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
+mode con: cols=120 lines=40
+:: Отключаем мигающий курсор (через PowerShell, так как в Batch нет нативного способа)
+powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
 cls
 chcp 65001 >nul
-set "VER_NUM=3.96"
+set "VER_NUM=3.97"
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
@@ -54,6 +58,11 @@ if /i "%FORCE_LANG%"=="RU" set "SYS_LANG=RU"
 if /i "%FORCE_LANG%"=="EN" set "SYS_LANG=EN"
 :: === СЛОВАРЬ (DICTIONARY) ===
 if "%SYS_LANG%"=="RU" (
+    set "L_EXIT_CONFIRM=Выйти из программы? (Y/N): "
+    set "L_EXIT_BYE=До новых встреч!"
+    set "H_PROF=Профиль"
+    set "H_ARCH=Архитектура"
+    set "H_RES=Ресурсы | Сборки"
     set "L_VERDICT=Вердикт"
     set "L_LANG_NAME=РУССКИЙ"
     set "L_INIT_ENV=[INIT] Проверка окружения..."
@@ -69,7 +78,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_LEGEND_IND=Индикаторы показывают состояние ресурсов и результатов сборки."
     set "L_LEGEND_TEXT=Легенда: F:Файлы P:Пакеты S:Исх | Прошивки: OI:Образ OS:Сборка"
     set "L_BTN_ALL=Собрать ВСЕ"
-    set "L_BTN_SWITCH=Переключить на"
+    set "L_BTN_SWITCH=Режим"
     set "L_BTN_EDIT=Редактор"
     set "L_BTN_CLEAN=Обслуживание"
     set "L_BTN_WIZ=Мастер профилей"
@@ -141,6 +150,11 @@ if "%SYS_LANG%"=="RU" (
     set "L_ERR_VAR_NF=не найден."
     set "L_ERR_SKIP=Возможно, этот профиль предназначен для другого режима."
 ) else (
+    set "L_EXIT_CONFIRM=Exit the program? (Y/N): "
+    set "L_EXIT_BYE=See you soon!"
+    set "H_PROF=Profile"
+    set "H_ARCH=Architecture"
+    set "H_RES=Resources | Builds"    
     set "L_VERDICT=Verdict"
     set "L_LANG_NAME=ENGLISH"
     set "L_INIT_ENV=[INIT] Checking environment..."
@@ -333,42 +347,50 @@ cls
 for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
 set "count=0"
 
-:: Настройка интерфейса
+:: 1. ЛОГИКА РЕЖИМА И ЯЗЫКА (Обновляем переменные словаря)
 if "%BUILD_MODE%"=="IMAGE" (
     color 0B
-    set "MODE_TITLE=%L_MODE_IMG%"
+    set "MODE_TITLE=!L_MODE_IMG!"
     set "OPPOSITE_MODE=SOURCE"
     set "TARGET_VAR=IMAGEBUILDER_URL"
 ) else (
     color 0D
-    set "MODE_TITLE=%L_MODE_SRC%"
+    set "MODE_TITLE=!L_MODE_SRC!"
     set "OPPOSITE_MODE= IMAGE"
     set "TARGET_VAR=SRC_BRANCH"
 )
-echo =================================================================
-echo  OpenWrt FW Builder %VER_NUM% [%C_VAL%!SYS_LANG!%C_RST%] %C_LBL%https://github.com/iqubik/routerFW%C_RST%
-echo  %L_CUR_MODE%: [%C_VAL%%MODE_TITLE%%C_RST%]
-echo =================================================================
-echo.
 
-:: === ЦИКЛ СКАНИРОВАНИЯ (F P S | I B) ===
-echo    %C_LBL%%L_PROFILES%:%C_RST%
+:: 2. ОТРИСОВКА ЗАГОЛОВКА (Рамка 118 символов)
+echo !C_GRY!┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐!C_RST!
+echo   !C_VAL!OpenWrt FW Builder !VER_NUM!!C_RST! [!C_VAL!!SYS_LANG!!C_RST!]          !C_LBL!https://github.com/iqubik/routerFW!C_RST!
+echo   !L_CUR_MODE!: [!C_VAL!!MODE_TITLE!!C_RST!]
+echo !C_GRY!└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘!C_RST!
+echo.
+echo    !C_GRY! ID   !H_PROF!                                      !H_ARCH!         !H_RES!!C_RST!
+echo    !C_GRY!────────────────────────────────────────────────────────────────────────────────────────────────────────────!C_RST!
+
+:: Очистка массива профилей
+for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
+set "count=0"
+
+:: 3. ЦИКЛ СКАНИРОВАНИЯ (С поддержкой словаря)
+echo    !C_LBL!!L_PROFILES!:!C_RST!
 echo.
 for %%f in (profiles\*.conf) do (
     set /a count+=1
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
-    :: Авто-создание структуры (тихо)
-    if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!"
-    if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!"
-    if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!"
+    
+    :: Авто-создание структуры
+    if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!" >nul
+    if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!" >nul
+    if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!" >nul
     call :CREATE_PERMS_SCRIPT "!p_id!"
     call :CREATE_WIFI_ON_SCRIPT "!p_id!"
-    
     :: Извлекаем имя БЕЗ расширения для отображения в меню
     set "fname_display=%%~nf"
 
-    :: Извлекаем SRC_ARCH для отображения
+    :: Извлечение архитектуры
     set "this_arch=--------"
     for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%%~nxf" ^| findstr "SRC_ARCH"`) do (
         set "VAL=%%a"
@@ -376,45 +398,60 @@ for %%f in (profiles\*.conf) do (
         for /f "tokens=* delims= " %%b in ("!VAL!") do set "this_arch=%%b"
     )
 
-    :: 1. Мониторинг ресурсов (Вход)
-    set "st_f=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=%C_OK%F%C_RST%"
-    set "st_p=%C_GRY%·%C_RST%" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=%C_OK%P%C_RST%"
-    set "st_s=%C_GRY%·%C_RST%" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=%C_OK%S%C_RST%"    
+    :: Состояние ресурсов (F P S)
+    set "st_f=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=!C_OK!F!C_RST!"
+    set "st_p=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=!C_OK!P!C_RST!"
+    set "st_s=!C_GRY!·!C_RST!" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=!C_OK!S!C_RST!"    
 
-    :: 2. Мониторинг результатов (Выход)
-    set "st_oi=%C_GRY%··%C_RST%"
-    dir /s /a-d /b "firmware_output\imagebuilder\!p_id!\*.bin" "firmware_output\imagebuilder\!p_id!\*.img" "firmware_output\imagebuilder\!p_id!\*.trx" "firmware_output\imagebuilder\!p_id!\*.gz" 2>nul | findstr "^" >nul && set "st_oi=%C_VAL%OI%C_RST%"
-    set "st_os=%C_GRY%··%C_RST%"
-    dir /s /a-d /b "firmware_output\sourcebuilder\!p_id!\*.bin" "firmware_output\sourcebuilder\!p_id!\*.img" "firmware_output\sourcebuilder\!p_id!\*.trx" "firmware_output\sourcebuilder\!p_id!\*.gz" 2>nul | findstr "^" >nul && set "st_os=%C_VAL%OS%C_RST%"
+    :: Состояние вывода (OI OS)
+    set "st_oi=!C_GRY!··!C_RST!"
+    dir /s /a-d /b "firmware_output\imagebuilder\!p_id!\*.bin" "firmware_output\imagebuilder\!p_id!\*.img" 2>nul | findstr "^" >nul && set "st_oi=!C_VAL!OI!C_RST!"
+    set "st_os=!C_GRY!··!C_RST!"
+    dir /s /a-d /b "firmware_output\sourcebuilder\!p_id!\*.bin" "firmware_output\sourcebuilder\!p_id!\*.img" 2>nul | findstr "^" >nul && set "st_os=!C_VAL!OS!C_RST!"
     
-    :: Вывод КРАСИВОЙ СТРОКИ
-    set "spaces=                                                                    "
-    set "line=   %C_LBL%[%C_KEY%!count!%C_LBL%]%C_RST% !fname_display!!spaces!"
-    set "arch_disp=!this_arch!!spaces!"
-    
-    :: Отрисовка: Имя (57 симв) | Архитектура (13 симв) | Статусы
-    echo !line:~0,57! %C_VAL%!arch_disp:~0,13!%C_RST% %C_LBL%[!st_f!!st_p!!st_s! %C_GRY%^|^%C_LBL% !st_oi!!st_os!]%C_RST%
+    :: ВЫРАВНИВАНИЕ
+    set "id_pad=!count!"
+    if !count! LSS 10 set "id_pad= !count!"
+    set "fname_display=%%~nf"
+    set "tmp_name=!fname_display!                                             "
+    set "n_name=!tmp_name:~0,45!"
+    set "tmp_arch=!this_arch!                    "
+    set "n_arch=!tmp_arch:~0,20!"
+
+    :: ВЫВОД СТРОКИ
+    echo    !C_LBL![!C_KEY!!id_pad!!C_LBL!]!C_RST! !n_name! !C_VAL!!n_arch!!C_RST! !C_LBL![!st_f!!st_p!!st_s! !C_GRY!^|^!C_LBL! !st_oi! !st_os!]!C_RST!
 )
+
+:: 4. ПОДВАЛ (Кнопки из словаря L_...)
+:: Подготовка паддинга для кнопок
+set "b_all=!L_BTN_ALL!                  " & set "b_all=!b_all:~0,18!"
+set "b_clean=!L_BTN_CLEAN!              " & set "b_clean=!b_clean:~0,18!"
+set "b_wiz=!L_BTN_WIZ!                  " & set "b_wiz=!b_wiz:~0,22!"
+
+echo    !C_GRY!────────────────────────────────────────────────────────────────────────────────────────────────────────────!C_RST!
+echo    !L_LEGEND_IND!
+echo    !C_GRY!!L_LEGEND_TEXT!!C_RST!
 echo.
-echo    %L_LEGEND_IND%
-echo    %C_GRY%!L_LEGEND_TEXT!%C_RST%
-echo.
-echo    %C_LBL%[%C_KEY%A%C_LBL%] %L_BTN_ALL%%C_RST%      %C_LBL%[%C_KEY%M%C_LBL%] %L_BTN_SWITCH% %C_VAL%%OPPOSITE_MODE%%C_RST%    %C_LBL%[%C_KEY%E%C_LBL%] %L_BTN_EDIT%%C_RST%
-echo    %C_LBL%[%C_KEY%C%C_LBL%] %L_BTN_CLEAN%%C_RST%     %C_LBL%[%C_KEY%W%C_LBL%] %L_BTN_WIZ%%C_RST%          %C_LBL%[%C_KEY%0%C_LBL%] %L_BTN_EXIT%%C_RST%
+echo    !C_LBL![!C_KEY!A!C_LBL!] !b_all! !C_LBL![!C_KEY!M!C_LBL!] !L_BTN_SWITCH! !C_VAL!!OPPOSITE_MODE!!C_RST!       !C_LBL![!C_KEY!E!C_LBL!] !L_BTN_EDIT!!C_RST!
+echo    !C_LBL![!C_KEY!C!C_LBL!] !b_clean! !C_LBL![!C_KEY!W!C_LBL!] !b_wiz! !C_LBL![!C_KEY!0!C_LBL!] !L_BTN_EXIT!!C_RST!
+
 if "%BUILD_MODE%"=="SOURCE" (
-    echo    %C_LBL%[%C_KEY%K%C_LBL%] %C_VAL%Menuconfig/mc%C_RST%    %C_LBL%[%C_KEY%I%C_LBL%] %C_VAL%%L_BTN_IPK%%C_RST%
+    echo    !C_LBL![!C_KEY!K!C_LBL!] Menuconfig/mc      !C_LBL![!C_KEY!I!C_LBL!] !L_BTN_IPK!!C_RST!
 )
 echo.
 set "choice="
-set /p choice=%C_LBL%%L_CHOICE%: %C_RST%
+set /p choice=!C_LBL!!L_CHOICE!: !C_RST!
 
-:: Если нажали Enter (пусто), просто обновляем меню
-if "%choice%"=="" goto MENU
+:: Если нажали 0 (Выход)
 if /i "%choice%"=="0" (
     echo.
-    set /p "exit_confirm=%C_ERR%Выйти из программы? (Y/N): %C_RST%"
+    :: Используем локализованный вопрос и красный цвет ошибки для привлечения внимания
+    set /p "exit_confirm=!C_ERR!!L_EXIT_CONFIRM!!C_RST!"
+    
     if /i "!exit_confirm!"=="Y" (
-        echo %C_OK%До новых встреч!%C_RST%
+        echo.
+        :: Используем локализованное прощание и зеленый цвет успеха
+        echo !C_OK!!L_EXIT_BYE!!C_RST!
         timeout /t 2 >nul
         exit /b
     )
