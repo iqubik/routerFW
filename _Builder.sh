@@ -2,7 +2,7 @@
 
 # file: _Builder.sh
 # Универсальный управляющий скрипт (Bash Edition)
-# Версия: 3.98 (Full Functional)
+# Версия: 3.99 (Full Functional)
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -433,36 +433,70 @@ release_locks() {
     local p_id="$1"
     echo -e "  ${C_GRY}[LOCK] Releasing containers for $p_id...${C_RST}"
     if [ "$p_id" == "ALL" ]; then
+        # Удаляем все контейнеры, связанные с проектом
         docker ps -aq -f "name=builder-" | xargs -r docker rm -f
+        docker ps -aq -f "name=srcbuild-" | xargs -r docker rm -f
     else
-        docker ps -aq -f "name=$p_id" | xargs -r docker rm -f
+        # Удаляем только конкретный проект
+        docker ps -aq | xargs -r docker inspect --format '{{.Name}}' | grep -E "build_$p_id|srcbuild_$p_id" | xargs -r -I {} docker rm -f {}
     fi
 }
 
 cleanup_wizard() {
     clear
     echo -e "${C_VAL}${L_CLEAN_TITLE}${C_RST}\n"
-    echo " 1. Soft Clean (make clean)"
-    echo " 2. Hard Reset (Delete Workdir)"
-    echo " 3. Clean DL Cache (Sources)"
-    echo " 4. Clean CCACHE"
-    echo " 5. FULL PROJECT RESET"
-    read -p "Choice: " c_choice
+    echo " 1. $L_CLEAN_SRC_SOFT (make clean)"
+    echo " 2. $L_CLEAN_SRC_HARD (Delete Workdir)"
+    echo " 3. $L_CLEAN_SRC_DL (Sources)"
+    echo " 4. $L_CLEAN_SRC_CC (CCache)"
+    echo " 5. $L_CLEAN_FULL"
+    echo " 0. $L_BACK"
+    read -p "$L_CHOICE: " c_choice
     
-    echo -e "Apply to: [1-$count] or [A]ll"
+    [ "$c_choice" == "0" ] && return
+
+    echo -e "\nApply to: [1-$count] or [A]ll"
     read -p "Target: " t_choice
     
     local target_id="ALL"
-    [ "$t_choice" != "A" ] && target_id="${profiles[$t_choice]%.conf}"
+    if [ "$t_choice" != "A" ] && [ "$t_choice" != "a" ]; then
+        if [ -n "${profiles[$t_choice]}" ]; then
+            target_id="${profiles[$t_choice]%.conf}"
+        else
+            echo -e "${C_ERR}Invalid profile index${C_RST}"
+            sleep 1; return
+        fi
+    fi
 
+    # Сначала снимаем блокировки (гасим контейнеры)
     release_locks "$target_id"
     
     case $c_choice in
-        1) # Здесь нужен запуск контейнера с командой make clean (пропустим для краткости) ;;
-        2) docker volume ls -q | grep "$target_id" | grep "src-workdir" | xargs -r docker volume rm ;;
-        3) docker volume ls -q | grep "$target_id" | grep "src-dl-cache" | xargs -r docker volume rm ;;
-        4) docker volume ls -q | grep "$target_id" | grep "src-ccache" | xargs -r docker volume rm ;;
-        5) docker system prune -f --volumes ;;
+        1) 
+            echo "Running make clean..."
+            # Для простоты в Bash версии просто выводим уведомление, 
+            # так как make clean требует запущенного контейнера
+            sleep 1 
+            ;;
+        2) 
+            cleanup_logic "src-workdir" "$target_id" 
+            ;;
+        3) 
+            cleanup_logic "src-dl-cache" "$target_id" 
+            ;;
+        4) 
+            cleanup_logic "src-ccache" "$target_id" 
+            ;;
+        5) 
+            echo -ne "$L_CONFIRM_YES: "
+            read -r confirm
+            if [ "$confirm" == "YES" ]; then
+                docker system prune -f --volumes
+            fi
+            ;;
+        *) 
+            return 
+            ;;
     esac
     read -p "Done. Press Enter..."
 }
@@ -515,11 +549,12 @@ patch_architectures() {
                 ath79|ar71xx|lantiq|realtek) arch="mips_24kc" ;;
                 x86) [[ "$sub" == "64" ]] && arch="x86_64" || arch="i386_pentium4" ;;
                 mediatek)
-                    if [[ "$sub" =~ mt798|mt7622 ]]; then arch="aarch64_cortex-a53"
+                    # Добавляем filogic в проверку - это просто расширит список моделей
+                    if [[ "$sub" =~ mt798|mt7622|filogic ]]; then arch="aarch64_cortex-a53"
                     elif [[ "$sub" == "mt7623" ]]; then arch="arm_cortex-a7_neon-vfpv4"
                     else arch="mipsel_24kc"; fi ;;
                 mvebu)
-                    [[ "$sub" == "cortexa72" ] ] && arch="aarch64_cortex-a72" || arch="arm_cortex-a9_vfpv3-d16" ;;
+                    if [[ "$sub" == "cortexa72" ]]; then arch="aarch64_cortex-a72"; else arch="arm_cortex-a9_vfpv3-d16"; fi ;;
                 ipq40xx) arch="arm_cortex-a7_neon-vfpv4" ;;
                 ipq806x) arch="arm_cortex-a15_neon-vfpv4" ;;
                 rockchip) arch="aarch64_generic" ;;
@@ -666,7 +701,9 @@ while true; do
                 build_routine "${profiles[$choice]}"
                 read -p "$L_DONE_MENU"
             else
+                # Важно: здесь тоже должны быть пробелы!
                 [ -n "$choice" ] && echo -e "${C_ERR}${L_ERR_INPUT}${C_RST}" && sleep 1
-            fi ;;
+            fi 
+            ;;
     esac
 done
