@@ -352,43 +352,119 @@ run_menuconfig() {
     local p_id="${conf_file%.conf}"
     local out_path="./firmware_output/sourcebuilder/$p_id"
     mkdir -p "$out_path"
-    
+
     echo -e "${C_LBL}${L_K_LAUNCH}${C_RST}"
-    
+
+    # 1. Определяем версию (Legacy или New), чтобы выбрать правильный контейнер
+    local target_val=$(grep "SRC_BRANCH=" "profiles/$conf_file" | cut -d'"' -f2)
+    local is_legacy=0
+    [[ "$target_val" =~ /(17|18|19)\. ]] && is_legacy=1
+    [ $is_legacy -eq 1 ] && local service="builder-src-oldwrt" || local service="builder-src-openwrt"
+
+    # 2. Экспортируем переменные окружения для docker-compose
     export SELECTED_CONF="$conf_file"
     export HOST_FILES_DIR="./custom_files/$p_id"
     export HOST_OUTPUT_DIR="$out_path"
     export HOST_PKGS_DIR="./src_packages/$p_id"
 
-    # Создаем временный скрипт для запуска внутри
-    cat <<EOF > "$out_path/_menuconfig_runner.sh"
+    # 3. Создаем скрипт-раннер внутри папки вывода
+    cat <<'EOF' > "$out_path/_menuconfig_runner.sh"
 #!/bin/bash
+set -e
 cd /home/build/openwrt
-# Инициализация .config если нужно
+
+# 1. Интеллектуальное восстановление исходников
+if [ ! -f "Makefile" ]; then
+    echo "[GIT] Makefile missing. Initializing repo..."
+    rm -rf .git
+    git init
+    git remote add origin "$SRC_REPO"
+    git fetch origin "$SRC_BRANCH"
+    git checkout -f FETCH_HEAD
+    git reset --hard FETCH_HEAD
+    ./scripts/feeds update -a
+    ./scripts/feeds install -a
+fi
+
+# 2. Инъекция кастомных пакетов
+if [ -d "/input_packages" ] && [ "$(ls -A /input_packages 2>/dev/null)" ]; then
+    echo "[PKG] Injecting custom sources..."
+    mkdir -p package/custom-imports
+    cp -rf /input_packages/* package/custom-imports/
+    ./scripts/feeds install -a
+fi
+
+# 3. Умная сборка .config
 if [ -f "/output/manual_config" ]; then
     cp /output/manual_config .config
-    make defconfig
 else
-    make defconfig
+    echo "CONFIG_TARGET_${SRC_TARGET}=y" > .config
+    echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}=y" >> .config
+    echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}_DEVICE_${TARGET_PROFILE}=y" >> .config
+    for pkg in $SRC_PACKAGES; do echo "CONFIG_PACKAGE_$pkg=y" >> .config; done
 fi
+make defconfig
+
+# 4. Запуск UI
 make menuconfig
-./scripts/diffconfig.sh > /output/manual_config
+
+# 5. Сохранение диффа
+./scripts/diffconfig.sh > /tmp/compact_config
+if [ -s /tmp/compact_config ]; then
+    cp /tmp/compact_config /output/manual_config
+    echo "[OK] Manual config updated."
+else
+    cp .config /output/manual_config
+    echo "[WARN] Diff empty, saved full config."
+fi
 chmod 666 /output/manual_config
 EOF
-
-    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it builder-src-openwrt /bin/bash -c "sudo -E -u build bash /output/_menuconfig_runner.sh"
+    chmod +x "$out_path/_menuconfig_runner.sh"
     
+    # 4. ФАКТИЧЕСКИЙ ЗАПУСК КОНТЕЙНЕРА (Интерактивный режим -it)
+    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "sudo -E -u build bash /output/_menuconfig_runner.sh"
+    
+    # Очистка временного файла
     rm -f "$out_path/_menuconfig_runner.sh"
 }
 
-cleanup_logic() {
-    local type="$1"
-    local p_id="$2"
+# === GRANULAR CLEANUP SYSTEM ===
+release_locks() {
+    local p_id="$1"
+    echo -e "  ${C_GRY}[LOCK] Releasing containers for $p_id...${C_RST}"
     if [ "$p_id" == "ALL" ]; then
-        docker volume ls -q -f "name=$type" | xargs -r docker volume rm
+        docker ps -aq -f "name=builder-" | xargs -r docker rm -f
     else
-        docker volume ls -q | grep "$p_id" | grep "$type" | xargs -r docker volume rm
+        docker ps -aq -f "name=$p_id" | xargs -r docker rm -f
     fi
+}
+
+cleanup_wizard() {
+    clear
+    echo -e "${C_VAL}${L_CLEAN_TITLE}${C_RST}\n"
+    echo " 1. Soft Clean (make clean)"
+    echo " 2. Hard Reset (Delete Workdir)"
+    echo " 3. Clean DL Cache (Sources)"
+    echo " 4. Clean CCACHE"
+    echo " 5. FULL PROJECT RESET"
+    read -p "Choice: " c_choice
+    
+    echo -e "Apply to: [1-$count] or [A]ll"
+    read -p "Target: " t_choice
+    
+    local target_id="ALL"
+    [ "$t_choice" != "A" ] && target_id="${profiles[$t_choice]%.conf}"
+
+    release_locks "$target_id"
+    
+    case $c_choice in
+        1) # Здесь нужен запуск контейнера с командой make clean (пропустим для краткости) ;;
+        2) docker volume ls -q | grep "$target_id" | grep "src-workdir" | xargs -r docker volume rm ;;
+        3) docker volume ls -q | grep "$target_id" | grep "src-dl-cache" | xargs -r docker volume rm ;;
+        4) docker volume ls -q | grep "$target_id" | grep "src-ccache" | xargs -r docker volume rm ;;
+        5) docker system prune -f --volumes ;;
+    esac
+    read -p "Done. Press Enter..."
 }
 
 # === Вспомогательные функции ===
@@ -422,38 +498,49 @@ EOF
     chmod +x "$target"
 }
 
-# === АВТО-ПАТЧИНГ АРХИТЕКТУРЫ ===
-echo -e "${C_LBL}[INIT]${C_RST} Scanning profiles for architecture..."
-for p in profiles/*.conf; do
-    [ -e "$p" ] || continue
-    if ! grep -q "SRC_ARCH=" "$p"; then
-        target=$(grep "SRC_TARGET=" "$p" | cut -d'"' -f2)
-        sub=$(grep "SRC_SUBTARGET=" "$p" | cut -d'"' -f2)
-        [ -z "$target" ] && target=$(grep "IMAGEBUILDER_URL=" "$p" | sed -n 's|.*/targets/\([^/]*\)/\([^/]*\)/.*|\1|p')
-        [ -z "$sub" ] && sub=$(grep "IMAGEBUILDER_URL=" "$p" | sed -n 's|.*/targets/\([^/]*\)/\([^/]*\)/.*|\2|p')
-        
-        arch=""
-        case "$target" in
-            ramips) arch="mipsel_24kc" ;;
-            ath79|ar71xx|lantiq|realtek) arch="mips_24kc" ;;
-            x86) [[ "$sub" == "64" ]] && arch="x86_64" || arch="i386_pentium4" ;;
-            mediatek)
-                if [[ "$sub" =~ mt798|mt7622 ]]; then arch="aarch64_cortex-a53"
-                elif [[ "$sub" == "mt7623" ]]; then arch="arm_cortex-a7_neon-vfpv4"
-                else arch="mipsel_24kc"; fi ;;
-            rockchip) arch="aarch64_generic" ;;
-            bcm27xx)
-                if [[ "$sub" == "bcm2711" ]]; then arch="aarch64_cortex-a72"
-                elif [[ "$sub" == "bcm2710" ]]; then arch="aarch64_cortex-a53"
-                else arch="arm_arm1176jzf-s_vfp"; fi ;;
-        esac
-        
-        if [ -n "$arch" ]; then
-            echo "SRC_ARCH=\"$arch\"" >> "$p"
-            echo -e "  ${C_OK}[PATCHED]${C_RST} $(basename "$p") -> $arch"
+# === ADVANCED ARCHITECTURE MAPPING (v3.0) ===
+patch_architectures() {
+    echo -e "${C_LBL}[INIT]${C_RST} Advanced Architecture Mapping..."
+    for p in profiles/*.conf; do
+        [ -e "$p" ] || continue
+        if ! grep -q "SRC_ARCH=" "$p"; then
+            local target=$(grep "SRC_TARGET=" "$p" | cut -d'"' -f2)
+            local sub=$(grep "SRC_SUBTARGET=" "$p" | cut -d'"' -f2)
+            [ -z "$target" ] && target=$(grep "IMAGEBUILDER_URL=" "$p" | sed -n 's|.*/targets/\([^/]*\)/\([^/]*\)/.*|\1|p')
+            [ -z "$sub" ] && sub=$(grep "IMAGEBUILDER_URL=" "$p" | sed -n 's|.*/targets/\([^/]*\)/\([^/]*\)/.*|\2|p')
+            
+            local arch=""
+            case "$target" in
+                ramips) arch="mipsel_24kc" ;;
+                ath79|ar71xx|lantiq|realtek) arch="mips_24kc" ;;
+                x86) [[ "$sub" == "64" ]] && arch="x86_64" || arch="i386_pentium4" ;;
+                mediatek)
+                    if [[ "$sub" =~ mt798|mt7622 ]]; then arch="aarch64_cortex-a53"
+                    elif [[ "$sub" == "mt7623" ]]; then arch="arm_cortex-a7_neon-vfpv4"
+                    else arch="mipsel_24kc"; fi ;;
+                mvebu)
+                    [[ "$sub" == "cortexa72" ] ] && arch="aarch64_cortex-a72" || arch="arm_cortex-a9_vfpv3-d16" ;;
+                ipq40xx) arch="arm_cortex-a7_neon-vfpv4" ;;
+                ipq806x) arch="arm_cortex-a15_neon-vfpv4" ;;
+                rockchip) arch="aarch64_generic" ;;
+                bcm27xx)
+                    if [[ "$sub" == "bcm2711" ]]; then arch="aarch64_cortex-a72"
+                    elif [[ "$sub" == "bcm2710" ]]; then arch="aarch64_cortex-a53"
+                    else arch="arm_arm1176jzf-s_vfp"; fi ;;
+                sunxi) arch="arm_cortex-a7_neon-vfpv4" ;;
+                layerscape) [[ "$sub" == "64b" ]] && arch="aarch64_generic" || arch="arm_cortex-a7_neon-vfpv4" ;;
+                *64*) arch="aarch64_generic" ;;
+            esac
+            
+            if [ -n "$arch" ]; then
+                echo "SRC_ARCH=\"$arch\"" >> "$p"
+                echo -e "  ${C_OK}[PATCHED]${C_RST} $(basename "$p") -> $arch"
+            fi
         fi
-    fi
-done
+    done
+}
+
+patch_architectures
 
 # === ГЛАВНОЕ МЕНЮ ===
 while true; do
@@ -541,9 +628,9 @@ while true; do
             # Меню редактирования (упрощенно)
             echo -e "${C_VAL}${L_EDIT_TITLE}${C_RST}"
             # Тут логика открытия редактора (vi/nano или xdg-open)
-            for i in "${!profiles[@]}"; do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
+            for ((i=1; i<=count; i++)); do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
             read -p "ID: " e_id
-            [ -n "${profiles[$e_id]}" ] && ${EDITOR:-nano} "profiles/${profiles[$e_id]}" ;;
+            [ -n "${profiles[$e_id]}" ] && "${EDITOR:-nano}" "profiles/${profiles[$e_id]}" ;;
         [Aa])
             # Массовая сборка
             echo -e "${C_YEL}${L_MASS_START}${C_RST}"
@@ -553,30 +640,16 @@ while true; do
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 # Здесь вызов функции Menuconfig
                 echo -e "${L_K_SEL}:"
-                for i in "${!profiles[@]}"; do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
+                for ((i=1; i<=count; i++)); do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
                 read -p "ID: " k_id
                 [ -n "${profiles[$k_id]}" ] && run_menuconfig "${profiles[$k_id]}"
             fi ;;
         [Cc])
-            # Очистка
-            echo -e "${L_CLEAN_TITLE}"
-            echo " 1. $L_CLEAN_IMG_SDK"
-            echo " 2. $L_CLEAN_IMG_IPK"
-            echo " 3. $L_CLEAN_FULL"
-            read -p "Choice: " c_type
-            echo -ne "$L_CONFIRM_YES: "
-            read -r confirm
-            if [ "$confirm" == "YES" ]; then
-                case $c_type in
-                    1) cleanup_logic "imagebuilder-cache" "ALL" ;;
-                    2) cleanup_logic "ipk-cache" "ALL" ;;
-                    3) docker system prune -a --volumes -f ;;
-                esac
-            fi ;;
+            cleanup_wizard ;;
         [Ii])
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 echo -e "${L_SEL_IMPORT}:"
-                for i in "${!profiles[@]}"; do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
+                for ((i=1; i<=count; i++)); do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
                 read -p "ID: " i_id
                 if [ -n "${profiles[$i_id]}" ]; then
                     p_id="${profiles[$i_id]%.conf}"

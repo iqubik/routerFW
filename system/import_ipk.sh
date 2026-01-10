@@ -103,7 +103,10 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
         # Парсинг зависимостей
         RAW_DEPS=$(grep "^Depends: " "$CONTROL_FILE" | cut -d' ' -f2- | tr -d '\r')
         # Очистка: удаляем libc, запятые, мапим специфичные библиотеки
-        CLEAN_DEPS=$(echo "$RAW_DEPS" | sed 's/,/ /g' | sed 's/libnetfilter-queue1/libnetfilter-queue/g' | sed 's/libnfnetlink0/libnfnetlink/g')
+        CLEAN_DEPS=$(echo "$RAW_DEPS" | sed 's/,/ /g' \
+    | sed 's/libnetfilter-queue1/libnetfilter-queue/g' \
+    | sed 's/libnfnetlink0/libnfnetlink/g' \
+    | sed 's/libopenssl1.1/libopenssl/g')
         
         PKG_DEPS=""
         for dep in $CLEAN_DEPS; do
