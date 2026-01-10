@@ -160,6 +160,11 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_PROC_PROF="Профиль"
     L_ERR_VAR_NF="не найден."
     L_ERR_SKIP="Возможно, профиль для другого режима."
+    L_PARALLEL_BUILDS_START="Параллельная сборка! Логи сохраняются в:"
+    L_MONITOR_HINT="Следите за процессом: 'tail -f <файл_лога>'"
+    L_ALL_BUILDS_LAUNCHED="Все сборки запущены в фоновом режиме."
+    L_WAITING_FOR_BUILDS="Ожидание завершения всех сборок..."
+    L_ALL_BUILDS_DONE="Все сборки завершены."
 else
     # ENGLISH DICTIONARY
     L_EXIT_CONFIRM="Exit the program? (Y/N): "
@@ -253,6 +258,11 @@ else
     L_PROC_PROF="Profile"
     L_ERR_VAR_NF="not found."
     L_ERR_SKIP="Maybe this profile is for a different mode."
+    L_PARALLEL_BUILDS_START="Parallel builds! Logs are being saved to:"
+    L_MONITOR_HINT="You can monitor progress with: 'tail -f <logfile>'"
+    L_ALL_BUILDS_LAUNCHED="All build processes have been launched in the background."
+    L_WAITING_FOR_BUILDS="Waiting for all builds to complete..."
+    L_ALL_BUILDS_DONE="All builds are complete."
 fi
 
 # Финальный вердикт языка
@@ -368,61 +378,105 @@ run_menuconfig() {
     export HOST_PKGS_DIR="./src_packages/$p_id"
 
     # 3. Создаем скрипт-раннер внутри папки вывода
-    cat <<'EOF' > "$out_path/_menuconfig_runner.sh"
+    cat <<EOF > "$out_path/_menuconfig_runner.sh"
 #!/bin/bash
 set -e
+export HOME=/home/build
 cd /home/build/openwrt
 
-# 1. Интеллектуальное восстановление исходников
+# --- 1. Load Environment ---
+echo "[INIT] Loading profile vars from: \$CONF_FILE"
+# sed to remove BOM, tr to remove windows newlines
+cat "/profiles/\$CONF_FILE" | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > /tmp/env.sh
+source /tmp/env.sh
+
+# --- 2. Check Git State ---
 if [ ! -f "Makefile" ]; then
     echo "[GIT] Makefile missing. Initializing repo..."
     rm -rf .git
     git init
-    git remote add origin "$SRC_REPO"
-    git fetch origin "$SRC_BRANCH"
+    git remote add origin "\$SRC_REPO"
+    git fetch origin "\$SRC_BRANCH"
     git checkout -f FETCH_HEAD
     git reset --hard FETCH_HEAD
     ./scripts/feeds update -a
     ./scripts/feeds install -a
 fi
 
-# 2. Инъекция кастомных пакетов
-if [ -d "/input_packages" ] && [ "$(ls -A /input_packages 2>/dev/null)" ]; then
+# --- 2.5 Inject Custom Packages ---
+if [ -d "/input_packages" ] && [ -n "$(ls -A /input_packages 2>/dev/null)" ]; then
     echo "[PKG] Injecting custom sources..."
     mkdir -p package/custom-imports
     cp -rf /input_packages/* package/custom-imports/
+    rm -rf tmp/.packageinfo tmp/.targetinfo
     ./scripts/feeds install -a
 fi
 
-# 3. Умная сборка .config
+# --- 3. Prepare Configuration ---
+echo "[CONFIG] Preparing .config..."
+rm -f .config
 if [ -f "/output/manual_config" ]; then
+    echo "[CONFIG] Found manual_config. Restoring..."
     cp /output/manual_config .config
+    make defconfig
 else
-    echo "CONFIG_TARGET_${SRC_TARGET}=y" > .config
-    echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}=y" >> .config
-    echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}_DEVICE_${TARGET_PROFILE}=y" >> .config
-    for pkg in $SRC_PACKAGES; do echo "CONFIG_PACKAGE_$pkg=y" >> .config; done
+    echo "[CONFIG] Generating from profile..."
+    echo "CONFIG_TARGET_\${SRC_TARGET}=y" > .config
+    echo "CONFIG_TARGET_\${SRC_TARGET}_\${SRC_SUBTARGET}=y" >> .config
+    echo "CONFIG_TARGET_\${SRC_TARGET}_\${SRC_SUBTARGET}_DEVICE_\${TARGET_PROFILE}=y" >> .config
+    for pkg in \$SRC_PACKAGES; do
+        if [[ "\$pkg" == -* ]]; then
+            clean_pkg="\${pkg#-}"
+            echo "# CONFIG_PACKAGE_\$clean_pkg is not set" >> .config
+        else
+            echo "CONFIG_PACKAGE_\$pkg=y" >> .config
+        fi
+    done
+    [ -n "\$ROOTFS_SIZE" ] && echo "CONFIG_TARGET_ROOTFS_PARTSIZE=\$ROOTFS_SIZE" >> .config
+    [ -n "\$KERNEL_SIZE" ] && echo "CONFIG_TARGET_KERNEL_PARTSIZE=\$KERNEL_SIZE" >> .config
+    if [ -n "\$SRC_EXTRA_CONFIG" ]; then
+        for opt in \$SRC_EXTRA_CONFIG; do echo "\$opt" >> .config; done
+    fi
+    make defconfig
 fi
-make defconfig
 
-# 4. Запуск UI
+# --- 4. Menuconfig ---
+echo "[START] Launching Menuconfig UI..."
 make menuconfig
 
-# 5. Сохранение диффа
+# --- 5. Save ---
+echo "$L_K_SAVE"
+make defconfig > /dev/null
 ./scripts/diffconfig.sh > /tmp/compact_config
 if [ -s /tmp/compact_config ]; then
     cp /tmp/compact_config /output/manual_config
-    echo "[OK] Manual config updated."
+    L_COUNT=\$(cat /output/manual_config | wc -l)
+    echo -e "\033[92m[SUCCESS]\033[0m $L_K_SAVED: \033[93m\$L_COUNT\033[0m $L_K_STR."
 else
+    echo -e "\033[91m[WARNING]\033[0m $L_K_EMPTY_DIFF"
     cp .config /output/manual_config
-    echo "[WARN] Diff empty, saved full config."
 fi
 chmod 666 /output/manual_config
+touch /output/manual_config
+
+# --- 6. Interactive Shell Option ---
+printf "\n\033[92m[SUCCESS]\033[0m $L_K_FINAL \n"
+read -p "$L_K_STAY " stay
+if [[ "\$stay" =~ ^[Yy]$ ]]; then
+    echo -e "\n\033[92m$L_K_SHELL_H1: \$(pwd)\033[0m"
+    echo -e "----------------------------------------------------------"
+    echo -e "$L_K_SHELL_H2"
+    echo -e "$L_K_SHELL_H3"
+    echo -e "----------------------------------------------------------\n"
+    /bin/bash
+fi
 EOF
-    chmod +x "$out_path/_menuconfig_runner.sh"
     
     # 4. ФАКТИЧЕСКИЙ ЗАПУСК КОНТЕЙНЕРА (Интерактивный режим -it)
-    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "sudo -E -u build bash /output/_menuconfig_runner.sh"
+    # Добавляем chown для установки правильных прав доступа, как в .bat
+    local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && sudo -E -u build bash /output/_menuconfig_runner.sh"
+    
+    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "$run_cmd"
     
     # Очистка временного файла
     rm -f "$out_path/_menuconfig_runner.sh"
@@ -667,10 +721,85 @@ while true; do
             read -p "ID: " e_id
             [ -n "${profiles[$e_id]}" ] && "${EDITOR:-nano}" "profiles/${profiles[$e_id]}" ;;
         [Aa])
-            # Массовая сборка
-            echo -e "${C_YEL}${L_MASS_START}${C_RST}"
-            for p in "${profiles[@]}"; do build_routine "$p"; done
-            read -p "$L_DONE_MENU" ;;
+            # Массовая сборка с параллельным выполнением и логированием
+            if [ "$BUILD_MODE" == "SOURCE" ]; then
+                echo -e "${C_ERR}${L_WARN_MASS}${C_RST}"
+                read -p "Press Enter to continue..."
+            fi
+            
+            LOG_DIR="firmware_output/.build_logs/$(date +%Y%m%d-%H%M%S)"
+            mkdir -p "$LOG_DIR"
+            
+            echo -e "\n${C_VAL}${L_PARALLEL_BUILDS_START}${C_RST} ${C_LBL}$LOG_DIR${C_RST}\n"
+            
+            pids=()
+            printf "    %-65s | %s\n" "${C_GRY}PROFILE" "LOG FILE${C_RST}"
+            printf "    %s\n" "${C_GRY}--------------------------------------------------------------------------------------------------------------------${C_RST}"
+            for p in "${profiles[@]}"; do
+                p_id="${p%.conf}"
+                log_file="$LOG_DIR/${p_id}.log"
+                
+                printf "    %-65s | %s\n" "${C_KEY}-> Starting: $p_id${C_RST}" "${C_LBL}${log_file}${C_RST}"
+                
+                # Запускаем сборку в фоне, перенаправляя вывод в лог
+                build_routine "$p" > "$log_file" 2>&1 &
+                pids+=($!)
+            done
+            
+            echo -e "\n${C_OK}${L_ALL_BUILDS_LAUNCHED}${C_RST}"
+            echo -e "${C_LBL}${L_MONITOR_HINT}${C_RST}\n"
+            
+            # --- ADVANCED WAIT with STATUS ---
+            # Create an associative array to map PIDs to profile names for better reporting
+            declare -A pid_map
+            for i in "${!pids[@]}"; do
+                # Bash array is 0-indexed, 'profiles' array is 1-indexed
+                pid_map[${pids[$i]}]="${profiles[$((i+1))]%.conf}"
+            done
+            
+            running_pids=("${pids[@]}")
+            spinner=("/" "-" "\\" "|")
+            spin_idx=0
+            
+            while [ ${#running_pids[@]} -gt 0 ]; do
+                still_running=()
+                
+                for pid in "${running_pids[@]}"; do
+                    if kill -0 "$pid" 2>/dev/null; then
+                        # Process is still alive
+                        still_running+=("$pid")
+                    else
+                        # Process has finished, check its exit code
+                        if ! wait "$pid"; then
+                            # Clear the spinner line before printing an error to avoid visual glitches
+                            printf "\r%120s\r" " " 
+                            echo -e "${C_ERR}[ERROR] Build for profile '${pid_map[$pid]}' failed. Check log.${C_RST}"
+                        fi
+                    fi
+                done
+
+                # Update the list of running PIDs for the next loop iteration
+                running_pids=("${still_running[@]}")
+                
+                # Print the dynamic status line with spinner and list of running jobs
+                if [ ${#running_pids[@]} -gt 0 ]; then
+                    running_names=""
+                    for pid in "${running_pids[@]}"; do
+                        running_names+="${pid_map[$pid]} "
+                    done
+                    # The trailing spaces are to clear any previous, longer text on the same line
+                    printf "\r${C_LBL}[%s]${C_RST} ${L_WAITING_FOR_BUILDS} (%d left): ${C_VAL}%s${C_RST}      " "${spinner[$spin_idx]}" "${#running_pids[@]}" "$running_names"
+                fi
+                
+                sleep 0.5
+                spin_idx=$(( (spin_idx+1) % 4 ))
+            done
+            
+            # Clear the final status line and show the completion message
+            printf "\r%120s\r" " "
+            echo -e "${C_OK}${L_ALL_BUILDS_DONE}${C_RST}"
+            read -p "$L_DONE_MENU"
+            ;;
         [Kk])
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 # Здесь вызов функции Menuconfig
