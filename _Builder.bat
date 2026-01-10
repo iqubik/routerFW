@@ -7,7 +7,7 @@ mode con: cols=120 lines=40
 powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
 cls
 chcp 65001 >nul
-set "VER_NUM=3.98"
+set "VER_NUM=3.99"
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
@@ -309,7 +309,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "            'realtek'  { 'mips_24kc' }" ^
     "            'x86'      { if ($sub -eq '64') { 'x86_64' } else { 'i386_pentium4' } }" ^
     "            'mediatek' { " ^
-    "                if ($sub -match 'mt798|mt7622') { 'aarch64_cortex-a53' } " ^
+    "                if ($sub -match 'mt798|mt7622|filogic') { 'aarch64_cortex-a53' } " ^
     "                elseif ($sub -eq 'mt7623') { 'arm_cortex-a7_neon-vfpv4' } " ^
     "                else { 'mipsel_24kc' } " ^
     "            }" ^
