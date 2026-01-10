@@ -23,7 +23,7 @@ C_RST="${ESC}[0m"    # Reset
 VER_NUM="3.98"
 
 # === ЯЗЫКОВОЙ МОДУЛЬ ===
-FORCE_LANG="AUTO"
+FORCE_LANG="RU"  # AUTO | RU | EN
 SYS_LANG="EN"
 ru_score=0
 
@@ -629,7 +629,7 @@ while true; do
         st_oi="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/imagebuilder/$p_id" -name "*.bin" -o -name "*.img" 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
         st_os="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/sourcebuilder/$p_id" -name "*.bin" -o -name "*.img" 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
 
-        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s | %s%s]${C_RST}\n" \
+        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s | %s %s]${C_RST}\n" \
                $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_oi" "$st_os"
     done
 
