@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # file: _Builder.sh
+# Универсальный управляющий скрипт (Bash Edition)
+# Версия: 3.98 (Full Functional)
+
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
 
@@ -118,8 +121,8 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_IMPORT_IPK_TITLE="ИМПОРТ ПАКЕТОВ (IPK) ДЛЯ ПРОФИЛЯ"
     L_SEL_IMPORT="Выберите профиль для импорта пакетов"
     L_ERR_PS1_IPK="[ERROR] system/import_ipk.sh не найден!"
-    L_CLEAN_TITLE="МЕНЮ ОЧИСТКИ И ОБСЛУЖИВАНИЯ"
-    L_CLEAN_TYPE="Выберите тип данных для очистки"
+    L_CLEAN_TITLE="МЕНЮ ОЧИСТКИ"
+    L_CLEAN_TYPE="Выберите тип данных"
     L_CLEAN_IMG_SDK="Очистить кэш ImageBuilder (SDK)"
     L_CLEAN_IMG_IPK="Очистить кэш пакетов (IPK)"
     L_CLEAN_FULL="FULL FACTORY RESET (Сброс проекта)"
@@ -132,7 +135,7 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_CLEAN_PROF_SEL="Для какого профиля выполнить очистку?"
     L_CLEAN_ALL_PROF="ДЛЯ ВСЕХ ПРОФИЛЕЙ"
     L_CONFIRM_YES="Введите YES для подтверждения"
-    L_CLEAN_RUN="[CLEAN] Запуск процедуры..."
+    L_CLEAN_RUN="[CLEAN] Очистка..."
     L_K_TITLE="MENUCONFIG ИНТЕРАКТИВ"
     L_K_DESC="Будет создан manual_config в папке"
     L_K_SEL="Выберите профиль для настройки"
@@ -274,8 +277,16 @@ fi
 echo -e "  ${C_GRY}-${C_RST} $D_VER"
 
 # Проверка Compose
-C_VER=$(docker-compose --version 2>/dev/null || docker compose version 2>/dev/null)
-echo -e "  ${C_GRY}-${C_RST} $C_VER"
+C_EXE="docker-compose"
+if ! command -v docker-compose &> /dev/null; then
+    if docker compose version &> /dev/null; then
+        C_EXE="docker compose"
+    else
+        echo -e "$L_ERR_COMPOSE"
+        read -p "Press enter..." && exit 1
+    fi
+fi
+echo -e "  ${C_GRY}-${C_RST} Using: $C_EXE"
 
 # Корень
 PROJECT_DIR=$(pwd)
@@ -287,7 +298,7 @@ echo ""
 
 # === 0. РАСПАКОВКА ===
 if [ -f "_unpacker.sh" ]; then
-    echo -e "$L_INIT_UNPACK$"
+    echo -e "$L_INIT_UNPACK"
     bash _unpacker.sh
 fi
 
@@ -299,37 +310,120 @@ check_dir "firmware_output"
 check_dir "custom_packages"
 check_dir "src_packages"
 
-# === Вспомогательные функции (Permissions & WiFi) ===
+# === 2. ФУНКЦИИ СБОРКИ (CORE) ===
+
+build_routine() {
+    local conf_file="$1"
+    local p_id="${conf_file%.conf}"
+    local target_var=""
+    
+    [[ "$BUILD_MODE" == "IMAGE" ]] && target_var="IMAGEBUILDER_URL" || target_var="SRC_BRANCH"
+    
+    local target_val=$(grep "$target_var=" "profiles/$conf_file" | cut -d'"' -f2)
+    [ -z "$target_val" ] && { echo -e "${C_ERR}[SKIP] $target_var not found${C_RST}"; return; }
+
+    local is_legacy=0
+    [[ "$target_val" =~ /(17|18|19)\. ]] && is_legacy=1
+
+    export SELECTED_CONF="$conf_file"
+    export HOST_FILES_DIR="./custom_files/$p_id"
+    
+    if [ "$BUILD_MODE" == "IMAGE" ]; then
+        export HOST_OUTPUT_DIR="./firmware_output/imagebuilder/$p_id"
+        export HOST_PKGS_DIR="./custom_packages/$p_id"
+        local proj_name="build_$p_id"
+        local comp_file="system/docker-compose.yaml"
+        [ $is_legacy -eq 1 ] && local service="builder-oldwrt" || local service="builder-openwrt"
+    else
+        export HOST_OUTPUT_DIR="./firmware_output/sourcebuilder/$p_id"
+        export HOST_PKGS_DIR="./src_packages/$p_id"
+        local proj_name="srcbuild_$p_id"
+        local comp_file="system/docker-compose-src.yaml"
+        [ $is_legacy -eq 1 ] && local service="builder-src-oldwrt" || local service="builder-src-openwrt"
+    fi
+
+    mkdir -p "$HOST_OUTPUT_DIR"
+    echo -e "${C_LBL}[BUILD]${C_RST} Target: ${C_VAL}$p_id${C_RST}"
+    $C_EXE -f "$comp_file" -p "$proj_name" up --build --force-recreate --remove-orphans "$service"
+}
+
+run_menuconfig() {
+    local conf_file="$1"
+    local p_id="${conf_file%.conf}"
+    local out_path="./firmware_output/sourcebuilder/$p_id"
+    mkdir -p "$out_path"
+    
+    echo -e "${C_LBL}${L_K_LAUNCH}${C_RST}"
+    
+    export SELECTED_CONF="$conf_file"
+    export HOST_FILES_DIR="./custom_files/$p_id"
+    export HOST_OUTPUT_DIR="$out_path"
+    export HOST_PKGS_DIR="./src_packages/$p_id"
+
+    # Создаем временный скрипт для запуска внутри
+    cat <<EOF > "$out_path/_menuconfig_runner.sh"
+#!/bin/bash
+cd /home/build/openwrt
+# Инициализация .config если нужно
+if [ -f "/output/manual_config" ]; then
+    cp /output/manual_config .config
+    make defconfig
+else
+    make defconfig
+fi
+make menuconfig
+./scripts/diffconfig.sh > /output/manual_config
+chmod 666 /output/manual_config
+EOF
+
+    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it builder-src-openwrt /bin/bash -c "sudo -E -u build bash /output/_menuconfig_runner.sh"
+    
+    rm -f "$out_path/_menuconfig_runner.sh"
+}
+
+cleanup_logic() {
+    local type="$1"
+    local p_id="$2"
+    if [ "$p_id" == "ALL" ]; then
+        docker volume ls -q -f "name=$type" | xargs -r docker volume rm
+    else
+        docker volume ls -q | grep "$p_id" | grep "$type" | xargs -r docker volume rm
+    fi
+}
+
+# === Вспомогательные функции ===
 create_perms_script() {
     local p_id=$1
     local target="custom_files/${p_id}/etc/uci-defaults/99-permissions.sh"
-    if [ ! -f "$target" ]; then
-        mkdir -p "$(dirname "$target")"
-        echo "#!/bin/sh" > "$target"
-        echo "[ -d /etc/dropbear ] && chmod 700 /etc/dropbear" >> "$target"
-        echo "[ -f /etc/dropbear/authorized_keys ] && chmod 600 /etc/dropbear/authorized_keys" >> "$target"
-        echo "[ -f /etc/shadow ] && chmod 600 /etc/shadow" >> "$target"
-        echo "exit 0" >> "$target"
-        chmod +x "$target"
-    fi
+    [ -f "$target" ] && return
+    mkdir -p "$(dirname "$target")"
+    cat <<EOF > "$target"
+#!/bin/sh
+[ -d /etc/dropbear ] && chmod 700 /etc/dropbear
+[ -f /etc/dropbear/authorized_keys ] && chmod 600 /etc/dropbear/authorized_keys
+[ -f /etc/shadow ] && chmod 600 /etc/shadow
+exit 0
+EOF
+    chmod +x "$target"
 }
 
 create_wifi_on_script() {
     local p_id=$1
     local target="custom_files/${p_id}/etc/uci-defaults/10-enable-wifi"
-    if [ ! -f "$target" ]; then
-        mkdir -p "$(dirname "$target")"
-        echo "#!/bin/sh" > "$target"
-        echo "uci set wireless.radio0.disabled='0'" >> "$target"
-        echo "uci set wireless.radio1.disabled='0'" >> "$target"
-        echo "uci commit wireless && wifi reload" >> "$target"
-        echo "exit 0" >> "$target"
-        chmod +x "$target"
-    fi
+    [ -f "$target" ] && return
+    mkdir -p "$(dirname "$target")"
+    cat <<EOF > "$target"
+#!/bin/sh
+uci set wireless.radio0.disabled='0'
+uci set wireless.radio1.disabled='0'
+uci commit wireless && wifi reload
+exit 0
+EOF
+    chmod +x "$target"
 }
 
-# === АВТО-ПАТЧИНГ АРХИТЕКТУРЫ (Bash Version) ===
-echo -e "${C_LBL}[INIT]${C_RST} Scanning profiles for missing architecture tags..."
+# === АВТО-ПАТЧИНГ АРХИТЕКТУРЫ ===
+echo -e "${C_LBL}[INIT]${C_RST} Scanning profiles for architecture..."
 for p in profiles/*.conf; do
     [ -e "$p" ] || continue
     if ! grep -q "SRC_ARCH=" "$p"; then
@@ -447,41 +541,59 @@ while true; do
             # Меню редактирования (упрощенно)
             echo -e "${C_VAL}${L_EDIT_TITLE}${C_RST}"
             # Тут логика открытия редактора (vi/nano или xdg-open)
-            read -p "Press enter to return..." ;;
+            for i in "${!profiles[@]}"; do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
+            read -p "ID: " e_id
+            [ -n "${profiles[$e_id]}" ] && ${EDITOR:-nano} "profiles/${profiles[$e_id]}" ;;
         [Aa])
             # Массовая сборка
-            for p in "${profiles[@]}"; do
-                # Здесь вызов функции сборки
-                echo "Building $p..."
-            done
-            read -p "Done. Press enter..." ;;
+            echo -e "${C_YEL}${L_MASS_START}${C_RST}"
+            for p in "${profiles[@]}"; do build_routine "$p"; done
+            read -p "$L_DONE_MENU" ;;
         [Kk])
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 # Здесь вызов функции Menuconfig
-                echo "Launching menuconfig logic..."
-                read -p "Press enter..."
+                echo -e "${L_K_SEL}:"
+                for i in "${!profiles[@]}"; do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
+                read -p "ID: " k_id
+                [ -n "${profiles[$k_id]}" ] && run_menuconfig "${profiles[$k_id]}"
             fi ;;
         [Cc])
             # Очистка
-            echo "Cleanup menu..."
-            read -p "Press enter..." ;;
+            echo -e "${L_CLEAN_TITLE}"
+            echo " 1. $L_CLEAN_IMG_SDK"
+            echo " 2. $L_CLEAN_IMG_IPK"
+            echo " 3. $L_CLEAN_FULL"
+            read -p "Choice: " c_type
+            echo -ne "$L_CONFIRM_YES: "
+            read -r confirm
+            if [ "$confirm" == "YES" ]; then
+                case $c_type in
+                    1) cleanup_logic "imagebuilder-cache" "ALL" ;;
+                    2) cleanup_logic "ipk-cache" "ALL" ;;
+                    3) docker system prune -a --volumes -f ;;
+                esac
+            fi ;;
+        [Ii])
+            if [ "$BUILD_MODE" == "SOURCE" ]; then
+                echo -e "${L_SEL_IMPORT}:"
+                for i in "${!profiles[@]}"; do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
+                read -p "ID: " i_id
+                if [ -n "${profiles[$i_id]}" ]; then
+                    p_id="${profiles[$i_id]%.conf}"
+                    p_arch=$(grep "SRC_ARCH=" "profiles/${profiles[$i_id]}" | cut -d'"' -f2)
+                    bash system/import_ipk.sh "$p_id" "$p_arch"
+                fi
+            fi ;;
         [Ww])
-            if [ -f "system/create_profile.sh" ]; then
-                bash "system/create_profile.sh"
-            else
-                echo "$L_ERR_WIZ"
-            fi
+            [ -f "system/create_profile.sh" ] && bash "system/create_profile.sh" || echo "$L_ERR_WIZ"
             read -p "Press enter..." ;;
         *)
             if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -le "$count" ] && [ "$choice" -gt 0 ]; then
-                selected="${profiles[$choice]}"
-                echo -e "${C_OK}${L_RUNNING} -> $selected${C_RST}"
                 # Фактический вызов функции сборки
-                # build_routine "$selected"
-                read -p "Press enter to return..."
+                build_routine "${profiles[$choice]}"
+                read -p "$L_DONE_MENU"
             else
-                echo -e "${C_ERR}${L_ERR_INPUT}${C_RST}"
-                sleep 1
+                [ -n "$choice" ] && echo -e "${C_ERR}${L_ERR_INPUT}${C_RST}" && sleep 1
             fi ;;
     esac
 done
