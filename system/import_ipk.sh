@@ -3,7 +3,6 @@
 # file : system/import_ipk.sh
 # Скрипт импорта IPK v2.6 (Strict Architecture Validation & Mapping)
 # Портировано с PowerShell на Bash
-
 # --- ПАРАМЕТРЫ ---
 PROFILE_ID=$1
 TARGET_ARCH=$2
@@ -241,4 +240,8 @@ rm -rf "$TEMP_DIR"
 echo -e "${C_CYAN}==========================================================${C_RST}"
 echo -e "  DONE: $IMPORTED_COUNT packages imported."
 [ -n "$PROFILE_ID" ] && echo -e "  Location: $OUT_DIR"
-echo -e "${C_CYAN}==========================================================${C_RST}\n"
+echo -e "${C_CYAN}==========================================================${C_RST}"
+
+# Авто-определение языка для паузы
+[[ "$LANG" == *"ru"* ]] && echo -e "\n Нажмите Enter, чтобы продолжить..." || echo -e "\n Press Enter to continue..."
+read -r

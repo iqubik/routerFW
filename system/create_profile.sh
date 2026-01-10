@@ -232,18 +232,35 @@ while true; do
             MODEL_ID=""; MODEL_NAME=""; show_header "${L[Step5_Title]}" 5
             FINAL_URL="${FINAL_BASE_URL}${SUBTARGET}/"
             p_json=$(curl -s "${FINAL_URL}profiles.json")
-            if [ -z "$p_json" ]; then echo -e "${C_RED}${L[Step5_Err]}${C_RST}"; sleep 2; ((STEP--)); continue; fi
+            if [ -z "$p_json" ] || [ "$p_json" == "null" ]; then 
+                echo -e "${C_RED}${L[Step5_Err]}${C_RST}"; sleep 2; ((STEP--)); continue; 
+            fi
+            
+            # Получаем ID профилей
             profile_ids=($(echo "$p_json" | jq -r '.profiles | keys[]' | sort))
+            
             for i in "${!profile_ids[@]}"; do
                 id="${profile_ids[$i]}"
-                title=$(echo "$p_json" | jq -r ".profiles[\"$id\"].title")
+                
+                # ИСПРАВЛЕНИЕ ТУТ: Пытаемся взять из .titles[0].title (новый формат), 
+                # если там пусто - берем из .title (старый формат)
+                title=$(echo "$p_json" | jq -r ".profiles[\"$id\"] | if .titles then .titles[0].title else .title end")
+                
+                # Если всё еще null (бывает в битых JSON) - пишем ID
+                [ "$title" == "null" ] || [ -z "$title" ] && title="$id"
+                
                 printf " %3d. %s (%s)\n" "$((i+1))" "$title" "$id"
             done
+            
             read_selection "${#profile_ids[@]}"; idx=$?
             if [ $idx -eq 255 ]; then LAST_STEP=5; ((STEP--)); continue; fi
+            
             MODEL_ID="${profile_ids[$((idx-1))]}"
-            MODEL_NAME=$(echo "$p_json" | jq -r ".profiles[\"$MODEL_ID\"].title")
-            # Пакеты
+            # Повторяем логику для сохранения имени модели
+            MODEL_NAME=$(echo "$p_json" | jq -r ".profiles[\"$MODEL_ID\"] | if .titles then .titles[0].title else .title end")
+            [ "$MODEL_NAME" == "null" ] && MODEL_NAME="$MODEL_ID"
+
+            # Пакеты (без изменений)
             DEF_PKGS=$(echo "$p_json" | jq -r '.default_packages | join(" ")')
             device_pkgs=$(echo "$p_json" | jq -r ".profiles[\"$MODEL_ID\"].device_packages | join(\" \")")
             pkgs_to_add=""; pkgs_to_remove=""
