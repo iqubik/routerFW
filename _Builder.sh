@@ -23,7 +23,7 @@ C_RST="${ESC}[0m"    # Reset
 VER_NUM="3.98"
 
 # === ЯЗЫКОВОЙ МОДУЛЬ ===
-FORCE_LANG="RU"  # AUTO | RU | EN
+FORCE_LANG="AUTO"  # AUTO | RU | EN
 SYS_LANG="EN"
 ru_score=0
 
