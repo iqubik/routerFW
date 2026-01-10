@@ -3,7 +3,7 @@
 # file: system/create_profile.sh
 # =========================================================
 #  OpenWrt/ImmortalWrt Universal Profile Creator
-#  Bash Version 2.26 (State Machine + HTML/JSON Parser)
+#  Bash Version 2.27 (UX & Logic Parity with PS1)
 # =========================================================
 
 # --- ЦВЕТА ---
@@ -15,23 +15,27 @@ C_GRY='\033[0;90m'
 C_MAG='\033[0;35m'
 C_RST='\033[0m'
 
+# --- ПРОВЕРКА ЗАВИСИМОСТЕЙ ---
+for cmd in curl jq; do
+    if ! command -v $cmd &> /dev/null; then
+        echo -e "${C_RED}Ошибка: утилита '$cmd' не найдена. Установите её (sudo apt install $cmd)${C_RST}"
+        exit 1
+    fi
+done
+
 # --- ЛОКАЛИЗАЦИЯ ---
 FORCE_LANG="AUTO"
-ru_score=0
-
 # Простая проверка локали в Linux
-[[ "$LANG" == *"ru"* ]] && ((ru_score += 5))
-[[ "$LC_ALL" == *"ru"* ]] && ((ru_score += 5))
+DetectedLang="EN"
+[[ "$LANG" == *"ru"* ]] && DetectedLang="RU"
 
-if [ "$FORCE_LANG" != "AUTO" ]; then
-    LANG_CODE="$FORCE_LANG"
-else
-    [ $ru_score -ge 5 ] && LANG_CODE="RU" || LANG_CODE="EN"
-fi
+if [ "$FORCE_LANG" != "AUTO" ]; then Lang="$FORCE_LANG"
+elif [ -n "$SYS_LANG" ]; then Lang="$SYS_LANG"
+else Lang="$DetectedLang"; fi
 
 # --- СЛОВАРЬ ---
 declare -A L
-if [ "$LANG_CODE" == "RU" ]; then
+if [ "$Lang" == "RU" ]; then
     L[HeaderTitle]="UNIVERSAL Profile Creator (v2.3 UX++)"
     L[StructureLabel]="СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:"
     L[PathLabel]="ПУТЬ: "
@@ -59,11 +63,11 @@ if [ "$LANG_CODE" == "RU" ]; then
     L[Step6_Exists]="[!] Файл уже существует!"
     L[Step6_Overwrite]="Перезаписать? (y/n) [n]"
     L[Step6_Saved]="Конфиг успешно сохранен:"
-    L[FinalAction]="Нажмите Enter для нового профиля или 'Q' для выхода..."
-    L[Conf_Default]="Пакеты по умолчанию"
+    L[FinalAction]="Нажмите Enter для создания нового профиля или 'Q' для выхода..."
+    L[Conf_Default]="Пакеты по умолчанию (Target Default +/- Device Specific)"
     L[Conf_Custom]="Ваши дополнительные пакеты"
 else
-    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.26 UX+)"
+    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.27 UX+)"
     L[StructureLabel]="TYPICAL FIRMWARE FILENAME STRUCTURE:"
     L[PathLabel]="PATH: "
     L[PromptSelect]="Select number"
@@ -91,13 +95,15 @@ else
     L[Step6_Overwrite]="Overwrite? (y/n) [n]"
     L[Step6_Saved]="Config successfully saved:"
     L[FinalAction]="Press Enter for new profile or 'Q' to exit..."
+    L[Conf_Default]="Default packages (Target Default +/- Device Specific)"
+    L[Conf_Custom]="Your custom packages"
 fi
 
 # --- ИНИЦИАЛИЗАЦИЯ ---
 PROFILES_DIR="./profiles"
 mkdir -p "$PROFILES_DIR"
 
-# Состояние (Global State)
+# Состояние
 SOURCE=""
 BASE_URL=""
 REPO_URL=""
@@ -113,26 +119,24 @@ STEP=1
 
 # --- ФУНКЦИИ ---
 
+out_part() {
+    local val="$1"; local def="$2"; local part_step="$3"
+    local display="${val:-$def}"
+    display=$(echo "$display" | tr '[:upper:]' '[:lower:]')
+    if [ "$STEP" -eq "$part_step" ]; then echo -ne "${C_MAG}[$display]${C_RST}"
+    elif [ -n "$val" ]; then echo -ne "${C_GRN}$display${C_RST}"
+    else echo -ne "${C_GRY}$display${C_RST}"; fi
+}
+
 show_header() {
     clear
     echo -e "${C_CYAN}==========================================================================${C_RST}"
-    echo -e "  ${L[HeaderTitle]} [$LANG_CODE]"
+    echo -e "  ${L[HeaderTitle]} [$Lang]"
     echo -e "  $1"
     echo -e "${C_CYAN}==========================================================================${C_RST}"
-    
     # Визуализация структуры имени
     echo -e "  ${C_GRY}${L[StructureLabel]}${C_RST}"
     echo -ne "  "
-    
-    out_part() {
-        local val="$1"; local def="$2"; local part_step="$3"
-        local display="${val:-$def}"
-        display=$(echo "$display" | tr '[:upper:]' '[:lower:]')
-        if [ "$STEP" -eq "$part_step" ]; then echo -ne "${C_MAG}[$display]${C_RST}";
-        elif [ -n "$val" ]; then echo -ne "${C_GRN}$display${C_RST}";
-        else echo -ne "${C_GRY}$display${C_RST}"; fi
-    }
-
     out_part "$SOURCE" "source" 1; echo -ne "${C_GRY}-${C_RST}"
     out_part "$TARGET" "target" 3; echo -ne "${C_GRY}-${C_RST}"
     out_part "$SUBTARGET" "subtarget" 4; echo -ne "${C_GRY}-${C_RST}"
@@ -158,16 +162,13 @@ read_selection() {
     local max=$1
     local allow_back=${2:-true}
     while true; do
-        local prompt="\n${L[PromptSelect]} (1-$max)"
-        [ "$allow_back" == "true" ] && prompt+=", [Z] ${L[PromptBack]}"
-        prompt+=", [Q] ${L[PromptExit]}: "
-        echo -ne "${C_YEL}$prompt${C_RST}"
+        echo -ne "\n${C_YEL}${L[PromptSelect]} (1-$max)"
+        [ "$allow_back" == "true" ] && echo -ne ", [Z] ${L[PromptBack]}"
+        echo -ne ", [Q] ${L[PromptExit]}: ${C_RST}"
         read -r input_val
         input_val=$(echo "$input_val" | tr '[:upper:]' '[:lower:]' | xargs)
-        
         [ "$input_val" == "q" ] && exit 0
         [ "$allow_back" == "true" ] && [ "$input_val" == "z" ] && return 255
-        
         if [[ "$input_val" =~ ^[0-9]+$ ]] && [ "$input_val" -ge 1 ] && [ "$input_val" -le "$max" ]; then
             return "$input_val"
         fi
@@ -179,10 +180,8 @@ read_selection() {
 while true; do
     case $STEP in
         1) # Выбор источника
-            SOURCE=""
-            show_header "${L[Step1_Title]}" 1
-            echo " 1. ${L[Step1_OW]}"
-            echo " 2. ${L[Step1_IW]}"
+            SOURCE=""; show_header "${L[Step1_Title]}" 1
+            echo " 1. ${L[Step1_OW]}"; echo " 2. ${L[Step1_IW]}"
             read_selection 2 false; sel=$?
             if [ $sel -eq 1 ]; then
                 SOURCE="OpenWrt"; BASE_URL="https://downloads.openwrt.org"; REPO_URL="https://github.com/openwrt/openwrt.git"
@@ -191,119 +190,81 @@ while true; do
             fi
             LAST_STEP=1; ((STEP++))
             ;;
-
         2) # Выбор релиза
-            RELEASE=""
-            show_header "${L[Step2_Title]} ($SOURCE)" 2
+            RELEASE=""; show_header "${L[Step2_Title]} ($SOURCE)" 2
             echo -e "${L[Step2_Fetch]}"
             html=$(curl -s "$BASE_URL/releases/")
             # Парсинг ссылок вида "23.05.0/" или "snapshots/"
             releases=($(echo "$html" | grep -oE 'href="([0-9]{2}\.[0-9]{2}\.[^"/]+/|snapshots/)"' | sed -E 's/href="([^"/]+)\/?"/\1/' | sort -rV | uniq))
-            
             for i in "${!releases[@]}"; do printf " %2d. %s\n" "$((i+1))" "${releases[$i]}"; done
             read_selection "${#releases[@]}"; idx=$?
             if [ $idx -eq 255 ]; then ((STEP--)); continue; fi
-            RELEASE="${releases[$((idx-1))]}"
-            LAST_STEP=2; ((STEP++))
+            RELEASE="${releases[$((idx-1))]}"; LAST_STEP=2; ((STEP++))
             ;;
-
         3) # Выбор Target
-            TARGET=""
-            show_header "${L[Step3_Title]}" 3
+            TARGET=""; show_header "${L[Step3_Title]}" 3
             [ "$RELEASE" == "snapshots" ] && t_url="$BASE_URL/snapshots/targets/" || t_url="$BASE_URL/releases/$RELEASE/targets/"
             html=$(curl -s "$t_url")
             targets=($(echo "$html" | grep -oE 'href="([^"\./ ]+/)"' | sed 's/href="//;s/\/"//' | grep -vE 'backups|kmodindex|parent'))
-            
             for i in "${!targets[@]}"; do printf " %2d. %s\n" "$((i+1))" "${targets[$i]}"; done
             read_selection "${#targets[@]}"; idx=$?
             if [ $idx -eq 255 ]; then ((STEP--)); continue; fi
-            TARGET="${targets[$((idx-1))]}"
-            LAST_STEP=3; ((STEP++))
+            TARGET="${targets[$((idx-1))]}"; LAST_STEP=3; ((STEP++))
             ;;
-
         4) # Выбор Subtarget
             SUBTARGET=""
             [ "$RELEASE" == "snapshots" ] && st_url="$BASE_URL/snapshots/targets/$TARGET/" || st_url="$BASE_URL/releases/$RELEASE/targets/$TARGET/"
             FINAL_BASE_URL="$st_url"
             html=$(curl -s "$st_url")
             subtargets=($(echo "$html" | grep -oE 'href="([^"\./ ]+/)"' | sed 's/href="//;s/\/"//' | grep -vE 'backups|kmodindex|packages|parent'))
-            
             if [ "${#subtargets[@]}" -le 1 ]; then
                 [ "$LAST_STEP" -eq 5 ] && { ((STEP--)); continue; }
-                SUBTARGET="${subtargets[0]:-generic}"
-                LAST_STEP=4; ((STEP++)); continue
+                SUBTARGET="${subtargets[0]:-generic}"; LAST_STEP=4; ((STEP++)); continue
             else
                 show_header "${L[Step4_Title]}" 4
                 for i in "${!subtargets[@]}"; do printf " %2d. %s\n" "$((i+1))" "${subtargets[$i]}"; done
                 read_selection "${#subtargets[@]}"; idx=$?
                 if [ $idx -eq 255 ]; then ((STEP--)); continue; fi
-                SUBTARGET="${subtargets[$((idx-1))]}"
-                LAST_STEP=4; ((STEP++))
+                SUBTARGET="${subtargets[$((idx-1))]}"; LAST_STEP=4; ((STEP++))
             fi
             ;;
-
         5) # Модель и Пакеты
-            MODEL_ID=""; MODEL_NAME=""
-            show_header "${L[Step5_Title]}" 5
+            MODEL_ID=""; MODEL_NAME=""; show_header "${L[Step5_Title]}" 5
             FINAL_URL="${FINAL_BASE_URL}${SUBTARGET}/"
-            
-            # Внимание: для работы с JSON в Bash лучше всего использовать jq
-            if ! command -v jq &> /dev/null; then
-                echo -e "${C_RED}Error: 'jq' is not installed. Please install it to parse profiles.json${C_RST}"
-                read -p "Press Enter to go back..." && ((STEP--)) && continue
-            fi
-
             p_json=$(curl -s "${FINAL_URL}profiles.json")
-            if [ -z "$p_json" ]; then echo "${L[Step5_Err]}"; sleep 2; ((STEP--)); continue; fi
-
+            if [ -z "$p_json" ]; then echo -e "${C_RED}${L[Step5_Err]}${C_RST}"; sleep 2; ((STEP--)); continue; fi
             profile_ids=($(echo "$p_json" | jq -r '.profiles | keys[]' | sort))
             for i in "${!profile_ids[@]}"; do
                 id="${profile_ids[$i]}"
                 title=$(echo "$p_json" | jq -r ".profiles[\"$id\"].title")
                 printf " %3d. %s (%s)\n" "$((i+1))" "$title" "$id"
             done
-
             read_selection "${#profile_ids[@]}"; idx=$?
             if [ $idx -eq 255 ]; then LAST_STEP=5; ((STEP--)); continue; fi
-            
             MODEL_ID="${profile_ids[$((idx-1))]}"
             MODEL_NAME=$(echo "$p_json" | jq -r ".profiles[\"$MODEL_ID\"].title")
-            
-            # Анализ пакетов через jq
+            # Пакеты
             DEF_PKGS=$(echo "$p_json" | jq -r '.default_packages | join(" ")')
             device_pkgs=$(echo "$p_json" | jq -r ".profiles[\"$MODEL_ID\"].device_packages | join(\" \")")
-            
-            # Фильтрация (аналог PS-логики)
-            pkgs_to_add=""
-            pkgs_to_remove=""
-            for p in $device_pkgs; do
-                if [[ $p == -* ]]; then pkgs_to_remove+=" ${p:1}"; else pkgs_to_add+=" $p"; fi
-            done
-            
+            pkgs_to_add=""; pkgs_to_remove=""
+            for p in $device_pkgs; do if [[ $p == -* ]]; then pkgs_to_remove+=" ${p:1}"; else pkgs_to_add+=" $p"; fi; done
             final_list=""
-            for p in $DEF_PKGS; do
-                [[ " $pkgs_to_remove " == *" $p "* ]] || final_list+=" $p"
-            done
+            for p in $DEF_PKGS; do [[ " $pkgs_to_remove " == *" $p "* ]] || final_list+=" $p"; done
             DEF_PKGS=$(echo "$final_list $pkgs_to_add" | xargs -n1 | sort -u | xargs)
-            
             LAST_STEP=5; ((STEP++))
             ;;
-
         6) # Финализация
             show_header "${L[Step6_Title]}" 6
             folder_html=$(curl -s "$FINAL_URL")
             ib_file=$(echo "$folder_html" | grep -oE '(openwrt|immortalwrt)-imagebuilder-[^"]+\.tar\.(xz|zst)' | head -n 1)
-            
             if [ -n "$ib_file" ]; then
                 IB_URL="${FINAL_URL}${ib_file}"
                 if [ "$SOURCE" == "ImmortalWrt" ]; then
-                    echo -e "${L[Step6_Mirror]}\n 1. Official\n 2. KyaruCloud (CDN)"
+                    echo -e "${C_YEL}${L[Step6_Mirror]}${C_RST}\n 1. Official\n 2. KyaruCloud (CDN)"
                     read -p "Choice [2]: " m_sel
                     [ "$m_sel" == "1" ] || IB_URL="${IB_URL/downloads.immortalwrt.org/immortalwrt.kyarucloud.moe}"
                 fi
-            else
-                echo -e "${C_RED}${L[Step6_ErrIB]}${C_RST}"; read; ((STEP--)); continue
-            fi
+            else echo -e "${C_RED}${L[Step6_ErrIB]}${C_RST}"; read; ((STEP--)); continue; fi
 
             echo -e "${C_GRY}${L[Step6_DefPkgs]}\n$DEF_PKGS\n${C_RST}"
             echo -ne "${C_YEL}${L[Step6_AddPkgs]}: ${C_RST}"
@@ -311,7 +272,7 @@ while true; do
             [ "$(echo "$input_pkgs" | tr '[:upper:]' '[:lower:]')" == "z" ] && { ((STEP--)); continue; }
             [ -z "$input_pkgs" ] && pkgs="luci" || pkgs="$input_pkgs"
 
-            # Маппинг архитектуры
+            # Полный Маппинг архитектуры (Mirror PS1)
             case "$TARGET" in
                 ramips) ARCH="mipsel_24kc" ;;
                 ath79|ar71xx|lantiq|realtek) ARCH="mips_24kc" ;;
@@ -320,38 +281,46 @@ while true; do
                     if [[ "$SUBTARGET" =~ mt798|mt7622 ]]; then ARCH="aarch64_cortex-a53"
                     elif [ "$SUBTARGET" == "mt7623" ]; then ARCH="arm_cortex-a7_neon-vfpv4"
                     else ARCH="mipsel_24kc"; fi ;;
+                mvebu) [ "$SUBTARGET" == "cortexa72" ] && ARCH="aarch64_cortex-a72" || ARCH="arm_cortex-a9_vfpv3-d16" ;;
+                ipq40xx) ARCH="arm_cortex-a7_neon-vfpv4" ;;
+                ipq806x) ARCH="arm_cortex-a15_neon-vfpv4" ;;
                 rockchip) ARCH="aarch64_generic" ;;
-                *) ARCH="aarch64_generic" ;; # Заглушка по умолчанию
+                bcm27xx) 
+                    if [ "$SUBTARGET" == "bcm2711" ]; then ARCH="aarch64_cortex-a72"
+                    elif [ "$SUBTARGET" == "bcm2710" ]; then ARCH="aarch64_cortex-a53"
+                    else ARCH="arm_arm1176jzf-s_vfp"; fi ;;
+                sunxi) ARCH="arm_cortex-a7_neon-vfpv4" ;;
+                layerscape) [ "$SUBTARGET" == "64b" ] && ARCH="aarch64_generic" || ARCH="arm_cortex-a7_neon-vfpv4" ;;
+                *64*) ARCH="aarch64_generic" ;;
+                *) ARCH="mipsel_24kc" ;;
             esac
 
-            # Имя файла
+            # Имя файла и сохранение
             ver_clean=$(echo "$RELEASE" | sed 's/\.//g;s/snapshots/snap/')
             src_short=$([ "$SOURCE" == "ImmortalWrt" ] && echo "iw" || echo "ow")
             mod_clean=$(echo "$MODEL_ID" | tr '-' '_')
             def_name="${mod_clean}_${ver_clean}_${src_short}_full"
 
             while true; do
-                echo -ne "${C_GRY}${L[Step6_FileName]} [$def_name]: ${C_RST}"
+                echo -ne "${C_GRY}${L[Step6_FileName]} [$def_name] (Z - ${L[PromptBack]}): ${C_RST}"
                 read -r input_name
                 [ "$(echo "$input_name" | tr '[:upper:]' '[:lower:]')" == "z" ] && { STEP=6; ((STEP--)); continue 2; }
-                [ -z "$input_name" ] && profile_name="$def_name" || {
-                    profile_name=$(echo "$input_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[\s\-\.]+/_/g;s/[^a-z0-9_]//g')
-                }
-                
+                [ -z "$input_name" ] && profile_name="$def_name" || profile_name=$(echo "$input_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[[:space:]\-\.]+/_/g;s/[^a-z0-9_]//g')
                 conf_path="$PROFILES_DIR/$profile_name.conf"
                 if [ -f "$conf_path" ]; then
                     echo -e " ${C_YEL}${L[Step6_Exists]}${C_RST}"
-                    read -p " ${L[Step6_Overwrite]} (y/n): " ovr
-                    [ "$ovr" == "y" ] || continue
+                    read -p " ${L[Step6_Overwrite]} (y/n) [n]: " ovr
+                    [[ "$ovr" == "y" ]] || continue
                 fi
                 break
             done
 
             branch=$([ "$RELEASE" == "snapshots" ] && echo "master" || echo "v$RELEASE")
 
-            # Генерация контента
+            # Финальная генерация (Полное соответствие PS1)
             cat <<EOF > "$conf_path"
 # === Profile for $MODEL_ID ($SOURCE $RELEASE) ===
+
 PROFILE_NAME="$profile_name"
 TARGET_PROFILE="$MODEL_ID"
 
@@ -377,11 +346,22 @@ SRC_CORES="safe"
 
 SRC_EXTRA_CONFIG="CONFIG_TARGET_MULTI_PROFILE=n \\
 CONFIG_BUILD_LOG=y"
+
+## SPACE SAVING (For 4MB / 8MB flash devices)
+#    - CONFIG_LUCI_SRCDIET=y      -> Compresses Lua/JS (saves ~100-200KB)
+#    - CONFIG_IPV6=n              -> Removes IPv6 (saves ~300KB)
+#    - CONFIG_KERNEL_DEBUG_INFO=n -> Removes debugging information
+# SRC_EXTRA_CONFIG="CONFIG_LUCI_SRCDIET=y CONFIG_IPV6=n CONFIG_KERNEL_DEBUG_INFO=n"
+
+## FILE SYSTEMS
+#    By default, SquashFS is created. EXT4 is recommended for SBCs.
+#    - CONFIG_TARGET_ROOTFS_EXT4FS=y   -> Enable EXT4
+#    - CONFIG_TARGET_ROOTFS_TARGZ=y    -> Create archive
 EOF
             echo -e "\n${C_GRN}[OK] ${L[Step6_Saved]} $conf_path${C_RST}"
             echo -e "\n${L[FinalAction]}"
             read -r final_act
-            [ "$(echo "$final_act" | tr '[:upper:]' '[:lower:]')" == "q" ] && exit 0
+            [[ "$(echo "$final_act" | tr '[:upper:]' '[:lower:]')" == "q" ]] && exit 0
             STEP=1
             ;;
     esac

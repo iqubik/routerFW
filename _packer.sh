@@ -94,7 +94,10 @@ decode_file() {
     
     # Извлечение блока Base64 и декодирование
     sed -n "/# BEGIN_B64_ $target/,/# END_B64_ $target/p" "$0" | \
-    grep -v "BEGIN_B64_" | grep -v "END_B64_" | base64 -d > "$target"
+    grep -v "BEGIN_B64_" | grep -v "END_B64_" | base64 -d > "$target"        
+    if [[ "$target" == *.sh ]]; then
+        chmod +x "$target"
+    fi
 }
 
 EOF
@@ -150,6 +153,8 @@ encode_worker() {
         echo -e "  ${C_ERR}[SKIP]${C_RST} Файл '$file' не найден."
         touch "$out"
     fi
+    # ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЕТ:
+    touch "$TEMP_DIR/$id.ready"
 }
 
 # Запуск воркеров в фоновом режиме
@@ -158,7 +163,13 @@ for i in "${!FILES[@]}"; do
 done
 
 # Ожидание завершения всех фоновых процессов
-wait
+# Вместо простого wait
+echo -n "[PACKER] Progress: "
+while [ $(ls -1 "$TEMP_DIR"/*.ready 2>/dev/null | wc -l) -lt ${#FILES[@]} ]; do
+    echo -ne "\r[PACKER] Progress: $(ls -1 "$TEMP_DIR"/*.ready 2>/dev/null | wc -l) / ${#FILES[@]} "
+    sleep 0.5
+done
+echo ""
 
 echo -e "[PACKER] Все потоки завершены. Сборка финального файла..."
 

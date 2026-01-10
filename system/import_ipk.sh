@@ -17,6 +17,15 @@ C_GRY='\033[0;90m'
 C_WHT='\033[1;37m'
 C_RST='\033[0m'
 
+# --- ПРОВЕРКА ЗАВИСИМОСТЕЙ (ТО САМОЕ "НАЧАЛО") ---
+# Добавили tar и ar, чтобы не упасть в середине процесса
+for cmd in curl jq tar ar; do
+    if ! command -v $cmd &> /dev/null; then
+        echo -e "${C_RED}Ошибка: утилита '$cmd' не найдена. Установите её (sudo apt install binutils)${C_RST}"
+        # Для 'ar' в Ubuntu/Debian нужно ставить пакет binutils
+    fi
+done
+
 # --- ИНИЦИАЛИЗАЦИЯ ПУТЕЙ ---
 if [ -n "$PROFILE_ID" ]; then
     IPK_DIR="custom_packages/$PROFILE_ID"
@@ -79,11 +88,8 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
     if tar -tf "$IPK_PATH" &>/dev/null; then
         tar -xf "$IPK_PATH" -C "$TEMP_DIR/unpack"
     else
-        # На случай если это deb-подобный 'ar' формат
-        ar x --output "$TEMP_DIR/unpack" "$IPK_PATH" 2>/dev/null || {
-            echo -e "    ${C_RED}[!] Failed to unpack $IPK_NAME${C_RST}"
-            continue
-        }
+        # Используем ar для распаковки, если tar не справился
+        cd "$TEMP_DIR/unpack" && ar x "../../../$IPK_PATH" && cd - > /dev/null
     fi
 
     # 3. Распаковка control.tar.gz
@@ -97,20 +103,19 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
     # 4. Парсинг Control файла
     CONTROL_FILE="$TEMP_DIR/control_data/control"
     if [ -f "$CONTROL_FILE" ]; then
-        PKG_NAME=$(grep "^Package: " "$CONTROL_FILE" | cut -d' ' -f2 | tr -d '\r')
-        PKG_ARCH=$(grep "^Architecture: " "$CONTROL_FILE" | cut -d' ' -f2 | tr -d '\r')
+        PKG_NAME=$(grep "^Package: " "$CONTROL_FILE" | sed 's/^Package: //' | tr -d '\r ' )
+        PKG_ARCH=$(grep "^Architecture: " "$CONTROL_FILE" | sed 's/^Architecture: //' | tr -d '\r ' )
         
         # Парсинг зависимостей
-        RAW_DEPS=$(grep "^Depends: " "$CONTROL_FILE" | cut -d' ' -f2- | tr -d '\r')
-        # Очистка: удаляем libc, запятые, мапим специфичные библиотеки
+        RAW_DEPS=$(grep "^Depends: " "$CONTROL_FILE" | sed 's/^Depends: //' | tr -d '\r')
         CLEAN_DEPS=$(echo "$RAW_DEPS" | sed 's/,/ /g' \
-    | sed 's/libnetfilter-queue1/libnetfilter-queue/g' \
-    | sed 's/libnfnetlink0/libnfnetlink/g' \
-    | sed 's/libopenssl1.1/libopenssl/g')
+            | sed 's/libnetfilter-queue1/libnetfilter-queue/g' \
+            | sed 's/libnfnetlink0/libnfnetlink/g' \
+            | sed 's/libopenssl1.1/libopenssl/g')
         
         PKG_DEPS=""
         for dep in $CLEAN_DEPS; do
-            [ "$dep" == "libc" ] && continue
+            [[ "$dep" == "libc" || "$dep" == "libgcc" ]] && continue
             [ -z "$PKG_DEPS" ] && PKG_DEPS="+$dep" || PKG_DEPS="$PKG_DEPS +$dep"
         done
     fi
@@ -120,7 +125,14 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
         continue
     fi
 
-    # --- 5. ВАЛИДАЦИЯ АРХИТЕКТУРЫ ---
+    # 5. Обработка Post-Install (Критическое экранирование для Makefile)
+    POSTINST_CONTENT=""
+    if [ -f "$TEMP_DIR/control_data/postinst" ]; then
+        # Важно: sed превращает $ в \$$ для корректного cat <<EOF
+        POSTINST_CONTENT=$(sed 's/^#!.*//' "$TEMP_DIR/control_data/postinst" | sed 's/\$/\\$\\$/g')
+    fi
+
+    # 6. ВАЛИДАЦИЯ АРХИТЕКТУРЫ
     if [ "$PKG_ARCH" == "all" ]; then
         echo -e "    Architecture: all (Universal) - ${C_GRN}OK${C_RST}"
     elif [ -n "$TARGET_ARCH" ]; then
@@ -140,13 +152,6 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
         echo -ne "    No arch in profile. Continue anyway? [Y/N]: "
         read -r confirm
         [[ ! "$confirm" =~ ^[Yy]$ ]] && continue
-    fi
-
-    # 6. Обработка Post-Install
-    POSTINST_CONTENT=""
-    if [ -f "$TEMP_DIR/control_data/postinst" ]; then
-        # Читаем, убираем шебанги, экранируем $ для Makefile
-        POSTINST_CONTENT=$(sed 's/^#!.*//' "$TEMP_DIR/control_data/postinst" | sed 's/\$/\$\$/g')
     fi
 
     # 7. Логика перезаписи
@@ -174,8 +179,7 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
         continue
     fi
 
-    # --- 9. ГЕНЕРАЦИЯ MAKEFILE ---
-    # Используем cat с экранированием, чтобы переменные Makefile не раскрылись в Bash
+    # 9. ГЕНЕРАЦИЯ MAKEFILE
     cat <<EOF > "$TARGET_PKG_DIR/Makefile"
 include \$(TOPDIR)/rules.mk
 
