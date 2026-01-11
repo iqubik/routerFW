@@ -7,7 +7,9 @@ mode con: cols=120 lines=40
 powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
 cls
 chcp 65001 >nul
+
 set "VER_NUM=3.99"
+
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
