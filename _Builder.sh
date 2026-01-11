@@ -668,7 +668,7 @@ while true; do
         # Инфраструктура
         mkdir -p "custom_files/$p_id" "custom_packages/$p_id" "src_packages/$p_id"
         create_perms_script "$p_id"
-        create_wifi_on_script "$p_id"
+        #create_wifi_on_script "$p_id"
 
         # Архитектура
         this_arch=$(grep "SRC_ARCH=" "$f" | cut -d'"' -f2)

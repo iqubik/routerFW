@@ -386,7 +386,7 @@ for %%f in (profiles\*.conf) do (
     if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!" >nul
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!" >nul
     call :CREATE_PERMS_SCRIPT "!p_id!"
-    call :CREATE_WIFI_ON_SCRIPT "!p_id!"
+    rem call :CREATE_WIFI_ON_SCRIPT "!p_id!"
     :: Извлекаем имя БЕЗ расширения для отображения в меню
     set "fname_display=%%~nf"
 
