@@ -34,7 +34,6 @@ export GIT_TERMINAL_PROMPT=0
 log() { echo -e "${CYAN}[HOOK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[HOOK] WARNING: $1${NC}"; }
 err()  { echo -e "${RED}[HOOK] ERROR: $1${NC}"; }
-
 log ">>> Запуск сценария hooks.sh (Universal v1.4.3)..."
 
 # ======================================================================================
@@ -45,7 +44,6 @@ TARGET_FILE=$(find . -maxdepth 1 -name "README*" | head -n 1)
 [ -z "$TARGET_FILE" ] && TARGET_FILE="README.md" && touch "$TARGET_FILE"
 TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
 SIGNATURE="Build processed by SourceBuilder"
-
 # Проверка на идемпотентность
 if ! grep -Fq "$SIGNATURE" "$TARGET_FILE"; then
     log "Добавляем автограф в $TARGET_FILE..."
@@ -69,9 +67,7 @@ fi
 # Создает скрипт 'uci-defaults', который сработает ПРИ ПЕРВОМ старте роутера.
 # В отличие от жесткой правки конфигов, это позволяет пользователю потом выключить 
 # Wi-Fi через веб-интерфейс, и настройки не "слетят" обратно при перезагрузке.
-
 log ">>> Проверка конфигурации Wi-Fi (Auto-enable)..."
-
 # Исключаем x86 и другие платформы, где Wi-Fi обычно отсутствует или не нужен по умолчанию
 if [[ "$SRC_TARGET" == "x86" ]]; then
     warn "Для платформы x86 авто-включение Wi-Fi пропущено."
@@ -79,14 +75,10 @@ else
     # Путь внутри исходников OpenWrt, который копируется в корень прошивки
     UCI_DEFAULTS_DIR="files/etc/uci-defaults"
     SCRIPT_NAME="99-enable-wifi"
-
     # Создаем директорию, если её нет
     mkdir -p "$UCI_DEFAULTS_DIR"
-
-    log "Создание сценария первой загрузки: $UCI_DEFAULTS_DIR/$SCRIPT_NAME"
-    
-    # Генерируем скрипт
-    # Мы включаем radio0 и radio1 (обычно это 2.4GHz и 5GHz)
+    log "Создание сценария первой загрузки: $UCI_DEFAULTS_DIR/$SCRIPT_NAME"    
+    # Генерируем скрипт    
     cat <<EOF > "$UCI_DEFAULTS_DIR/$SCRIPT_NAME"
 #!/bin/sh
 # Этот скрипт выполняется один раз при первой загрузке системы
@@ -98,7 +90,6 @@ uci commit wireless
 /sbin/wifi reload
 exit 0
 EOF
-
     # Важно: Скрипт в uci-defaults ДОЛЖЕН быть исполняемым
     chmod +x "$UCI_DEFAULTS_DIR/$SCRIPT_NAME"
 
@@ -110,35 +101,88 @@ EOF
 fi
 
 # ======================================================================================
+# БЛОК 1.2: FLASH MEMORY HACK (Увеличение лимитов с 8МБ до 16МБ)
+# ======================================================================================
+# Назначение: Автоматическая подготовка прошивки для устройств с перепаянной флеш-памятью.
+# Применимо для: Платформы ramips (чипы mt7621/7628/7688), например Xiaomi 4C, Mi Nano и др.
+# Логика работы: 
+#   1. В Device Tree (DTS) увеличивается размер системного раздела (firmware).
+#   2. В Makefile сборщика (MK) увеличивается лимит допустимого размера образа.
+# Идемпотентность: Скрипт проверяет наличие изменений перед правкой, исключая повторные записи.
+# ======================================================================================
+# Проверка: выполняем только если целевая платформа соответствует mt76x8 (ramips)
+# if [[ "$SRC_TARGET" == "ramips" && "$SRC_SUBTARGET" == "mt76x8" ]]; then
+#     log ">>> Проверка аппаратных лимитов Flash памяти..."
+#     # Конфигурация путей к файлам (стандартные пути OpenWrt/ImmortalWrt)
+#     DTS_FILE="target/linux/ramips/dts/mt7628an.dtsi"
+#     MK_FILE="target/linux/ramips/image/mt76x8.mk"
+#     # --- ПУНКТ 1: Модификация Device Tree (DTS) ---
+#     if [ -f "$DTS_FILE" ]; then
+#         # Проверяем, не установлен ли уже размер 16МБ (0xfb0000)
+#         if grep -q "0xfb0000" "$DTS_FILE"; then
+#             log "DTS: Разметка под 16МБ уже активна. Пропуск."
+#         else
+#             log "DTS: Увеличиваю размер раздела 'firmware' (0x7b0000 -> 0xfb0000)..."            
+#             # Создаем резервную копию оригинала перед первой правкой
+#             [ ! -f "${DTS_FILE}.bak" ] && cp "$DTS_FILE" "${DTS_FILE}.bak"            
+#             # Заменяем старое значение размера на новое
+#             # Используем безопасный паттерн с учетом возможных пробелов
+#             sed -i 's/<0x7b0000>/<0xfb0000>/g' "$DTS_FILE"            
+#             # Проверка результата
+#             if grep -q "0xfb0000" "$DTS_FILE"; then
+#                 echo -e "${GREEN}       УСПЕХ: Таблица разделов DTS обновлена.${NC}"
+#             else
+#                 err "Ошибка при модификации $DTS_FILE"
+#             fi
+#         fi
+#     else
+#         warn "Файл структуры устройства (DTS) не найден: $DTS_FILE"
+#     fi
+# # --- ПУНКТ 2: Модификация лимитов сборщика (Makefile) ---
+#     if [ -f "$MK_FILE" ]; then
+#         # Проверяем наличие типичных значений для 16МБ флешек
+#         if grep -Eiq "16064k|15872k" "$MK_FILE"; then
+#             log "MK: Лимиты размера образа уже увеличены. Пропуск."
+#         else
+#             log "MK: Снятие ограничения 'Image too big' для 16МБ..."            
+#             # Резервное копирование
+#             [ ! -f "${MK_FILE}.bak" ] && cp "$MK_FILE" "${MK_FILE}.bak"            
+#             # Заменяем стандартные лимиты 8-мегабайтных моделей на 16-мегабайтные
+#             # 7872k (стандарт) -> 15872k (безопасный максимум для 16МБ)
+#             sed -i 's/7872k/15872k/g' "$MK_FILE"
+#             # 8064k (максимум) -> 16064k
+#             sed -i 's/8064k/16064k/g' "$MK_FILE"            
+#             echo -e "${GREEN}       УСПЕХ: Лимиты сборщика в Makefile обновлены.${NC}"
+#         fi
+#     else
+#         warn "Конфигурационный файл образов (MK) не найден: $MK_FILE"
+#     fi
+# fi
+
+# ======================================================================================
 # БЛОК 2: Smart Feed Manager (Добавление внешних репозиториев)
 # ======================================================================================
 log ">>> Проверка и интеграция внешних фидов (Feeds)..."
-
 # Функция для безопасного добавления и установки фида
 add_feed() {
     local FEED_NAME="$1"
     local FEED_URL="$2"
     local FEED_FILE="feeds.conf.default"
-
     # Проверяем, есть ли уже такой фид (по имени или URL)
     if grep -qE "^src-git ${FEED_NAME} " "$FEED_FILE" || grep -Fq "$FEED_URL" "$FEED_FILE"; then
         log "Фид '$FEED_NAME' уже присутствует. Пропуск."
     else
         log "Добавляем фид: $FEED_NAME -> $FEED_URL"
         echo "src-git ${FEED_NAME} ${FEED_URL}" >> "$FEED_FILE"
-
         # Принудительно обновляем и устанавливаем пакеты ТОЛЬКО из этого фида
-        log "Интеграция пакетов из $FEED_NAME..."
-        
+        log "Интеграция пакетов из $FEED_NAME..."        
         # Попытка 1
-        ./scripts/feeds update "$FEED_NAME"
-        
+        ./scripts/feeds update "$FEED_NAME"        
         if [ $? -ne 0 ]; then
             warn "Первая попытка обновления $FEED_NAME неудачна. Пробуем повторно через 3 сек..."
             sleep 3
             ./scripts/feeds update "$FEED_NAME"
         fi
-
         if [ $? -eq 0 ]; then
             ./scripts/feeds install -a -p "$FEED_NAME"
             echo -e "${GREEN}       УСПЕХ: Пакеты из $FEED_NAME установлены.${NC}"
@@ -153,7 +197,7 @@ add_feed() {
 # --- СПИСОК РЕПОЗИТОРИЕВ ДЛЯ ДОБАВЛЕНИЯ ---
 # Здесь вы можете добавлять любые необходимые репозитории
 # 1. AmneziaWG
-add_feed "amneziawg" "https://github.com/amnezia-vpn/amnezia-wg-openwrt.git"
+# add_feed "amneziawg" "https://github.com/amnezia-vpn/amnezia-wg-openwrt.git"
 
 # 2. OpenClash / SSClash (Если нужны специфичные версии, раскомментируйте)
 # add_feed "openclash" "https://github.com/vernesong/OpenClash.git"
