@@ -92,9 +92,10 @@ decode_file() {
     mkdir -p "$(dirname "$target")"
     echo "[UNPACK] Восстановление: $target"
     
-    # Извлечение блока Base64 и декодирование
-    sed -n "/# BEGIN_B64_ $target/,/# END_B64_ $target/p" "$0" | \
-    grep -v "BEGIN_B64_" | grep -v "END_B64_" | base64 -d > "$target"        
+    # Используем переменную AWK для безопасного поиска путей со слешами
+    awk -v t="$target" '$0 ~ "# BEGIN_B64_ " t, $0 ~ "# END_B64_ " t' "$0" | \
+    grep -v "BEGIN_B64_" | grep -v "END_B64_" | base64 -d > "$target"
+    
     if [[ "$target" == *.sh ]]; then
         chmod +x "$target"
     fi
@@ -102,6 +103,7 @@ decode_file() {
 
 EOF
 
+# Добавляем вызовы функций в распаковщик
 # Добавляем вызовы функций в распаковщик
 for f in "${FILES[@]}"; do
     IS_PROTECTED=0
