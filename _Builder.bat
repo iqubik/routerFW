@@ -1,5 +1,8 @@
 @echo off
 rem file: _Builder.bat
+
+set "VER_NUM=4.01"
+
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
 mode con: cols=120 lines=40
@@ -7,9 +10,6 @@ mode con: cols=120 lines=40
 powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
 cls
 chcp 65001 >nul
-
-set "VER_NUM=3.99"
-
 :: Настройка ANSI цветов
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "C_KEY=%ESC%[93m"
@@ -60,6 +60,9 @@ if /i "%FORCE_LANG%"=="RU" set "SYS_LANG=RU"
 if /i "%FORCE_LANG%"=="EN" set "SYS_LANG=EN"
 :: === СЛОВАРЬ (DICTIONARY) ===
 if "%SYS_LANG%"=="RU" (
+    set "L_K_MOVE_ASK=Обновить профиль %C_VAL%!PROFILE_ID!.conf%C_RST% данными из Menuconfig? [Y/N]"
+    set "L_K_MOVE_OK=%C_OK%[DONE]%C_RST% Переменная SRC_EXTRA_CONFIG в профиле обновлена."
+    set "L_K_MOVE_ARCH=Временный файл переименован в _manual_config."
     set "L_EXIT_CONFIRM=Выйти из программы? (Y/N): "
     set "L_EXIT_BYE=До новых встреч!"
     set "H_PROF=Профиль"
@@ -151,6 +154,9 @@ if "%SYS_LANG%"=="RU" (
     set "L_ERR_VAR_NF=не найден."
     set "L_ERR_SKIP=Возможно, этот профиль предназначен для другого режима."
 ) else (
+    set "L_K_MOVE_ASK=Update %C_VAL%!PROFILE_ID!.conf%C_RST% profile with Menuconfig data? [Y/N]"
+    set "L_K_MOVE_OK=%C_OK%[DONE]%C_RST% SRC_EXTRA_CONFIG variable in profile updated."
+    set "L_K_MOVE_ARCH=Temporary file renamed to _manual_config."
     set "L_EXIT_CONFIRM=Exit the program? (Y/N): "
     set "L_EXIT_BYE=See you soon!"
     set "H_PROF=Profile"
@@ -1053,7 +1059,7 @@ echo. >> "%RUNNER_SCRIPT%"
 
 echo # --- 1. Load Environment --- >> "%RUNNER_SCRIPT%"
 echo echo [INIT] Loading profile vars from: $CONF_FILE >> "%RUNNER_SCRIPT%"
-echo cat "/profiles/$CONF_FILE" ^| sed '1s/^\xEF\xBB\xBF//' ^| tr -d '\r' ^> /tmp/env.sh >> "%RUNNER_SCRIPT%"
+echo sed 's/\r$//' "/profiles/$CONF_FILE" ^| sed '1s/^\xEF\xBB\xBF//' ^> /tmp/env.sh >> "%RUNNER_SCRIPT%"
 echo source /tmp/env.sh >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 
@@ -1121,9 +1127,7 @@ echo     if [ -n "$ROOTFS_SIZE" ]; then echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROO
 echo     if [ -n "$KERNEL_SIZE" ]; then echo "CONFIG_TARGET_KERNEL_PARTSIZE=$KERNEL_SIZE" ^>^> .config; fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     if [ -n "$SRC_EXTRA_CONFIG" ]; then >> "%RUNNER_SCRIPT%"
-echo         for opt in $SRC_EXTRA_CONFIG; do >> "%RUNNER_SCRIPT%"
-echo             echo "$opt" ^>^> .config >> "%RUNNER_SCRIPT%"
-echo         done >> "%RUNNER_SCRIPT%"
+echo         echo "$SRC_EXTRA_CONFIG" ^>^> .config >> "%RUNNER_SCRIPT%"
 echo     fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     make defconfig >> "%RUNNER_SCRIPT%"
@@ -1133,7 +1137,6 @@ echo # --- 4. Menuconfig --- >> "%RUNNER_SCRIPT%"
 echo echo [START] Launching Menuconfig UI... >> "%RUNNER_SCRIPT%"
 echo make menuconfig >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
-
 echo # --- 5. Save --- >> "%RUNNER_SCRIPT%"
 echo echo "%L_K_SAVE%" >> "%RUNNER_SCRIPT%"
 echo # Сначала чистим зависимости >> "%RUNNER_SCRIPT%"
@@ -1141,6 +1144,7 @@ echo make defconfig ^> /dev/null >> "%RUNNER_SCRIPT%"
 echo # Генерируем дифф во временный файл >> "%RUNNER_SCRIPT%"
 echo ./scripts/diffconfig.sh ^> /tmp/compact_config >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
+
 echo # Проверка и сохранение >> "%RUNNER_SCRIPT%"
 echo if [ -s /tmp/compact_config ]; then >> "%RUNNER_SCRIPT%"
 echo     cp /tmp/compact_config /output/manual_config >> "%RUNNER_SCRIPT%"
@@ -1151,11 +1155,11 @@ echo     echo -e "\033[91m[WARNING]\033[0m %L_K_EMPTY_DIFF%" >> "%RUNNER_SCRIPT%
 echo     cp .config /output/manual_config >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
+
 echo # Права доступа >> "%RUNNER_SCRIPT%"
 echo chmod 666 /output/manual_config >> "%RUNNER_SCRIPT%"
 echo touch /output/manual_config >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
-
 echo # --- 6. Interactive Shell Option --- >> "%RUNNER_SCRIPT%"
 echo printf "\n\033[92m[SUCCESS]\033[0m %L_K_FINAL% \n" >> "%RUNNER_SCRIPT%"
 echo read -p "%L_K_STAY% " stay >> "%RUNNER_SCRIPT%"
@@ -1167,14 +1171,42 @@ echo     echo -e "%L_K_SHELL_H3%" >> "%RUNNER_SCRIPT%"
 echo     echo -e "----------------------------------------------------------\n" >> "%RUNNER_SCRIPT%"
 echo     /bin/bash >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
-
 echo %L_K_LAUNCH%
 echo.
-
 :: Важно: добавлена опция -it для интерактивного режима shell
 set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --build --rm -it %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
+:: --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ ---
+if exist "%WIN_OUT_PATH%\manual_config" (
+    echo.
+    echo %C_KEY%----------------------------------------------------------%C_RST%
+    set "m_apply="
+    set /p "m_apply=%L_K_MOVE_ASK%: "
+    if /i "!m_apply!"=="Y" (
+        echo [PROCESS] Updating profiles\%CONF_FILE%...        
+        :: Используем PowerShell для создания чистого многострочного конфига
+        powershell -NoProfile -Command ^
+            "$confPath = 'profiles\%CONF_FILE%';" ^
+            "$manualPath = '%WIN_OUT_PATH%\manual_config';" ^
+            "$confLines = Get-Content $confPath;" ^
+            "$manualLines = Get-Content $manualPath | Where-Object { $_.Trim() -ne '' };" ^
+            "if ($manualLines) {" ^
+            "    $cleanConf = $confLines | Where-Object { $_ -notmatch '^SRC_EXTRA_CONFIG=' };" ^
+            "    $LF = [char]10;" ^
+            "    $formatted = $manualLines -join $LF;" ^
+            "    $newVar = 'SRC_EXTRA_CONFIG=\"' + $LF + $formatted + $LF + '\"';" ^
+            "    $finalContent = ($cleanConf -join $LF).TrimEnd() + $LF + $LF + $newVar + $LF;" ^
+            "    [System.IO.File]::WriteAllText($confPath, $finalContent, (New-Object System.Text.UTF8Encoding($false)));" ^
+            "    Write-Host '%L_K_MOVE_OK%';" ^
+            "}"
+        :: Переименовываем
+        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\_manual_config" >nul
+        echo %L_K_MOVE_ARCH%
+    ) else (
+        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\manual_config_na" >nul
+    )
+    echo %C_KEY%----------------------------------------------------------%C_RST%
+)
 if exist "%RUNNER_SCRIPT%" del "%RUNNER_SCRIPT%"
-
 echo.
 echo %L_DONE_MENU%
 pause

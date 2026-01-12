@@ -1,14 +1,18 @@
 #!/bin/bash
-
 # file: _Builder.sh
-# Универсальный управляющий скрипт (Bash Edition)
-# Версия: 3.99 (Full Functional)
+
+VER_NUM="4.01"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
 
-# Функция восстановления курсора при выходе
-trap "tput cnorm; exit" SIGINT SIGTERM EXIT
+# Функция восстановления курсора и очистки при прерывании (Ctrl+C)
+cleanup_exit() {
+    tput cnorm
+    echo -e "${C_RST}"
+    exit 0
+}
+trap cleanup_exit SIGINT SIGTERM
 
 # Настройка цветов ANSI
 ESC=$(printf '\033')
@@ -19,8 +23,6 @@ C_VAL="${ESC}[92m"   # Bright Green
 C_OK="${ESC}[92m"    # Bright Green
 C_ERR="${ESC}[91m"   # Bright Red
 C_RST="${ESC}[0m"    # Reset
-
-VER_NUM="3.98"
 
 # === ЯЗЫКОВОЙ МОДУЛЬ ===
 FORCE_LANG="AUTO"  # AUTO | RU | EN
@@ -71,6 +73,9 @@ if [ "$FORCE_LANG" == "EN" ]; then SYS_LANG="EN"; fi
 # Примечание: Переменные очищены от «мусора» и соответствуют только реальным вызовам в коде. v4
 if [ "$SYS_LANG" == "RU" ]; then
     # RUSSIAN DICTIONARY
+    L_K_MOVE_ASK="Обновить текущий профиль данными из Menuconfig? [Y/N]"
+    L_K_MOVE_OK="${C_OK}[DONE]${C_RST} Переменная SRC_EXTRA_CONFIG в профиле обновлена."
+    L_K_MOVE_ARCH="Временный файл переименован в _manual_config."    
     L_LANG_NAME="РУССКИЙ"
     L_VERDICT="Вердикт"
     L_INIT_ENV="[INIT] Проверка окружения..."
@@ -130,6 +135,9 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_ERR_WIZ="[ERROR] create_profile.sh не найден!"
 else
     # ENGLISH DICTIONARY
+    L_K_MOVE_ASK="Update current profile with Menuconfig data? [Y/N]"
+    L_K_MOVE_OK="${C_OK}[DONE]${C_RST} SRC_EXTRA_CONFIG variable in profile updated."
+    L_K_MOVE_ARCH="Temporary file renamed to _manual_config."    
     L_LANG_NAME="ENGLISH"
     L_VERDICT="Verdict"
     L_INIT_ENV="[INIT] Checking environment..."
@@ -402,6 +410,41 @@ EOF
     
     $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "$run_cmd"
     
+    # --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ (BASH EDITION) ---
+    if [ -f "$out_path/manual_config" ]; then
+        echo -e "\n${C_KEY}----------------------------------------------------------${C_RST}"
+        echo -e "Profile: ${C_VAL}${conf_file}${C_RST}"
+        read -p "$(echo -e "$L_K_MOVE_ASK: ")" m_apply        
+        if [[ "$m_apply" =~ ^[Yy]$ ]]; then
+            echo -e "[PROCESS] Updating profiles/$conf_file..."            
+            # 1. Удаляем старую переменную (если она есть)
+            # Эта команда удаляет всё от SRC_EXTRA_CONFIG до строки заканчивающейся на "
+            sed -i '/^SRC_EXTRA_CONFIG=/,/"$/d' "profiles/$conf_file"            
+            # 2. Форматируем новые данные
+            formatted_data=""
+            line_count=$(wc -l < "$out_path/manual_config")
+            current_line=0            
+            while IFS= read -r line || [ -n "$line" ]; do
+                ((current_line++))
+                if [ $current_line -eq $line_count ]; then
+                    formatted_data+="${line} "
+                else
+                    # Оптимальное экранирование для Bash
+                    formatted_data+="${line} \\"$'\n'
+                fi
+            done < "$out_path/manual_config"            
+            # 3. Добавляем новую переменную в конец
+            echo "" >> "profiles/$conf_file"
+            echo "SRC_EXTRA_CONFIG=\"$formatted_data\"" >> "profiles/$conf_file"            
+            echo -e "$L_K_MOVE_OK"
+            mv "$out_path/manual_config" "$out_path/_manual_config"
+            echo -e "$L_K_MOVE_ARCH"
+        else
+            mv "$out_path/manual_config" "$out_path/manual_config_na"
+        fi
+        echo -e "${C_KEY}----------------------------------------------------------${C_RST}"
+    fi
+
     # Очистка временного файла
     rm -f "$out_path/_menuconfig_runner.sh"
 }
@@ -633,8 +676,10 @@ while true; do
             read -r exit_confirm
             if [[ "$exit_confirm" =~ ^[Yy]$ ]]; then
                 echo -e "${C_OK}${L_EXIT_BYE}${C_RST}"
-                tput cnorm; exit 0
-            fi ;;
+                tput cnorm
+                exit 0
+            fi 
+            continue ;;
         [Mm]) 
             [[ "$BUILD_MODE" == "IMAGE" ]] && BUILD_MODE="SOURCE" || BUILD_MODE="IMAGE" ;;
         [Ee])
