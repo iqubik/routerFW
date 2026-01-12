@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.02"
+set "VER_NUM=4.03"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -80,7 +80,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CUR_MODE=Текущий режим"
     set "L_PROFILES=Профили сборки"
     set "L_LEGEND_IND=Индикаторы показывают состояние ресурсов и результатов сборки."    
-    set "L_LEGEND_TEXT=Легенда: F:Файлы P:Пакеты S:Исх M:Конфиг | Прошивки: OI:Образ OS:Сборка"
+    set "L_LEGEND_TEXT=Легенда: F:Файлы P:Пакеты S:Исх M:manual_config H:hooks.sh | Прошивки: OI:Образ OS:Сборка"
     set "L_BTN_ALL=Собрать ВСЕ"
     set "L_BTN_SWITCH=Режим на "
     set "L_BTN_EDIT=Редактор"
@@ -174,7 +174,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CUR_MODE=Current Mode"
     set "L_PROFILES=Build Profiles"
     set "L_LEGEND_IND=Indicators show the state of resources and build results."
-    set "L_LEGEND_TEXT=Legend: F:Files P:Packages S:Src M:Config | Firmwares: OI:Image OS:Build"
+    set "L_LEGEND_TEXT=Legend: F:Files P:Packages S:Src M:manual_config H:hooks.sh | Firmwares: OI:Image OS:Build"
     set "L_BTN_ALL=Build ALL"
     set "L_BTN_SWITCH=Switch to"
     set "L_BTN_EDIT=Editor"
@@ -404,14 +404,17 @@ for %%f in (profiles\*.conf) do (
         for /f "tokens=* delims= " %%b in ("!VAL!") do set "this_arch=%%b"
     )
 
-    :: --- ХИРУРГИЧЕСКАЯ РАСКРАСКА РЕСУРСОВ (F-LBL, P-KEY, S-VAL, M-OK) ---
+    :: --- ХИРУРГИЧЕСКАЯ РАСКРАСКА РЕСУРСОВ (F P S M H) ---
     set "st_f=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=!C_LBL!F!C_RST!"
     set "st_p=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=!C_KEY!P!C_RST!"
     set "st_s=!C_GRY!·!C_RST!" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=!C_VAL!S!C_RST!"
-    :: Индикатор Manual Config (M) - загорается зеленым если есть файл конфига
     set "st_m=!C_GRY!·!C_RST!" & if exist "firmware_output\sourcebuilder\!p_id!\manual_config" set "st_m=!C_OK!M!C_RST!"
+    
+    :: Индикатор Hooks (H) - Исправленный путь (внутри custom_files)
+    set "st_h=!C_GRY!·!C_RST!"
+    if exist "custom_files\!p_id!\hooks.sh" set "st_h=!C_KEY!H!C_RST!"
 
-    :: Состояние вывода (OI OS) - используются двухсимвольные точки для выравнивания
+    :: Состояние вывода (OI OS) - С выравниванием ··
     set "st_oi=!C_GRY!··!C_RST!"
     dir /s /a-d /b "firmware_output\imagebuilder\!p_id!\*.bin" "firmware_output\imagebuilder\!p_id!\*.img" 2>nul | findstr "^" >nul && set "st_oi=!C_VAL!OI!C_RST!"
     set "st_os=!C_GRY!··!C_RST!"
@@ -426,8 +429,8 @@ for %%f in (profiles\*.conf) do (
     set "tmp_arch=!this_arch!                    "
     set "n_arch=!tmp_arch:~0,20!"
 
-    :: ВЫВОД СТРОКИ (Добавлен !st_m!, сохранены скобки и разделитель)
-    echo    !C_GRY![!C_KEY!!id_pad!!C_GRY!]!C_RST! !n_name! !C_LBL!!n_arch!!C_RST! !C_GRY![!st_f!!st_p!!st_s!!st_m! !C_RST!^|!C_GRY! !st_oi! !st_os!]!C_RST!
+    :: ВЫВОД СТРОКИ
+    echo    !C_GRY![!C_KEY!!id_pad!!C_GRY!]!C_RST! !n_name! !C_LBL!!n_arch!!C_RST! !C_GRY![!st_f!!st_p!!st_s!!st_m!!st_h! !C_RST!^|!C_GRY! !st_oi! !st_os!]!C_RST!
 )
 
 :: 4. ПОДВАЛ

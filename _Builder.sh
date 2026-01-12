@@ -1,7 +1,7 @@
 #!/bin/bash
 # file: _Builder.sh
 
-VER_NUM="4.02"
+VER_NUM="4.03"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -96,7 +96,7 @@ if [ "$SYS_LANG" == "RU" ]; then
     H_ARCH="Архитектура"
     H_RES="Ресурсы | Сборки"
     L_LEGEND_IND="Индикаторы показывают состояние ресурсов и результатов сборки."
-    L_LEGEND_TEXT="Легенда: F:Файлы P:Пакеты S:Исх M:Конфиг | Прошивки: OI:Образ OS:Сборка"
+    L_LEGEND_TEXT="Легенда: F:Файлы P:Пакеты S:Исх M:manual_config H:hooks.sh | Прошивки: OI:Образ OS:Сборка"
     L_BTN_ALL="Собрать ВСЕ"
     L_BTN_SWITCH="Режим на"
     L_BTN_EDIT="Редактор"
@@ -158,7 +158,7 @@ else
     H_ARCH="Architecture"
     H_RES="Resources | Builds"
     L_LEGEND_IND="Indicators show the state of resources and build results."
-    L_LEGEND_TEXT="Legend: F:Files P:Packages S:Src M:Config | Firmwares: OI:Image OS:Build"
+    L_LEGEND_TEXT="Legend: F:Files P:Packages S:Src M:manual_config H:hooks.sh | Firmwares: OI:Image OS:Build"
     L_BTN_ALL="Build ALL"
     L_BTN_SWITCH="Switch to"
     L_BTN_EDIT="Editor"
@@ -640,21 +640,23 @@ while true; do
         this_arch=$(grep "SRC_ARCH=" "$f" | cut -d'"' -f2)
         [ -z "$this_arch" ] && this_arch="--------"
 
-        # Статусы ресурсов (F P S M)
+        # Статусы ресурсов (F P S M H)
         st_f="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_files/$p_id" 2>/dev/null)" ] && st_f="${C_LBL}F${C_RST}"
         st_p="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_packages/$p_id" 2>/dev/null)" ] && st_p="${C_KEY}P${C_RST}"
         st_s="${C_GRY}·${C_RST}"; [ "$(ls -A "src_packages/$p_id" 2>/dev/null)" ] && st_s="${C_VAL}S${C_RST}"
+        st_m="${C_GRY}·${C_RST}"; [ -f "firmware_output/sourcebuilder/$p_id/manual_config" ] && st_m="${C_OK}M${C_RST}"
         
-        # Индикатор Manual Config (M)
-        st_m="${C_GRY}·${C_RST}"
-        [ -f "firmware_output/sourcebuilder/$p_id/manual_config" ] && st_m="${C_OK}M${C_RST}"
+        # Индикатор Хуков (H) - Исправленный путь
+        st_h="${C_GRY}·${C_RST}"
+        [ -f "custom_files/$p_id/hooks.sh" ] && st_h="${C_KEY}H${C_RST}"
 
-        # Статусы билдов (OI OS) - Возвращаем чистый рекурсивный поиск
+        # Статусы билдов (OI OS)
         st_oi="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/imagebuilder/$p_id" \( -name "*.bin" -o -name "*.img" \) 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
         st_os="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/sourcebuilder/$p_id" \( -name "*.bin" -o -name "*.img" \) 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
 
-        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s | %s %s]${C_RST}\n" \
-               $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_m" "$st_oi" "$st_os"
+        # Вывод
+        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s%s | %s %s]${C_RST}\n" \
+               $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_m" "$st_h" "$st_oi" "$st_os"
     done
 
     echo -e "    ${C_GRY}────────────────────────────────────────────────────────────────────────────────────────────────────────────${C_RST}"
