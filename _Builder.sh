@@ -414,33 +414,32 @@ EOF
     if [ -f "$out_path/manual_config" ]; then
         echo -e "\n${C_KEY}----------------------------------------------------------${C_RST}"
         echo -e "Profile: ${C_VAL}${conf_file}${C_RST}"
-        read -p "$(echo -e "$L_K_MOVE_ASK: ")" m_apply        
+        
+        # Генерация метки времени
+        ts=$(date +"%Y%m%d_%H%M%S")
+        
+        read -p "$(echo -e "$L_K_MOVE_ASK: ")" m_apply
+        
         if [[ "$m_apply" =~ ^[Yy]$ ]]; then
-            echo -e "[PROCESS] Updating profiles/$conf_file..."            
-            # 1. Удаляем старую переменную (если она есть)
-            # Эта команда удаляет всё от SRC_EXTRA_CONFIG до строки заканчивающейся на "
-            sed -i '/^SRC_EXTRA_CONFIG=/,/"$/d' "profiles/$conf_file"            
-            # 2. Форматируем новые данные
-            formatted_data=""
-            line_count=$(wc -l < "$out_path/manual_config")
-            current_line=0            
-            while IFS= read -r line || [ -n "$line" ]; do
-                ((current_line++))
-                if [ $current_line -eq $line_count ]; then
-                    formatted_data+="${line} "
-                else
-                    # Оптимальное экранирование для Bash
-                    formatted_data+="${line} \\"$'\n'
-                fi
-            done < "$out_path/manual_config"            
-            # 3. Добавляем новую переменную в конец
+            echo -e "[PROCESS] Updating profiles/$conf_file..."
+            
+            # Удаляем старую переменную
+            sed -i '/^SRC_EXTRA_CONFIG=/,/^"$/d' "profiles/$conf_file"
+            
+            # Читаем и форматируем данные без слэшей
+            manual_data=$(cat "$out_path/manual_config")
+            
             echo "" >> "profiles/$conf_file"
-            echo "SRC_EXTRA_CONFIG=\"$formatted_data\"" >> "profiles/$conf_file"            
+            echo "SRC_EXTRA_CONFIG=\"" >> "profiles/$conf_file"
+            echo "$manual_data" >> "profiles/$conf_file"
+            echo "\"" >> "profiles/$conf_file"
+            
             echo -e "$L_K_MOVE_OK"
-            mv "$out_path/manual_config" "$out_path/_manual_config"
-            echo -e "$L_K_MOVE_ARCH"
+            mv "$out_path/manual_config" "$out_path/applied_config_${ts}.bak"
+            echo -e "[INFO] Archived to: applied_config_${ts}.bak"
         else
-            mv "$out_path/manual_config" "$out_path/manual_config_na"
+            mv "$out_path/manual_config" "$out_path/discarded_config_${ts}.bak"
+            echo -e "[INFO] Archived to: discarded_config_${ts}.bak"
         fi
         echo -e "${C_KEY}----------------------------------------------------------${C_RST}"
     fi

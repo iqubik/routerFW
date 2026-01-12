@@ -60,7 +60,6 @@ call :ADD_FILE "profiles\xiaomi_4a_gigabit_23056_full.conf"
 call :ADD_FILE "profiles\rax3000m_i_24104_full.conf"
 call :ADD_FILE "profiles\rax3000m_emmc_test_new.conf"
 call :ADD_FILE "profiles\giga_24104_immortal_full.conf"
-call :ADD_FILE "firmware_output\sourcebuilder\rax3000m_emmc_test_new\manual_config"
 
 :: Настройки путей (Используем абсолютные пути во избежание ошибок)
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"

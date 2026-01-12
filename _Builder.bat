@@ -1179,11 +1179,19 @@ set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/dock
 if exist "%WIN_OUT_PATH%\manual_config" (
     echo.
     echo %C_KEY%----------------------------------------------------------%C_RST%
+    
+    :: Получаем метку времени
+    for /f "usebackq" %%a in (`powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd_HHmmss'"`) do set "ts=%%a"
+    
+    :: Выводим информацию о целевом файле
+    echo %C_KEY%[SYNC]%C_RST% Target: %C_VAL%%CONF_FILE%%C_RST%
+    
     set "m_apply="
+    :: Используем переменную вопроса из словаря напрямую
     set /p "m_apply=%L_K_MOVE_ASK%: "
+    
     if /i "!m_apply!"=="Y" (
-        echo [PROCESS] Updating profiles\%CONF_FILE%...        
-        :: Используем PowerShell для создания чистого многострочного конфига
+        echo [PROCESS] Syncing data...
         powershell -NoProfile -Command ^
             "$confPath = 'profiles\%CONF_FILE%';" ^
             "$manualPath = '%WIN_OUT_PATH%\manual_config';" ^
@@ -1198,11 +1206,13 @@ if exist "%WIN_OUT_PATH%\manual_config" (
             "    [System.IO.File]::WriteAllText($confPath, $finalContent, (New-Object System.Text.UTF8Encoding($false)));" ^
             "    Write-Host '%L_K_MOVE_OK%';" ^
             "}"
-        :: Переименовываем
-        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\_manual_config" >nul
-        echo %L_K_MOVE_ARCH%
+        :: Сохраняем архив примененных настроек
+        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\applied_config_!ts!.bak" >nul
+        echo [INFO] Archived to: applied_config_!ts!.bak
     ) else (
-        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\manual_config_na" >nul
+        :: Сохраняем архив отмененных настроек
+        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\discarded_config_!ts!.bak" >nul
+        echo [INFO] Archived to: discarded_config_!ts!.bak
     )
     echo %C_KEY%----------------------------------------------------------%C_RST%
 )
