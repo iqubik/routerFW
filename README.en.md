@@ -35,9 +35,6 @@ The project is deployed via a **unified international unpacker** `_unpacker`. Al
 > **Appearance: Main Window**
 <img width="1435" height="1060" alt="image" src="https://github.com/user-attachments/assets/697f34e3-c634-4203-b699-124b87152ead" />
 
-> **Appearance: Batch/Multiple Builds**
-<img width="1477" height="998" alt="image" src="https://github.com/user-attachments/assets/16299ec8-0435-4e67-a6ef-1c3a600091c3" />
-
 ### 📊 Profile Indicator System
 The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for instant profile assessment:
 *   **F (Files)** — File overlay detected (`custom_files`).
