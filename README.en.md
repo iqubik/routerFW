@@ -21,8 +21,8 @@ The entire project is contained in **one self-extracting file**, `_unpacker`. Yo
 The project is deployed via a **unified international unpacker** `_unpacker`. All system messages during deployment have been translated into English to ensure clarity for global users.
 
 ### Choose your download method:
-*   🔥 **[Download _unpacker.bat (Latest version)](https://github.com/iqubik/routerFW/raw/main/_unpacker.bat)** — The most up-to-date code.
-*   🔥 **[Download _unpacker.sh (Latest version)](https://github.com/iqubik/routerFW/raw/main/_unpacker.sh)** — The most up-to-date code.
+*   🔥 **[Download _unpacker.bat (Latest version)](https://github.com/iqubik/routerFW/raw/main/_unpacker.bat)** — The most up-to-date Windows code.
+*   🔥 **[Download _unpacker.sh (Latest version)](https://github.com/iqubik/routerFW/raw/main/_unpacker.sh)** — The most up-to-date Linux code.
 *   📦 **[Releases Section](https://github.com/iqubik/routerFW/releases)** — Verified versions with changelogs.
 
 > **How to run:**
