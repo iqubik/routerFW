@@ -33,7 +33,6 @@ The project is deployed via a **unified international unpacker** `_unpacker`. Al
 ## 🖥 Interface
 
 > **Appearance: Main Window**
-<img width="1483" height="762" alt="image" src="https://github.com/user-attachments/assets/709e6d4e-9adc-418a-bf2a-443903ca5e87" />
 <img width="1435" height="1060" alt="image" src="https://github.com/user-attachments/assets/697f34e3-c634-4203-b699-124b87152ead" />
 
 > **Appearance: Batch/Multiple Builds**
