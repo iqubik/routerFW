@@ -17,6 +17,9 @@ The entire project is contained in **one self-extracting file**, `_unpacker.bat`
 
 *   **Preparation:** [Download and install Docker Desktop](https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe).
 
+## 🌍 International Unpacker
+The project is deployed via a **unified international unpacker** `_unpacker.bat`. All system messages during deployment have been translated into English to ensure clarity for global users.
+
 ### Choose your download method:
 *   🔥 **[Download _unpacker.bat (Latest version)](https://github.com/iqubik/routerFW/raw/main/_unpacker.bat)** — The most up-to-date code.
 *   📦 **[Releases Section](https://github.com/iqubik/routerFW/releases)** — Verified versions with changelogs.
@@ -33,6 +36,14 @@ The entire project is contained in **one self-extracting file**, `_unpacker.bat`
 
 > **Appearance: Batch/Multiple Builds**
 <img width="1477" height="998" alt="image" src="https://github.com/user-attachments/assets/16299ec8-0435-4e67-a6ef-1c3a600091c3" />
+
+### 📊 Profile Indicator System
+The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for instant profile assessment:
+*   **F (Files)** — File overlay detected (`custom_files`).
+*   **P (Packages)** — External `.ipk` packages present.
+*   **S (Source)** — Package source code found (`src_packages`).
+*   **M (Manual Config)** — **[NEW]** Active Menuconfig diff file detected.
+*   **H (Hooks)** — **[NEW]** Automation script `hooks.sh` detected.
 
 ---
 
@@ -176,6 +187,13 @@ The build system now automatically determines the configuration strategy:
 *   **Manual Mode (Priority):** If the `manual_config` file is found in the output folder, the builder **IGNORES** the package lists and kernel options from the `.conf` file. Instead, it applies your saved config "as is" (adding only caching settings).
 
 > **How to return to auto-build?** Simply delete or rename the `manual_config` file in the `firmware_output` folder.
+
+## 🎛️ Interactive Tuning & Sync (v4.03)
+In **Source Builder** mode (`[K] MENUCONFIG`), a **full synchronization cycle** is now implemented:
+1.  **Modify:** Change settings in the standard OpenWrt GUI.
+2.  **Sync:** Upon exit, the script offers to transfer changes **directly into your profile file (`.conf`)**.
+3.  **Clean Syntax:** Parameters are saved in `SRC_EXTRA_CONFIG` using a multi-line format, supporting `# ... is not set` comments and eliminating parsing errors.
+4.  **History:** Original diffs are archived with timestamps (`applied_config_*.bak`).
 
 ---
 
