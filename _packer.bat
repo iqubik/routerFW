@@ -60,7 +60,6 @@ call :ADD_FILE "profiles\xiaomi_4a_gigabit_23056_full.conf"
 call :ADD_FILE "profiles\rax3000m_i_24104_full.conf"
 call :ADD_FILE "profiles\rax3000m_emmc_test_new.conf"
 call :ADD_FILE "profiles\giga_24104_immortal_full.conf"
-call :ADD_FILE "firmware_output\sourcebuilder\rax3000m_emmc_test_new\manual_config"
 
 :: Настройки путей (Используем абсолютные пути во избежание ошибок)
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"
@@ -81,15 +80,15 @@ echo [PACKER] Создание логики распаковщика...
     echo chcp 65001 ^>nul
     echo.
     echo :: =========================================================
-    echo ::  Универсальный распаковщик ^(Smart Edition v2.1^)
+    echo ::  Unpacker ^(Smart Edition v2.1^)
     echo :: =========================================================
     echo.
-    echo echo [UNPACKER] Проверка ресурсов...
+    echo echo [UNPACKER] Resource check...
     echo.
     echo :: Проверка флага первоначальной настройки
     echo set "SKIP_DEFAULTS=0"
     echo if exist "profiles\personal.flag" ^(
-    echo     echo [INFO] Найден файл personal.flag. Восстановление пользовательских папок пропущено.
+    echo     echo [INFO] Found personal.flag. Recovering protected files only.
     echo     set "SKIP_DEFAULTS=1"
     echo ^)
     echo.
@@ -118,24 +117,24 @@ for /L %%i in (1,1,%IDX%) do (
     echo if not exist "profiles" md "profiles" 2^>nul
     echo if not exist "profiles\personal.flag" ^(
     echo     echo Initial setup done ^> "profiles\personal.flag"
-    echo     echo [INFO] Создан флаг profiles\personal.flag
+    echo     echo [INFO] Created flag profiles\personal.flag
     echo ^)
     echo.
-    echo echo [UNPACKER] Готово.
+    echo echo [UNPACKER] Complete.
     echo echo ===================================
-    echo echo Можно запускать _Builder.bat
+    echo echo Run _Builder.bat
     echo echo ===================================
     echo exit /b
     echo.
     echo :DECODE_FILE
     echo     if exist "%%~1" exit /b
     echo     if not exist "%%~dp1" md "%%~dp1" 2^>nul
-    echo     echo [UNPACK] Восстановление файла: %%~1
+    echo     echo [UNPACK] Recover: %%~1
     echo     powershell -Command "$ext = '%%~1'; $content = Get-Content '%%~f0'; $start = $false; $b64 = ''; foreach($line in $content){ if($line -match 'BEGIN_B64_ ' + [Regex]::Escape($ext)){ $start = $true; continue }; if($line -match 'END_B64_ ' + [Regex]::Escape($ext)){ $start = $false; break }; if($start){ $b64 += $line.Trim() } }; if($b64){ [IO.File]::WriteAllBytes($ext, [Convert]::FromBase64String($b64)) }"
     echo exit /b
     echo.
     echo :: =========================================================
-    echo ::  СЕКЦИЯ ДЛЯ BASE64 КОДА
+    echo ::  BASE64
     echo :: =========================================================
 ) >> "%NEW_UNPACKER_FILE%"
 

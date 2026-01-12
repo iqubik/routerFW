@@ -1,14 +1,18 @@
 #!/bin/bash
-
 # file: _Builder.sh
-# Универсальный управляющий скрипт (Bash Edition)
-# Версия: 3.99 (Full Functional)
+
+VER_NUM="4.02"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
 
-# Функция восстановления курсора при выходе
-trap "tput cnorm; exit" SIGINT SIGTERM EXIT
+# Функция восстановления курсора и очистки при прерывании (Ctrl+C)
+cleanup_exit() {
+    tput cnorm
+    echo -e "${C_RST}"
+    exit 0
+}
+trap cleanup_exit SIGINT SIGTERM
 
 # Настройка цветов ANSI
 ESC=$(printf '\033')
@@ -19,8 +23,6 @@ C_VAL="${ESC}[92m"   # Bright Green
 C_OK="${ESC}[92m"    # Bright Green
 C_ERR="${ESC}[91m"   # Bright Red
 C_RST="${ESC}[0m"    # Reset
-
-VER_NUM="3.98"
 
 # === ЯЗЫКОВОЙ МОДУЛЬ ===
 FORCE_LANG="AUTO"  # AUTO | RU | EN
@@ -71,6 +73,9 @@ if [ "$FORCE_LANG" == "EN" ]; then SYS_LANG="EN"; fi
 # Примечание: Переменные очищены от «мусора» и соответствуют только реальным вызовам в коде. v4
 if [ "$SYS_LANG" == "RU" ]; then
     # RUSSIAN DICTIONARY
+    L_K_MOVE_ASK="Обновить текущий профиль данными из Menuconfig? [Y/N]"
+    L_K_MOVE_OK="${C_OK}[DONE]${C_RST} Переменная SRC_EXTRA_CONFIG в профиле обновлена."
+    L_K_MOVE_ARCH="Временный файл переименован в _manual_config."    
     L_LANG_NAME="РУССКИЙ"
     L_VERDICT="Вердикт"
     L_INIT_ENV="[INIT] Проверка окружения..."
@@ -91,7 +96,7 @@ if [ "$SYS_LANG" == "RU" ]; then
     H_ARCH="Архитектура"
     H_RES="Ресурсы | Сборки"
     L_LEGEND_IND="Индикаторы показывают состояние ресурсов и результатов сборки."
-    L_LEGEND_TEXT="Легенда: F:Файлы P:Пакеты S:Исх | Прошивки: OI:Образ OS:Сборка"    
+    L_LEGEND_TEXT="Легенда: F:Файлы P:Пакеты S:Исх M:Конфиг | Прошивки: OI:Образ OS:Сборка"
     L_BTN_ALL="Собрать ВСЕ"
     L_BTN_SWITCH="Режим на"
     L_BTN_EDIT="Редактор"
@@ -130,6 +135,9 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_ERR_WIZ="[ERROR] create_profile.sh не найден!"
 else
     # ENGLISH DICTIONARY
+    L_K_MOVE_ASK="Update current profile with Menuconfig data? [Y/N]"
+    L_K_MOVE_OK="${C_OK}[DONE]${C_RST} SRC_EXTRA_CONFIG variable in profile updated."
+    L_K_MOVE_ARCH="Temporary file renamed to _manual_config."    
     L_LANG_NAME="ENGLISH"
     L_VERDICT="Verdict"
     L_INIT_ENV="[INIT] Checking environment..."
@@ -150,7 +158,7 @@ else
     H_ARCH="Architecture"
     H_RES="Resources | Builds"
     L_LEGEND_IND="Indicators show the state of resources and build results."
-    L_LEGEND_TEXT="Legend: F:Files P:Packages S:Src | Firmwares: OI:Image OS:Build"
+    L_LEGEND_TEXT="Legend: F:Files P:Packages S:Src M:Config | Firmwares: OI:Image OS:Build"
     L_BTN_ALL="Build ALL"
     L_BTN_SWITCH="Switch to"
     L_BTN_EDIT="Editor"
@@ -402,6 +410,40 @@ EOF
     
     $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "$run_cmd"
     
+    # --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ (BASH EDITION) ---
+    if [ -f "$out_path/manual_config" ]; then
+        echo -e "\n${C_KEY}----------------------------------------------------------${C_RST}"
+        echo -e "Profile: ${C_VAL}${conf_file}${C_RST}"
+        
+        # Генерация метки времени
+        ts=$(date +"%Y%m%d_%H%M%S")
+        
+        read -p "$(echo -e "$L_K_MOVE_ASK: ")" m_apply
+        
+        if [[ "$m_apply" =~ ^[Yy]$ ]]; then
+            echo -e "[PROCESS] Updating profiles/$conf_file..."
+            
+            # Удаляем старую переменную
+            sed -i '/^SRC_EXTRA_CONFIG=/,/^"$/d' "profiles/$conf_file"
+            
+            # Читаем и форматируем данные без слэшей
+            manual_data=$(cat "$out_path/manual_config")
+            
+            echo "" >> "profiles/$conf_file"
+            echo "SRC_EXTRA_CONFIG=\"" >> "profiles/$conf_file"
+            echo "$manual_data" >> "profiles/$conf_file"
+            echo "\"" >> "profiles/$conf_file"
+            
+            echo -e "$L_K_MOVE_OK"
+            mv "$out_path/manual_config" "$out_path/applied_config_${ts}.bak"
+            echo -e "[INFO] Archived to: applied_config_${ts}.bak"
+        else
+            mv "$out_path/manual_config" "$out_path/discarded_config_${ts}.bak"
+            echo -e "[INFO] Archived to: discarded_config_${ts}.bak"
+        fi
+        echo -e "${C_KEY}----------------------------------------------------------${C_RST}"
+    fi
+
     # Очистка временного файла
     rm -f "$out_path/_menuconfig_runner.sh"
 }
@@ -598,17 +640,21 @@ while true; do
         this_arch=$(grep "SRC_ARCH=" "$f" | cut -d'"' -f2)
         [ -z "$this_arch" ] && this_arch="--------"
 
-        # Статусы ресурсов
+        # Статусы ресурсов (F P S M)
         st_f="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_files/$p_id" 2>/dev/null)" ] && st_f="${C_LBL}F${C_RST}"
         st_p="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_packages/$p_id" 2>/dev/null)" ] && st_p="${C_KEY}P${C_RST}"
         st_s="${C_GRY}·${C_RST}"; [ "$(ls -A "src_packages/$p_id" 2>/dev/null)" ] && st_s="${C_VAL}S${C_RST}"
         
-        # Статусы билдов
-        st_oi="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/imagebuilder/$p_id" -name "*.bin" -o -name "*.img" 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
-        st_os="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/sourcebuilder/$p_id" -name "*.bin" -o -name "*.img" 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
+        # Индикатор Manual Config (M)
+        st_m="${C_GRY}·${C_RST}"
+        [ -f "firmware_output/sourcebuilder/$p_id/manual_config" ] && st_m="${C_OK}M${C_RST}"
 
-        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s | %s %s]${C_RST}\n" \
-               $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_oi" "$st_os"
+        # Статусы билдов (OI OS) - Возвращаем чистый рекурсивный поиск
+        st_oi="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/imagebuilder/$p_id" \( -name "*.bin" -o -name "*.img" \) 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
+        st_os="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/sourcebuilder/$p_id" \( -name "*.bin" -o -name "*.img" \) 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
+
+        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s | %s %s]${C_RST}\n" \
+               $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_m" "$st_oi" "$st_os"
     done
 
     echo -e "    ${C_GRY}────────────────────────────────────────────────────────────────────────────────────────────────────────────${C_RST}"
@@ -633,8 +679,10 @@ while true; do
             read -r exit_confirm
             if [[ "$exit_confirm" =~ ^[Yy]$ ]]; then
                 echo -e "${C_OK}${L_EXIT_BYE}${C_RST}"
-                tput cnorm; exit 0
-            fi ;;
+                tput cnorm
+                exit 0
+            fi 
+            continue ;;
         [Mm]) 
             [[ "$BUILD_MODE" == "IMAGE" ]] && BUILD_MODE="SOURCE" || BUILD_MODE="IMAGE" ;;
         [Ee])
