@@ -49,7 +49,7 @@ The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for
 
 An extended knowledge base has been created for the project to help you go from beginner to pro.
 
-👉 **[OPEN FULL GUIDE (DOCS)](docs/index.md)**
+👉 **[OPEN FULL GUIDE (DOCS EN)](docs/index.en.md)**
 
 **Inside you will find:**
 *   **Lessons 1-3:** Basics, configuration setup, and quick start.
