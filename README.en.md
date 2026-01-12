@@ -62,7 +62,7 @@ An extended knowledge base has been created for the project to help you go from 
 
 ## ⚡ About the Project
 
-Building takes place in isolated **Docker containers**. The system does not clutter Windows and can be removed with a single click.
+Building takes place in isolated **Docker containers**. The system does not clutter System and can be removed with a single click.
 
 ### Two operating modes:
 
@@ -225,7 +225,7 @@ Instead of manual work, you simply use the built-in importer:
 
 The script will do all the dirty work:
 *   **Create a Makefile wrapper:** You no longer need to write them manually.
-*   **Preserve symlinks and permissions:** Unpacking happens inside a Linux container, solving Windows filesystem issues.
+*   **Preserve symlinks and permissions:** Unpacking happens inside a Linux container, solving filesystem issues.
 *   **Protect binaries:** It disables `strip` and `patchelf` so the build system doesn't touch your files.
 *   **Check architecture:** Warns if you try to import a `mips` package into an `aarch64` build.
 *   **Integrate into Menuconfig:** After import, the package will appear in `menuconfig` under the `Custom-Packages` category, ready to be included in the firmware.
