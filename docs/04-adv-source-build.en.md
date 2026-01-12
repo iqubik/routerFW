@@ -1,154 +1,98 @@
-<p align="center">
-  <a href="04-adv-source-build.md"><b>🇷🇺 Русский</b></a> | <b>🇺🇸 English</b>
-</p>
+# Lesson 4: Advanced Source Mode: Sync, Hooks, and Indicators (v4.03)
+
+**Lesson Goal:** Master professional `Source Builder` tools: automatic settings synchronization, resource monitoring, advanced kernel patching via hooks, and the "Binary-to-Source" IPK import mechanism.
 
 ---
 
-# Lesson 4: Advanced Source Mode: Patches, Cache, and Custom Packages
+### 📊 1. Resource Monitoring (Indicator System)
 
-**Goal:** To explore the powerful but less obvious features of the `Source Builder` for total control over your firmware.
+In version **4.03**, the main menu features a "surgical" resource panel **`[F P S M H | OI OS]`**. This allows you to instantly assess your profile's readiness:
 
----
-
-### 1. Adding Third-Party Packages from Source
-
-If the program you need is not in the official repositories, but its source code is available (e.g., on GitHub), you can compile it alongside the firmware.
-
-1.  Navigate to the `src_packages/` folder in the Builder's root.
-2.  Clone the repository with the program's source code into it:
-    ```bash
-    cd src_packages
-    git clone https://github.com/some-author/cool-openwrt-package.git
-    ```
-3.  Run `_Builder.bat` and select **[K] Menuconfig** for your profile.
-4.  In the configuration menu, find the new package (usually in the `Utilities`, `Network`, or `LuCI -> Applications` sections) and mark it for inclusion:
-    *   `<M>` — build as a module (`.ipk` package).
-    *   `<*>` — build directly into the firmware.
-5.  Save the configuration and start the main build. The Builder will automatically compile the package and add it to the firmware.
-
-### 2. Importing Binary Packages (.ipk) into the Build (Binary-to-Source Mechanism)
-*(Tested on owrt 24.10.5 + z72.20251022)*
-
-**The Problem:** You have a program as an `.ipk` package, but you don't have its source code. This could be proprietary software (e.g., modem drivers) or a package you built earlier and don't want to recompile.
-
-**The Solution:** Builder v3.8+ includes a powerful "Binary-to-Source" mechanism that allows you to "wrap" an `.ipk` into a full-fledged package for the `Source Builder`.
-
-**Workflow:**
-
-1.  **Place the `.ipk` files** in the folder `custom_packages/<your_profile_ID>/`. For example, for the profile `nanopi_r5c_full.conf`, it would be `custom_packages/nanopi_r5c_full/`.
-
-2.  **Run the Import:** In the `_Builder.bat` main menu, select the **[I] (Import IPK)** option. The script will ask you to specify which profile you want to import packages for.
-
-3.  **Automatic Processing:** The PowerShell script `system/import_ipk.ps1` will launch and perform the following:
-    *   **Unpacking:** It analyzes the `.ipk` and extracts metadata (`control`) and data (`data.tar.gz`).
-    *   **Architecture Check:** It compares the package architecture (e.g., `aarch64_cortex-a53`) with your profile's target architecture (`SRC_TARGET`). If they are incompatible, the script will issue a warning.
-    *   **Dependency Correction:** It automatically replaces outdated dependencies (e.g., `libnetfilter-queue1`) with the ones relevant for OpenWrt 23.xx/24.xx.
-    *   **Makefile Generation:** It creates a special `Makefile` in the folder `src_packages/<profile_ID>/<package_name>/` that "tricks" the build system into thinking it is a standard source package.
-
-**What happens "under the hood" in the generated Makefile:**
-
-*   The `data.tar.gz` archive is not unpacked on Windows but **copied as is**. Unpacking occurs inside the Linux container. This **preserves symbolic links (symlinks)** and correct file permissions that would otherwise be lost.
-*   The commands `STRIP:=:` and `PATCHELF:=:` prevent the build system from modifying (e.g., "optimizing") binary files inside the package, which prevents errors.
-*   Installation scripts (`postinst`) are wrapped in an `if [ -z "$$IPKG_INSTROOT" ]` check to ensure they don't try to run during firmware compilation, but only during installation on the router.
-
-**Result:**
-
-After the import is complete, new folders with the names of your packages will appear in `src_packages/<profile_ID>/`. Now you can run **[K] Menuconfig**, and these packages will be available for selection in the `Custom-Packages` category. Mark them (`<M>` or `<*>`) and start the build.
-
-### 3. Patches and Feeds via `hooks.sh`
-
-The `scripts/hooks.sh` script is a powerful tool that runs **before every build** in `Source Builder` mode. It allows you to automate routine tasks.
-
-*   **Applying Patches:** If you need to fix a bug or change behavior in the source code, create a `.patch` file and place it in the project root. Then, in `scripts/hooks.sh`, add a command to apply it. The example script already contains a template.
-
-    ```bash
-    # ...inside the scripts/hooks.sh file...
-    log ">>> Applying custom patches..."
-    patch -p1 < /builder/my-fix.patch # /builder/ is the project root inside the container
-    ```
-
-*   **Adding Feeds (External Repositories):** There is an `add_feed` function in `hooks.sh`. You can uncomment or add new lines to connect entire repositories of packages not present in OpenWrt. Example from the script:
-    ```bash
-    # Adds a repository containing the amneziawg package
-    add_feed "amneziawg" "https://github.com/amnezia-vpn/amnezia-wg-openwrt.git"
-    ```
-
-### 4. Solving the `vermagic` Problem (The "Vermagic Hack")
-
-**The Problem:** You built your own firmware but cannot install kernel modules (`kmod-*.ipk`) from the official repository because the system complains about a `vermagic mismatch`.
-
-**The Solution in Builder:** This issue is resolved **automatically** for release builds. The `hooks.sh` script identifies your OpenWrt version, downloads the official kernel "signature" (`vermagic`), and embeds it into your build.
-
-**How to use:** Place the `hooks.sh` file from the `\scripts\` folder into your profile's custom files folder, e.g., `\custom_files\rax3000m_emmc_test_new`.
-The file will not be included in the final image in either ImageBuilder or SourceBuilder mode. Inside the file, instructions are ready to automatically replace Vermagic with the current one if possible. If you remove this file after the hack, the source code in the Vermagic area will automatically roll back to the default state during the next build.
-**In short, you don't need to do much—Vermagic with `hooks.sh` works "out of the box" for stable releases!** Just know that thanks to this, you can install official `kmod` packages on your custom `Source` firmware.
-
-### 5. Cache Management and Troubleshooting
-
-Sometimes, after a failed build or a configuration change, the cache can become "polluted," leading to strange errors. The Builder has a built-in menu for cleaning.
-
-**How to use:** In the main menu, select **[C] CLEAN / MAINTENANCE**. Ensure you are in `SOURCE BUILDER` mode to see the following options:
-
-*   **[1] SOFT CLEAN (make clean):** "First aid." Deletes compiled files for the selected profile but keeps the source code and toolchain. Ideal if a build fails halfway through.
-*   **[2] HARD RESET (Delete src-workdir):** Deletes the entire source code folder for the profile. Use this if the source code is corrupted or you need to start with a "clean slate." Downloaded archives (`dl`) and `ccache` are preserved.
-*   **[3] Clean Source Cache (dl):** Deletes all downloaded package archives. Useful for freeing up space. They will be re-downloaded during the next build.
-*   **[4] Clean CCACHE:** Completely resets the compiler cache. The next build will be as long as the very first one. Use this if you suspect compiler-related issues.
-*   **[5] FULL FACTORY RESET:** The "nuclear option." Deletes **everything** for the profile: source code, `dl` cache, and `ccache`.
-*   **[9] Prune Docker:** A global Docker command to clean the entire system of unused images, networks, and caches. Useful for general maintenance.
-
-**Recommendation:** Start with `SOFT CLEAN` if issues arise. If that doesn't help, use `HARD RESET`.
-
----
-## 🎛️ Build Resource Management (Source Builder)
-
-For the full compilation mode (`Source Builder`), you can manage the number of processor cores allocated for the build. This allows you to speed up the process or, conversely, reduce the system load to continue working comfortably.
-
-Management is handled via the `SRC_CORES` variable in your `.conf` profile file.
-
-### `SRC_CORES` Usage Options
-
-*   **`SRC_CORES="safe"` (Recommended)**
-    *   **Description:** Automatic "safe" mode. The builder uses all available cores except one (`N-1`).
-    *   **When to use:** This is the best choice for most cases. The build runs at near-maximum speed, but the system remains responsive for other tasks.
-
-*   **If `SRC_CORES` is not specified (Default)**
-    *   **Description:** The builder uses **all** available CPU cores (`N`).
-    *   **When to use:** If you want maximum speed and are okay with the computer potentially "lagging" during compilation.
-
-*   **`SRC_CORES="<number>"` (e.g., `SRC_CORES="4"`)**
-    *   **Description:** Directly specifies the number of build threads (`make -j4`).
-    *   **When to use:** If you need to strictly limit resource consumption. For example, if you have a 16-core processor but want to allocate only 4 cores to the build.
-
-Example entry in the profile:
-```bash
-# Use all cores except one
-SRC_CORES="safe"
-```
-> **Note:** The system automatically ensures that at least one core is used for the build.
+*   **F (Files)**: File overlay detected in `custom_files/%ID%`.
+*   **P (Packages)**: Pre-compiled `.ipk` packages found in `custom_packages/%ID%` (ready for import).
+*   **S (Source)**: Third-party package source code found in `src_packages/%ID%`.
+*   **M (Manual Config)**: **[NEW]** Active `manual_config` detected (unsynced Menuconfig results).
+*   **H (Hooks)**: **[NEW]** Automation script `hooks.sh` detected in the custom files folder.
+*   **OI / OS**: Finished firmware detected (**Image Builder** or **Source Builder**).
 
 ---
 
-### 💡 Advanced Example: Building with Custom Drivers (Rax3000M)
-The following is a step-by-step "cold start" process for such a build:
+### 🔄 2. New Configuration Sync (Auto-Sync)
 
-1.  **Step 1: Profile Setup (`.conf`)**
-    - In the profile file for `Source Builder`, specify the exact repository URL (`SRC_REPO`) and the target branch (`SRC_BRANCH`) containing the required drivers.
+Version **4.03** implements a seamless synchronization cycle between the interactive GUI and your text-based profile:
 
-2.  **Step 2: Structure Creation (`menuconfig`)**
-    - Run `[K] MENUCONFIG` for this profile. Since the cache and working directory are empty, the system will create all necessary folders, including `firmware_output/sourcebuilder/<profile_name>/`.
+1.  **Launch**: Select **[K] Menuconfig**.
+2.  **Modify**: Change settings in the standard OpenWrt interface.
+3.  **Exit**: Upon closing, the Builder prompts: **"Update profile with Menuconfig data? [Y/N]"**.
+4.  **Finalize**: If you select **Y**, the settings are converted into a clean diff and written directly to your `profiles/%ID%.conf` under the `SRC_EXTRA_CONFIG` variable.
 
-3.  **Step 3: Finding the Base `defconfig`**
-    - In the source code repository you are building, find the base configuration file. It is usually located in the `defconfig` folder and is minimal in size (10-15 KB).
-    - *Example:* `https://github.com/padavanonly/immortalwrt-mt798x-6.6/blob/openwrt-24.10-6.6/defconfig/mt7981-ax3000.config`
+> **Result:** Your `.conf` file becomes the "single source of truth." The raw config is archived as `applied_config_*.bak` for safety.
 
-4.  **Step 4: Configuration Swapping**
-    - Copy the found `defconfig` to the output folder and rename it to `manual_config`.
-    - **Path:** `firmware_output\sourcebuilder\<profile_name>\manual_config`
+---
 
-5.  **Step 5: Resolving Dependencies**
-    - Run `[K] MENUCONFIG` again for the same profile.
-    - The OpenWrt build system will detect the minimalist `manual_config` and **automatically expand it**, including all necessary dependencies and options. Your 11 KB file will turn into a full `.config` of ~400 KB.
+### 📦 3. Binary-to-Source IPK Import
 
-**Result:** You now have a complete and correct `manual_config` that includes all the source author's recommendations and is ready for further customization via `menuconfig` or manual editing, and ready to start the build.
+**The Problem:** You have a proprietary program (e.g., modem drivers) as an `.ipk` package, but you don't have its source code. 
+**The Solution:** The "Binary-to-Source" mechanism allows you to "wrap" an `.ipk` into a package that `Source Builder` treats as source code.
 
-This concludes the series of lessons. You now have all the knowledge needed to create firmwares of any complexity!
+#### A. Workflow:
+1.  **Placement**: Put `.ipk` files in `custom_packages/%ID%/`.
+2.  **Launch**: Select **[I] (Import IPK)** from the main menu.
+3.  **Processing**: The `system/import_ipk.ps1` script performs the following:
+    *   **Unpacking**: Extracts metadata (`control`) and data (`data.tar.gz`).
+    *   **Architecture Check**: Compares the package architecture with your profile's `SRC_TARGET` (e.g., `aarch64_cortex-a53`).
+    *   **Dependency Correction**: Replaces outdated dependencies with current OpenWrt 23.xx/24.xx equivalents.
+    *   **Makefile Generation**: Creates a specialized `Makefile` in `src_packages/%ID%/%package_name%/`.
+
+#### B. What happens "under the hood":
+*   **Structure Preservation**: The `data.tar.gz` is **not unpacked on Windows**. It is copied as-is and unpacked only inside the Linux container. This **preserves symbolic links and file permissions** that Windows would otherwise destroy.
+*   **Binary Protection**: Commands like `STRIP:=:` and `PATCHELF:=:` prevent the build system from "optimizing" (and breaking) the pre-compiled binaries.
+*   **Safe Execution**: Installation scripts (`postinst`) are wrapped in `if [ -z "$$IPKG_INSTROOT" ]` checks to ensure they only run on the router, not during the build process.
+
+---
+
+### 🪝 4. Automation via Hooks & The "Vermagic Hack"
+
+The script `custom_files/%ID%/hooks.sh` (Indicator **H**) is your tool for "last-minute" automation before compilation.
+
+*   **Feeds & Patching**: Use `add_feed` to connect extra repos or `patch -p1` to apply custom code fixes.
+*   **The Vermagic Problem**: If you build custom firmware, you usually cannot install official kernel modules (`kmod-*.ipk`) due to a `vermagic mismatch`.
+*   **The Solution**: This is resolved **automatically** for release builds. If `hooks.sh` is present in your custom files, the Builder identifies your version, downloads the official kernel "signature" (vermagic), and embeds it into your build.
+
+> **Note:** If you remove `hooks.sh`, the source code will automatically roll back to the default state during the next build.
+
+---
+
+### 🎛️ 5. Build Resource Management (SRC_CORES)
+
+Control CPU load via the `SRC_CORES` variable in your `.conf` file:
+
+*   **`SRC_CORES="safe"` (Recommended)**: Uses `N-1` cores. The system remains responsive for web browsing while building.
+*   **Not specified (Default)**: Uses **all** available CPU cores (`N`) for maximum speed.
+*   **`SRC_CORES="4"`**: Strictly limits the build to 4 threads (useful for laptop thermal management).
+
+---
+
+### 🧹 6. Cache Management & Maintenance (CLEAN)
+
+If a build fails or acts strangely, use the **[C] CLEAN** menu in `SOURCE BUILDER` mode:
+
+1.  **[1] SOFT CLEAN (make clean)**: Deletes compiled files for the profile. Use if the build crashed midway.
+2.  **[2] HARD RESET (Remove src-workdir)**: Deletes the entire source folder. Use for a "clean slate" without losing downloaded archives.
+3.  **[3] Clean Source Cache (dl)**: Deletes all downloaded `.tar.gz` package archives to free up disk space.
+4.  **[4] Clear CCACHE**: Resets the compiler cache. Use if you suspect compiler errors.
+5.  **[5] FULL FACTORY RESET**: The "nuclear option." Deletes sources, `dl` cache, and `ccache`.
+6.  **[9] Prune Docker**: Cleans unused Docker images and networks.
+
+---
+
+### 💡 7. Life Hack: "Cold Start" (Example: Rax3000M)
+
+How to build firmware using a complex `defconfig` from a third-party developer:
+
+1.  **Setup**: Configure your `.conf` with the correct repository and branch.
+2.  **Initialize**: Run **Menuconfig** once to create the folders, then exit.
+3.  **Replace**: Copy the developer's configuration file to:  
+    `firmware_output\sourcebuilder\%ID%\manual_config`
+4.  **Expand**: Run **Menuconfig** again. The system detects the minimalist file (e.g., 11KB) and **automatically expands it** into a full `.config` (~400KB), resolving all dependencies.
+5.  **Finalize**: Upon exit, select **Y** to update the profile. The Builder will compress the settings back into a clean diff and save them into your `.conf`.
