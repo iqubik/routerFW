@@ -3,15 +3,15 @@ setlocal enabledelayedexpansion
 chcp 65001 >nul
 
 :: =========================================================
-::  Универсальный распаковщик (Smart Edition v2.1)
+::  Unpacker (Smart Edition v2.1)
 :: =========================================================
 
-echo [UNPACKER] Проверка ресурсов...
+echo [UNPACKER] Resource check...
 
 :: Проверка флага первоначальной настройки
 set "SKIP_DEFAULTS=0"
 if exist "profiles\personal.flag" (
-    echo [INFO] Найден файл personal.flag. Восстановление пользовательских папок пропущено.
+    echo [INFO] Found personal.flag. Recovering protected files only.
     set "SKIP_DEFAULTS=1"
 )
 
@@ -57,24 +57,24 @@ if "%SKIP_DEFAULTS%"=="0" call :DECODE_FILE "profiles\giga_24104_immortal_full.c
 if not exist "profiles" md "profiles" 2>nul
 if not exist "profiles\personal.flag" (
     echo Initial setup done > "profiles\personal.flag"
-    echo [INFO] Создан флаг profiles\personal.flag
+    echo [INFO] Created flag profiles\personal.flag
 )
 
-echo [UNPACKER] Готово.
+echo [UNPACKER] Complete.
 echo ===================================
-echo Можно запускать _Builder.bat
+echo Run _Builder.bat
 echo ===================================
 exit /b
 
 :DECODE_FILE
     if exist "%~1" exit /b
     if not exist "%~dp1" md "%~dp1" 2>nul
-    echo [UNPACK] Восстановление файла: %~1
+    echo [UNPACK] Recover: %~1
     powershell -Command "$ext = '%~1'; $content = Get-Content '%~f0'; $start = $false; $b64 = ''; foreach($line in $content){ if($line -match 'BEGIN_B64_ ' + [Regex]::Escape($ext)){ $start = $true; continue }; if($line -match 'END_B64_ ' + [Regex]::Escape($ext)){ $start = $false; break }; if($start){ $b64 += $line.Trim() } }; if($b64){ [IO.File]::WriteAllBytes($ext, [Convert]::FromBase64String($b64)) }"
 exit /b
 
 :: =========================================================
-::  СЕКЦИЯ ДЛЯ BASE64 КОДА
+::  BASE64
 :: =========================================================
 
 :: BEGIN_B64_ system/openssl.cnf

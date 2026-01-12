@@ -1,13 +1,13 @@
 #!/bin/bash
 # =========================================================
-#  Универсальный распаковщик (Smart Edition v2.1 SH)
+#  Unpacker (Smart Edition v2.1 SH)
 # =========================================================
 
-echo "[UNPACKER] Проверка ресурсов..."
+echo "[UNPACKER] Resource check..."
 
 SKIP_DEFAULTS=0
 if [ -f "profiles/personal.flag" ]; then
-    echo "[INFO] Найден файл personal.flag. Пользовательские данные не будут перезаписаны."
+    echo "[INFO] Found personal.flag. Recovering protected files only."
     SKIP_DEFAULTS=1
 fi
 
@@ -16,7 +16,7 @@ decode_file() {
     if [ -f "$target" ]; then return; fi
     
     mkdir -p "$(dirname "$target")"
-    echo "[UNPACK] Восстановление: $target"
+    echo "[UNPACK] Recover: $target"
     
     # Используем переменную AWK для безопасного поиска путей со слешами
     awk -v t="$target" '$0 ~ "# BEGIN_B64_ " t, $0 ~ "# END_B64_ " t' "$0" | \
@@ -68,17 +68,17 @@ if [ $SKIP_DEFAULTS -eq 0 ]; then decode_file "profiles/giga_24104_immortal_full
 mkdir -p profiles
 if [ ! -f "profiles/personal.flag" ]; then
     echo "Initial setup done" > "profiles/personal.flag"
-    echo "[INFO] Создан флаг profiles/personal.flag"
+    echo "[INFO] Created flag profiles/personal.flag"
 fi
 
-echo "[UNPACKER] Готово."
+echo "[UNPACKER] Complete."
 echo "==================================="
-echo "Можно запускать ./_Builder.sh"
+echo "Run ./_Builder.sh"
 echo "==================================="
 exit 0
 
 # =========================================================
-#  СЕКЦИЯ ДАННЫХ (BASE64)
+# BASE64
 # =========================================================
 
 # BEGIN_B64_ system/openssl.cnf

@@ -1,10 +1,6 @@
 #!/bin/bash
-
 # file: _packer.sh
-# =========================================================
-#  OpenWrt Universal Packer (v2.1 MT SH-Edition)
-#  Multi-threaded Base64 Resource Storage
-# =========================================================
+# Multi-threaded Base64 Resource Storage
 
 # Настройка цветов
 C_LBL='\033[36m'
@@ -14,7 +10,7 @@ C_RST='\033[0m'
 
 clear
 echo -e "${C_LBL}========================================${C_RST}"
-echo -e "  OpenWrt Universal Packer (v2.1 MT SH)"
+echo -e "  OpenWrt Пакер (v2.1 MT SH)"
 echo -e "${C_LBL}========================================${C_RST}"
 echo ""
 
@@ -73,14 +69,14 @@ echo -e "[PACKER] Создание логики распаковщика..."
 cat << 'EOF' > "$NEW_UNPACKER"
 #!/bin/bash
 # =========================================================
-#  Универсальный распаковщик (Smart Edition v2.1 SH)
+#  Unpacker (Smart Edition v2.1 SH)
 # =========================================================
 
-echo "[UNPACKER] Проверка ресурсов..."
+echo "[UNPACKER] Resource check..."
 
 SKIP_DEFAULTS=0
 if [ -f "profiles/personal.flag" ]; then
-    echo "[INFO] Найден файл personal.flag. Пользовательские данные не будут перезаписаны."
+    echo "[INFO] Found personal.flag. Recovering protected files only."
     SKIP_DEFAULTS=1
 fi
 
@@ -89,7 +85,7 @@ decode_file() {
     if [ -f "$target" ]; then return; fi
     
     mkdir -p "$(dirname "$target")"
-    echo "[UNPACK] Восстановление: $target"
+    echo "[UNPACK] Recover: $target"
     
     # Используем переменную AWK для безопасного поиска путей со слешами
     awk -v t="$target" '$0 ~ "# BEGIN_B64_ " t, $0 ~ "# END_B64_ " t' "$0" | \
@@ -102,7 +98,6 @@ decode_file() {
 
 EOF
 
-# Добавляем вызовы функций в распаковщик
 # Добавляем вызовы функций в распаковщик
 for f in "${FILES[@]}"; do
     IS_PROTECTED=0
@@ -123,17 +118,17 @@ cat << 'EOF' >> "$NEW_UNPACKER"
 mkdir -p profiles
 if [ ! -f "profiles/personal.flag" ]; then
     echo "Initial setup done" > "profiles/personal.flag"
-    echo "[INFO] Создан флаг profiles/personal.flag"
+    echo "[INFO] Created flag profiles/personal.flag"
 fi
 
-echo "[UNPACKER] Готово."
+echo "[UNPACKER] Complete."
 echo "==================================="
-echo "Можно запускать ./_Builder.sh"
+echo "Run ./_Builder.sh"
 echo "==================================="
 exit 0
 
 # =========================================================
-#  СЕКЦИЯ ДАННЫХ (BASE64)
+# BASE64
 # =========================================================
 EOF
 
