@@ -7,27 +7,28 @@ Many have likely wanted to have a personal OpenWrt router binary with a full con
 
 This project has now evolved into a **Universal All-in-One Tool**, combining two approaches: fast assembly (**ImageBuilder**) and full compilation (**SourceBuilder**).
 
-In version 3.0+, a **global refactoring** took place: the old `_Image_Builder.bat` and `_Source_Builder.bat` scripts were removed and replaced by a single `_Builder.bat` that manages both modes.
+In version 3.0+, a **global refactoring** took place: the old `_Image_Builder.bat` and `_Source_Builder.bat` scripts were removed and replaced by a single `_Builder` that manages both modes.
 
 ---
 
 ## 📥 Installation and Download
 
-The entire project is contained in **one self-extracting file**, `_unpacker.bat`. You don't need to download ZIP archives or clone the repository.
+The entire project is contained in **one self-extracting file**, `_unpacker`. You don't need to download ZIP archives or clone the repository.
 
 *   **Preparation:** [Download and install Docker Desktop](https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe).
 
 ## 🌍 International Unpacker
-The project is deployed via a **unified international unpacker** `_unpacker.bat`. All system messages during deployment have been translated into English to ensure clarity for global users.
+The project is deployed via a **unified international unpacker** `_unpacker`. All system messages during deployment have been translated into English to ensure clarity for global users.
 
 ### Choose your download method:
 *   🔥 **[Download _unpacker.bat (Latest version)](https://github.com/iqubik/routerFW/raw/main/_unpacker.bat)** — The most up-to-date code.
+*   🔥 **[Download _unpacker.sh (Latest version)](https://github.com/iqubik/routerFW/raw/main/_unpacker.sh)** — The most up-to-date code.
 *   📦 **[Releases Section](https://github.com/iqubik/routerFW/releases)** — Verified versions with changelogs.
 
 > **How to run:**
-> 1. Place `_unpacker.bat` in an **empty folder** (e.g., `C:\OpenWrtBuilder`) with no Cyrillic characters in the path.
+> 1. Place `_unpacker` in an **empty folder** (e.g., `C:\OpenWrtBuilder`) with no Cyrillic characters in the path.
 > 2. Run it — it will deploy the project structure.
-> 3. Run the resulting `_Builder.bat`.
+> 3. Run the resulting `_Builder`.
 
 ## 🖥 Interface
 
