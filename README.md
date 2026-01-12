@@ -18,8 +18,8 @@
 *   **Подготовка:** [Скачайте и установите Docker Desktop](https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe).
 
 ### Выберите способ получения:
-*   🔥 **[Скачать _unpacker.bat (Актуальная версия)](https://github.com/iqubik/routerFW/raw/main/_unpacker.bat)** — Самый свежий код.
-*   🔥 **[Скачать _unpacker.sh (Актуальная версия)](https://github.com/iqubik/routerFW/raw/main/_unpacker.sh)** — Самый свежий код.
+*   🔥 **[Скачать _unpacker.bat (Актуальная версия)](https://github.com/iqubik/routerFW/raw/main/_unpacker.bat)** — Самый свежий Windows код.
+*   🔥 **[Скачать _unpacker.sh (Актуальная версия)](https://github.com/iqubik/routerFW/raw/main/_unpacker.sh)** — Самый свежий Linux код.
 *   📦 **[Раздел Releases](https://github.com/iqubik/routerFW/releases)** — Проверенные версии с описанием изменений.
 
 > **Как запустить:**
