@@ -107,7 +107,7 @@ Forgot your router's architecture or afraid of syntax errors? Use the **[W] Prof
 *   **Validation**: The wizard automatically fixes spaces in names and protects files from accidental overwriting.
 *   **Ready-made result**: Output is a clean `.conf` file with useful comments and optimization examples.
 
-<img width="1178" height="234" alt="{DB7FF73C-F70F-4B2D-B4DB-4F885B8B9E6A}" src="https://github.com/user-attachments/assets/304af340-f8a6-49f7-b2d1-42600d8ab8b7" />
+<img width="1483" height="348" alt="image" src="https://github.com/user-attachments/assets/5cf2537a-7886-4bed-bce8-43b0b2787926" />
 
 ---
 
