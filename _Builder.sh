@@ -1,7 +1,7 @@
 #!/bin/bash
 # file: _Builder.sh
 
-VER_NUM="4.04"
+VER_NUM="4.06"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -367,7 +367,7 @@ else
     [ -n "\$ROOTFS_SIZE" ] && echo "CONFIG_TARGET_ROOTFS_PARTSIZE=\$ROOTFS_SIZE" >> .config
     [ -n "\$KERNEL_SIZE" ] && echo "CONFIG_TARGET_KERNEL_PARTSIZE=\$KERNEL_SIZE" >> .config
     if [ -n "\$SRC_EXTRA_CONFIG" ]; then
-        for opt in \$SRC_EXTRA_CONFIG; do echo "\$opt" >> .config; done
+        printf "%b\n" "\$SRC_EXTRA_CONFIG" >> .config
     fi
     make defconfig
 fi
@@ -422,22 +422,20 @@ EOF
         
         if [[ "$m_apply" =~ ^[Yy]$ ]]; then
             echo -e "[PROCESS] Updating profiles/$conf_file..."
-            
-            # Удаляем старую переменную
-            sed -i '/^SRC_EXTRA_CONFIG=/,/^"$/d' "profiles/$conf_file"
-            
-            # Читаем и форматируем данные без слэшей
             manual_data=$(cat "$out_path/manual_config")
-            
-            echo "" >> "profiles/$conf_file"
-            echo "SRC_EXTRA_CONFIG=\"" >> "profiles/$conf_file"
-            echo "$manual_data" >> "profiles/$conf_file"
-            echo "\"" >> "profiles/$conf_file"
-            
+            new_block=$(printf "SRC_EXTRA_CONFIG=\"\n%s\n\"" "$manual_data")
+
+            if grep -q "^SRC_EXTRA_CONFIG=" "profiles/$conf_file"; then
+                export NEW_BLOCK="$new_block"
+                perl -i -0777 -pe 's/^SRC_EXTRA_CONFIG=".*?"/$ENV{NEW_BLOCK}/ms' "profiles/$conf_file"
+            else
+                echo -e "\n$new_block" >> "profiles/$conf_file"
+            fi
             echo -e "$L_K_MOVE_OK"
             mv "$out_path/manual_config" "$out_path/applied_config_${ts}.bak"
             echo -e "[INFO] Archived to: applied_config_${ts}.bak"
         else
+            # ВОТ ЭТОТ БЛОК НУЖНО ВЕРНУТЬ:
             mv "$out_path/manual_config" "$out_path/discarded_config_${ts}.bak"
             echo -e "[INFO] Archived to: discarded_config_${ts}.bak"
         fi
