@@ -1,7 +1,7 @@
 #!/bin/bash
 # file: _Builder.sh
 
-VER_NUM="4.06"
+VER_NUM="4.07"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -648,9 +648,9 @@ while true; do
         st_h="${C_GRY}·${C_RST}"
         [ -f "custom_files/$p_id/hooks.sh" ] && st_h="${C_KEY}H${C_RST}"
 
-        # Статусы билдов (OI OS)
-        st_oi="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/imagebuilder/$p_id" \( -name "*.bin" -o -name "*.img" \) 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
-        st_os="${C_GRY}··${C_RST}"; [ "$(find "firmware_output/sourcebuilder/$p_id" \( -name "*.bin" -o -name "*.img" \) 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
+        # Статусы билдов (OI OS) - Реагируют на ЛЮБЫЕ файлы в любых подпапках
+        st_oi="${C_GRY}··${C_RST}"; [ -n "$(find "firmware_output/imagebuilder/$p_id" -type f 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
+        st_os="${C_GRY}··${C_RST}"; [ -n "$(find "firmware_output/sourcebuilder/$p_id" -type f 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
 
         # Вывод
         printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s%s | %s %s]${C_RST}\n" \

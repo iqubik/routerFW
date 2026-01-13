@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.06"
+set "VER_NUM=4.07"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -414,11 +414,11 @@ for %%f in (profiles\*.conf) do (
     set "st_h=!C_GRY!·!C_RST!"
     if exist "custom_files\!p_id!\hooks.sh" set "st_h=!C_KEY!H!C_RST!"
 
-    :: Состояние вывода (OI OS) - С выравниванием ··
+    :: Состояние вывода (OI OS) - Реагирует на ЛЮБЫЕ файлы в любых подпапках
     set "st_oi=!C_GRY!··!C_RST!"
-    dir /s /a-d /b "firmware_output\imagebuilder\!p_id!\*.bin" "firmware_output\imagebuilder\!p_id!\*.img" 2>nul | findstr "^" >nul && set "st_oi=!C_VAL!OI!C_RST!"
+    dir /s /a-d /b "firmware_output\imagebuilder\!p_id!\*" 2>nul | findstr "^" >nul && set "st_oi=!C_VAL!OI!C_RST!"
     set "st_os=!C_GRY!··!C_RST!"
-    dir /s /a-d /b "firmware_output\sourcebuilder\!p_id!\*.bin" "firmware_output\sourcebuilder\!p_id!\*.img" 2>nul | findstr "^" >nul && set "st_os=!C_VAL!OS!C_RST!"
+    dir /s /a-d /b "firmware_output\sourcebuilder\!p_id!\*" 2>nul | findstr "^" >nul && set "st_os=!C_VAL!OS!C_RST!"
     
     :: ВЫРАВНИВАНИЕ (Сохранено без изменений)
     set "id_pad=!count!"
