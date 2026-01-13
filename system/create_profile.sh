@@ -3,7 +3,7 @@
 # file: system/create_profile.sh
 # =========================================================
 #  OpenWrt/ImmortalWrt Universal Profile Creator
-#  Bash Version 2.27 (UX & Logic Parity with PS1)
+#  Bash Version 2.27 (FIX PROFILE)
 # =========================================================
 
 # --- ЦВЕТА ---
