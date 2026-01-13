@@ -8,6 +8,7 @@ tput civis 2>/dev/null
 
 # Функция восстановления курсора и очистки при прерывании (Ctrl+C)
 cleanup_exit() {
+    rm -rf "$PROJECT_DIR/.docker_tmp" # Удаляем временный конфиг Docker
     tput cnorm
     echo -e "${C_RST}"
     exit 0
@@ -206,8 +207,20 @@ fi
 echo ""
 
 # === КОНФИГУРАЦИЯ ===
+PROJECT_DIR=$(pwd)  # Должно быть выше всего, что использует пути
+export DOCKER_BUILDKIT=1
 BUILD_MODE="IMAGE"
 echo -e "$L_INIT_ENV"
+
+# === ФИКС DOCKER CREDENTIALS ===
+export DOCKER_CONFIG_DIR="$PROJECT_DIR/.docker_tmp"
+mkdir -p "$DOCKER_CONFIG_DIR"
+# Создаем временный конфиг без credsStore
+echo '{"auths": {}}' > "$DOCKER_CONFIG_DIR/config.json"
+export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"
+
+# Предварительный пулл теперь точно сработает
+echo -e "${C_LBL}[INIT]${C_RST} Pulling base image..."
 
 # Проверка Docker
 D_VER=$(docker --version 2>/dev/null)
@@ -286,7 +299,20 @@ build_routine() {
 
     mkdir -p "$HOST_OUTPUT_DIR"
     echo -e "${C_LBL}[BUILD]${C_RST} Target: ${C_VAL}$p_id${C_RST}"
-    $C_EXE -f "$comp_file" -p "$proj_name" up --build --force-recreate --remove-orphans "$service"
+    
+    # === ФИКС БАГА "file exists" ===
+    # 1. Принудительно удаляем контейнер, если он завис в базе Docker
+    docker rm -f "${proj_name}-${service}-1" >/dev/null 2>&1
+    
+    # 2. Полный down с удалением анонимных томов (-v)
+    $C_EXE -f "$comp_file" -p "$proj_name" down -v --remove-orphans >/dev/null 2>&1
+    
+    # 3. Даем WSL "продышаться". 2 секунды — золотой стандарт для освобождения bind-mounts
+    sleep 2
+
+    # 4. Запуск через 'run --rm'. 
+    # Это чище, чем 'up', так как контейнер гарантированно удалится после работы.
+    $C_EXE -f "$comp_file" -p "$proj_name" run --rm --quiet-pull "$service"
 }
 
 run_menuconfig() {
