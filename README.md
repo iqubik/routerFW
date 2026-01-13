@@ -288,3 +288,7 @@ SRC_CORES="safe"
 *   `99-permissions.sh` — Авто-фикс прав доступа для файлов (Dropbear/SSH).
 
 <img width="915" height="547" alt="{F77A44F7-5A52-489A-BD37-6DC2169F4F26}" src="https://github.com/user-attachments/assets/8c77b424-12cb-4502-9201-a7927637d2a2" />
+
+---
+
+Аудит проекта https://github.com/iqubik/routerFW/blob/main/audit.md
