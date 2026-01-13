@@ -68,12 +68,60 @@ if [ -f "/overlay_files/hooks.sh" ]; then
     chmod +x /tmp/hooks.sh
     /bin/bash /tmp/hooks.sh || exit 1
 else
-    # ЛОГИКА ОТКАТА (Rollback)
-    NEEDS_ROLLBACK=false
-    if [ -f "$TARGET_MK" ] && grep -Eq 'echo [0-9a-f]{32}' "$TARGET_MK"; then NEEDS_ROLLBACK=true; fi
-    if [ -f "$VERMAGIC_MARKER" ] || [ -f "$BACKUP_MK" ]; then NEEDS_ROLLBACK=true; fi
+    # ЛОГИКА ОТКАТА (Rollback) с детальной диагностикой
+    echo -e "${CYAN}[HOOKS] hooks.sh not found. Validating system state...${NC}"
+    echo ""
+    echo "[DEBUG] ========== STATE CHECK BEGIN =========="
+    echo "[DEBUG] TARGET_MK = $TARGET_MK"
+    echo "[DEBUG] BACKUP_MK = $BACKUP_MK"
+    echo "[DEBUG] VERMAGIC_MARKER = $VERMAGIC_MARKER"
+    echo ""
 
-    if [ "$NEEDS_ROLLBACK" = "true" ]; then
+    NEEDS_ROLLBACK=false
+    IS_PATCHED=false
+
+    echo "[DEBUG] Check 1: Is Makefile patched?"
+    if [ -f "$TARGET_MK" ]; then
+        if grep -Eq 'echo [0-9a-f]{32}' "$TARGET_MK" 2>/dev/null; then
+            echo -e "[DEBUG]   - Status: ${RED}PATCHED${NC} (Hardcoded hash found)"
+            IS_PATCHED=true
+            NEEDS_ROLLBACK=true
+        else
+            if grep -E 'MKHASH|mkhash|md5sum' "$TARGET_MK" >/dev/null 2>&1; then
+                echo -e "[DEBUG]   - Status: ${GREEN}CLEAN${NC} (Standard logic found)"
+            else
+                echo -e "[DEBUG]   - Status: ${YELLOW}UNKNOWN${NC} (Inconclusive syntax)"
+                if [ -f "$BACKUP_MK" ]; then NEEDS_ROLLBACK=true; fi
+            fi
+        fi
+    else
+        echo "[DEBUG]   - File exists: NO"
+    fi
+
+    echo "[DEBUG] Check 2: Vermagic marker?"
+    if [ -f "$VERMAGIC_MARKER" ]; then
+        MARKER_CONTENT=$(cat "$VERMAGIC_MARKER")
+        echo -e "[DEBUG]   - Marker exists: ${RED}YES${NC} (content: $MARKER_CONTENT)"
+        NEEDS_ROLLBACK=true
+    else
+        echo -e "[DEBUG]   - Marker exists: ${GREEN}NO${NC}"
+    fi
+
+    echo "[DEBUG] Check 3: Backup exists?"
+    if [ -f "$BACKUP_MK" ]; then
+        echo -e "[DEBUG]   - Backup: ${RED}YES${NC}"
+        NEEDS_ROLLBACK=true
+    else
+        echo -e "[DEBUG]   - Backup exists: ${GREEN}NO${NC}"
+    fi
+
+    echo "[DEBUG] NEEDS_ROLLBACK = $NEEDS_ROLLBACK"
+    echo "[DEBUG] ========== STATE CHECK END =========="
+    echo ""
+
+    if [ "$NEEDS_ROLLBACK" = "false" ]; then
+        echo -e "${GREEN}[HOOKS] System is in clean state.${NC}"
+    else
         echo -e "${YELLOW}[HOOKS] Dirty state detected. Rolling back...${NC}"
         [ -f "$BACKUP_MK" ] && cp -f "$BACKUP_MK" "$TARGET_MK" && rm -f "$BACKUP_MK"
         rm -f "$VERMAGIC_MARKER"
