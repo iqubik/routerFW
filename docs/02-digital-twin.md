@@ -74,8 +74,11 @@ SRC_PACKAGES="$COMMON_LIST"
 
 # Настройки ресурсов и железа (Source Builder)
 SRC_CORES="safe"       # Использовать все ядра CPU кроме одного (N-1)
-SRC_EXTRA_CONFIG="CONFIG_TARGET_KERNEL_PARTSIZE=64 \
-CONFIG_TARGET_ROOTFS_PARTSIZE=256"
+SRC_EXTRA_CONFIG="
+CONFIG_TARGET_KERNEL_PARTSIZE=64
+CONFIG_TARGET_ROOTFS_PARTSIZE=256
+"
+
 ```
 
 **Почему это удобно?** Вам не нужно вести два разных списка программ. Вы просто редактируете `COMMON_LIST`, и изменения подхватываются как при быстрой сборке (Image), так и при глубокой компиляции (Source).

@@ -47,7 +47,9 @@ SRC_TARGET="mediatek"
 SRC_SUBTARGET="filogic"
 
 # Эту переменную пока оставляем пустой
-SRC_EXTRA_CONFIG=""
+SRC_EXTRA_CONFIG="
+"
+
 ```
 
 #### Шаг 2: Поиск и подготовка базового конфига

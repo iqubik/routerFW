@@ -72,10 +72,15 @@ SRC_TARGET="ramips"
 SRC_SUBTARGET="mt7621"
 SRC_PACKAGES="$COMMON_LIST"
 
+SRC_ARCH="aarch64_cortex-a53"
+
 # Resource and Hardware Settings (Source Builder)
 SRC_CORES="safe"       # Use all CPU cores except one (N-1) to keep the OS responsive
-SRC_EXTRA_CONFIG="CONFIG_TARGET_KERNEL_PARTSIZE=64 \
-CONFIG_TARGET_ROOTFS_PARTSIZE=256"
+SRC_EXTRA_CONFIG="
+CONFIG_TARGET_KERNEL_PARTSIZE=64
+CONFIG_TARGET_ROOTFS_PARTSIZE=256
+"
+
 ```
 
 **Why is this convenient?** You don't need to maintain two different program lists. You simply edit `COMMON_LIST`, and the changes are applied to both the fast (Image) build and the deep (Source) compilation.
