@@ -21,3 +21,7 @@ This is a series of lessons designed to help you master the Universal Builder, f
 
 4.  [**Lesson 4: Advanced Source Mode: Patches, Hacks, and Custom Packages**](./04-adv-source-build.en.md)
     *   *Working with `vermagic`, applying patches, adding third-party programs from source, and managing feeds.*
+
+---
+
+Project audit https://github.com/iqubik/routerFW/blob/main/audit.md
