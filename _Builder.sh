@@ -1,7 +1,7 @@
 #!/bin/bash
 # file: _Builder.sh
 
-VER_NUM="4.07"
+VER_NUM="4.08"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null

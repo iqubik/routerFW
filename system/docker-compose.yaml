@@ -1,4 +1,4 @@
-# file: system\docker-compose.yaml V1.51en
+# file: system\docker-compose.yaml V1.6en
 services:
   builder-openwrt:
     build:
@@ -47,33 +47,25 @@ services:
       START_TIME=$$(date +%s)
       TIMESTAMP=$$(TZ='UTC-3' date +%d%m%y-%H%M%S)
 
-      # --- 2. СКАЧИВАНИЕ SDK (АТОМАРНОЕ) ---
+      # --- 2. СКАЧИВАНИЕ SDK (БЕЗ ОЖИДАНИЯ, С ПЕРЕЗАПУСКОМ) ---
       ARCHIVE_NAME=$$(basename \"$$IMAGEBUILDER_URL\")
       CACHE_FILE=\"/cache/$$ARCHIVE_NAME\"
       TEMP_CACHE_FILE=\"/cache/$$ARCHIVE_NAME.tmp\"
 
-      # Функция ожидания, если другой контейнер уже скачивает файл
-      wait_for_download() {
-          echo \"[CACHE BUSY] SDK download in progress by another instance. Waiting...\"
-          while [ -f \"$$TEMP_CACHE_FILE\" ]; do
-              sleep 5
-          done
-          if [ ! -f \"$$CACHE_FILE\" ]; then return 1; fi
-      }
-
       if [ ! -f \"$$CACHE_FILE\" ]; then        
+          echo \"[CACHE MISS] SDK not found. Preparing fresh download...\"
+          
+          # Если остался .tmp от прошлой попытки — удаляем его сразу
           if [ -f \"$$TEMP_CACHE_FILE\" ]; then
-              wait_for_download || echo \"[CACHE RETRY] Previous download failed. Retrying...\"
+              echo \"[CACHE] Removing stale .tmp file...\"
+              rm -f \"$$TEMP_CACHE_FILE\"
           fi
           
-          if [ ! -f \"$$CACHE_FILE\" ]; then
-              echo \"[CACHE MISS] Downloading $$ARCHIVE_NAME...\"
-              # Используем параметры надежности для wget
-              wget --progress=dot:giga --tries=5 --timeout=20 --retry-connrefused -O \"$$TEMP_CACHE_FILE\" \"$$IMAGEBUILDER_URL\"
-              mv \"$$TEMP_CACHE_FILE\" \"$$CACHE_FILE\"
-          else
-             echo \"[CACHE HIT] File appeared after wait: $$ARCHIVE_NAME\"
-          fi
+          echo \"[CACHE] Downloading $$ARCHIVE_NAME...\"
+          # Качаем во временный файл. Если wget упадет, mv не выполнится.
+          wget --progress=dot:giga --tries=5 --timeout=20 --retry-connrefused -O \"$$TEMP_CACHE_FILE\" \"$$IMAGEBUILDER_URL\"
+          mv \"$$TEMP_CACHE_FILE\" \"$$CACHE_FILE\"
+          echo \"[CACHE] Download successful.\"
       else
         echo \"[CACHE HIT] Using cached $$ARCHIVE_NAME\"
       fi
