@@ -287,7 +287,10 @@ while true; do
             echo -ne "${C_YEL}${L[Step6_AddPkgs]}: ${C_RST}"
             read -r input_pkgs
             [ "$(echo "$input_pkgs" | tr '[:upper:]' '[:lower:]')" == "z" ] && { ((STEP--)); continue; }
-            [ -z "$input_pkgs" ] && pkgs="luci" || pkgs="$input_pkgs"
+            
+            # Объединяем всё в одну строку COMMON_LIST (как в образце)
+            [ -z "$input_pkgs" ] && extra="luci" || extra="$input_pkgs"
+            FINAL_COMMON_LIST=$(echo "$DEF_PKGS $extra" | xargs -n1 | sort -u | xargs)
 
             # Полный Маппинг архитектуры (Mirror PS1)
             case "$TARGET" in
@@ -312,7 +315,7 @@ while true; do
                 *) ARCH="mipsel_24kc" ;;
             esac
 
-            # Имя файла и сохранение
+            # Имя файла (Полное)
             ver_clean=$(echo "$RELEASE" | sed 's/\.//g;s/snapshots/snap/')
             src_short=$([ "$SOURCE" == "ImmortalWrt" ] && echo "iw" || echo "ow")
             mod_clean=$(echo "$MODEL_ID" | tr '-' '_')
@@ -334,23 +337,29 @@ while true; do
 
             branch=$([ "$RELEASE" == "snapshots" ] && echo "master" || echo "v$RELEASE")
 
-            # Финальная генерация (Полное соответствие PS1)
+            # Генерация (По образцу NanoPi R5C)
             cat <<EOF > "$conf_path"
 # === Profile for $MODEL_ID ($SOURCE $RELEASE) ===
 
 PROFILE_NAME="$profile_name"
 TARGET_PROFILE="$MODEL_ID"
 
-# ${L[Conf_Default]}
-DEFAULT_PACKAGES="$DEF_PKGS"
-
-# ${L[Conf_Custom]}
-COMMON_LIST="$pkgs"
+COMMON_LIST="$FINAL_COMMON_LIST"
 
 # === IMAGE BUILDER CONFIG
 IMAGEBUILDER_URL="$IB_URL"
-PKGS="\$DEFAULT_PACKAGES \$COMMON_LIST"
-EXTRA_IMAGE_NAME="custom"
+PKGS="\$COMMON_LIST"
+
+#CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
+#CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci
+#src/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/packages
+#src/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/special"
+#DISABLED_SERVICES="transmission-daemon minidlna"
+#EXTRA_IMAGE_NAME="custom"
+
+# === Extra config options
+#ROOTFS_SIZE="512"
+#KERNEL_SIZE="64"
 
 # === SOURCE BUILDER CONFIG
 SRC_REPO="$REPO_URL"
@@ -361,19 +370,29 @@ SRC_ARCH="$ARCH"
 SRC_PACKAGES="\$PKGS"
 SRC_CORES="safe"
 
-SRC_EXTRA_CONFIG="CONFIG_TARGET_MULTI_PROFILE=n \\
-CONFIG_BUILD_LOG=y"
-
 ## SPACE SAVING (For 4MB / 8MB flash devices)
-#    - CONFIG_LUCI_SRCDIET=y      -> Compresses Lua/JS (saves ~100-200KB)
-#    - CONFIG_IPV6=n              -> Removes IPv6 (saves ~300KB)
-#    - CONFIG_KERNEL_DEBUG_INFO=n -> Removes debugging information
-# SRC_EXTRA_CONFIG="CONFIG_LUCI_SRCDIET=y CONFIG_IPV6=n CONFIG_KERNEL_DEBUG_INFO=n"
+#    - CONFIG_LUCI_SRCDIET=y      -> Compresses Lua/JS in LuCI (saves ~100-200KB)
+#    - CONFIG_IPV6=n              -> Completely removes IPv6 support (saves ~300KB)
+#    - CONFIG_KERNEL_DEBUG_INFO=n -> Removes debugging information from the kernel
+#    - CONFIG_STRIP_KERNEL_EXPORTS=y -> Strips kernel export symbols (if no external kmods needed)
+## FILE SYSTEMS (For SD cards / x86 / NanoPi)
+#    By default, SquashFS (Read-Only) is created. EXT4 is recommended for SBCs.
+#    - CONFIG_TARGET_ROOTFS_SQUASHFS=n -> Disable SquashFS
+#    - CONFIG_TARGET_ROOTFS_EXT4FS=y   -> Enable EXT4 (Read/Write partition)
+#    - CONFIG_TARGET_ROOTFS_TARGZ=y    -> Create an archive (for containers/backups)
+## DEBUGGING AND LOGS
+#    - CONFIG_KERNEL_PRINTK=n     -> Disables boot log output to console (quiet boot)
+#    - CONFIG_BUILD_LOG=y         -> Saves build logs for each package (to debug build errors)
+## FORCED MODULE INCLUSION
+#    If a package fails to install via SRC_PACKAGES, you can force-enable it here.
+# CONFIG_PACKAGE_kmod-usb-net-rndis=y
 
-## FILE SYSTEMS
-#    By default, SquashFS is created. EXT4 is recommended for SBCs.
-#    - CONFIG_TARGET_ROOTFS_EXT4FS=y   -> Enable EXT4
-#    - CONFIG_TARGET_ROOTFS_TARGZ=y    -> Create archive
+SRC_EXTRA_CONFIG="
+CONFIG_TARGET_${TARGET}=y
+CONFIG_TARGET_${TARGET}_${SUBTARGET}=y
+CONFIG_TARGET_${TARGET}_${SUBTARGET}_DEVICE_${MODEL_ID}=y
+CONFIG_BUILD_LOG=y
+"
 EOF
             echo -e "\n${C_GRN}[OK] ${L[Step6_Saved]} $conf_path${C_RST}"
             echo -e "\n${L[FinalAction]}"

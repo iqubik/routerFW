@@ -2,7 +2,8 @@
 .SYNOPSIS
     OpenWrt/ImmortalWrt Universal Profile Creator.
     file: system\create_profile.ps1
-
+.VERSION
+    2.27 (Header Fix + Smart Navigation)
 .DESCRIPTION
     Скрипт-мастер (Wizard) для создания конфигурационных файлов профилей сборки.
     Поддерживает:
@@ -12,9 +13,6 @@
     - Умный анализ пакетов (Target Default + Device Specific).
     - Навигацию (Назад/Выход) через машину состояний.
     - UX 2.0: Автозаполнение (Luci), системные имена файлов и защита от перезаписи.
-
-.VERSION
-    2.25 (Header Fix + Smart Navigation)
 #>
 
 $ErrorActionPreference = "Stop"
@@ -368,10 +366,11 @@ while ($true) {
                 $GlobalState.LastStep = 5; $Step++
             }
 
-            # ШАГ 6: ГЕНЕРАЦИЯ КОНФИГА
+            # --- ШАГ 6: ФИНАЛИЗАЦИЯ И ГЕНЕРАЦИЯ ---
             6 {
-                # 1. Поиск ImageBuilder
                 Show-Header "$($L.Step6_Title)" 6
+                
+                # 1. Поиск ImageBuilder
                 $folderHtml = (Invoke-WebRequest -Uri $GlobalState.FinalUrl -UseBasicParsing).Content
                 if ($folderHtml -match 'href="((openwrt|immortalwrt)-imagebuilder-[^"]+\.tar\.(xz|zst))"') {
                     $ibFileName = $Matches[1]; $currentUrl = "$($GlobalState.FinalUrl)$ibFileName"
@@ -384,13 +383,16 @@ while ($true) {
                     Write-Host "$($L.Step6_ErrIB)" -ForegroundColor Red; Read-Host; $Step--; continue
                 }
 
-                # 2. Отображение пакетов
+                # 2. Обработка пакетов (Объединяем всё в один COMMON_LIST как в образце)
                 Write-Host "$($L.Step6_DefPkgs)`n$($GlobalState.DefPkgs)`n" -ForegroundColor Gray
                 $inputPkgs = Read-Host "$($L.Step6_AddPkgs)"
                 if ($inputPkgs.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue }
-                $pkgs = if ([string]::IsNullOrWhiteSpace($inputPkgs)) { "luci" } else { $inputPkgs }
+                
+                $extraPkgs = if ([string]::IsNullOrWhiteSpace($inputPkgs)) { "luci" } else { $inputPkgs }
+                # Собираем базу + ввод пользователя в одну строку без дубликатов
+                $finalCommonList = ("$($GlobalState.DefPkgs) $extraPkgs" -split "\s+" | Where-Object { $_ } | Select-Object -Unique | Sort-Object) -join " "
 
-                # --- АВТООПРЕДЕЛЕНИЕ АРХИТЕКТУРЫ (Грамотный маппинг) ---
+                # 3. ПОЛНЫЙ МАППИНГ АРХИТЕКТУРЫ (Без сокращений)
                 $arch = switch -Wildcard ($GlobalState.Target) {
                     'ramips'   { 'mipsel_24kc' }
                     'ath79'    { 'mips_24kc' }
@@ -418,10 +420,10 @@ while ($true) {
                     'sunxi'    { 'arm_cortex-a7_neon-vfpv4' }
                     'layerscape' { if ($GlobalState.Subtarget -eq '64b') { 'aarch64_generic' } else { 'arm_cortex-a7_neon-vfpv4' } }
                     '*64*'     { 'aarch64_generic' }
-                    default    { '' }
+                    default    { 'mipsel_24kc' }
                 }
 
-                # 3. Имя файла (Системная генерация + Защита)
+                # 4. Формирование имени файла (Полное, как вы просили)
                 $verClean = ($GlobalState.Release -replace '\.', '') -replace 'snapshots', 'snap'
                 $srcShort = if ($GlobalState.Source -eq 'ImmortalWrt') { 'iw' } else { 'ow' }
                 $modClean = $GlobalState.ModelID -replace '-', '_'
@@ -429,63 +431,51 @@ while ($true) {
 
                 $profileName = $null
                 do {
-                    Write-Host "`n$($L.Step6_FileName)" -ForegroundColor Gray
-                    $inputName = Read-Host "[$defaultName] (Z - $($L.PromptBack))"
-                    
                     # Навигация
+                    Write-Host "`n$($L.Step6_FileName) [$defaultName]: " -NoNewline -ForegroundColor Gray
+                    $inputName = Read-Host
                     if ($inputName.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue 2 }
-                    if ($inputName.ToLower() -eq 'q') { exit }
-
                     # Логика выбора и нормализации
-                    if ([string]::IsNullOrWhiteSpace($inputName)) { 
-                        $profileName = $defaultName
-                    } else {
                         # Форматирование: только мелкие буквы, цифры и подчеркивания
-                        $cleanName = $inputName.Trim().ToLower() -replace '[\s\-\.]+', '_'
-                        $cleanName = $cleanName -replace '[^a-z0-9_]', ''
-                        if ([string]::IsNullOrWhiteSpace($cleanName)) {
-                            Write-Host "$($L.Step6_ErrName)" -ForegroundColor Red
-                            continue
-                        }
-                        $profileName = $cleanName
-                        if ($inputName -ne $profileName) { Write-Host "$($L.Step6_AutoCorr) $profileName" -ForegroundColor Cyan }
+                    
+                    $profileName = if ([string]::IsNullOrWhiteSpace($inputName)) { $defaultName } else { 
+                        $inputName.Trim().ToLower() -replace '[\s\-\.]+', '_' -replace '[^a-z0-9_]', ''
                     }
 
                     # Проверка на существование
                     if (Test-Path (Join-Path $ProfilesDir "$profileName.conf")) {
-                        Write-Host " $($L.Step6_Exists) '$profileName.conf'" -ForegroundColor Yellow
+                        Write-Host " $($L.Step6_Exists)" -ForegroundColor Yellow
                         $ovr = Read-Host " $($L.Step6_Overwrite)"
                         if ($ovr.Trim().ToLower() -ne 'y') { continue }
                     }
                     break 
                 } while ($true)
 
-                # 4. Сохранение
+                # 5. СОХРАНЕНИЕ (СТРУКТУРА ПО ВАШЕМУ ОБРАЗЦУ)
                 $confPath = Join-Path $ProfilesDir "$profileName.conf"
                 $gitBranch = if ($GlobalState.Release -eq "snapshots") { "master" } else { "v$($GlobalState.Release)" }
                 
-                # Твой расширенный шаблон контента
                 $content = @"
 # === Profile for $($GlobalState.ModelID) ($($GlobalState.Source) $($GlobalState.Release)) ===
 
 PROFILE_NAME="$profileName"
 TARGET_PROFILE="$($GlobalState.ModelID)"
 
-# $($L.Conf_Default)
-DEFAULT_PACKAGES="$($GlobalState.DefPkgs)"
-
-# $($L.Conf_Custom)
-COMMON_LIST="$pkgs"
+COMMON_LIST="$finalCommonList"
 
 # === IMAGE BUILDER CONFIG
 IMAGEBUILDER_URL="$($GlobalState.IBUrl)"
-PKGS="`$DEFAULT_PACKAGES `$COMMON_LIST"
-EXTRA_IMAGE_NAME="custom"
 #CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
 #CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci
 #src/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/packages
 #src/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/special"
 #DISABLED_SERVICES="transmission-daemon minidlna"
+PKGS="`$COMMON_LIST"
+#EXTRA_IMAGE_NAME="custom"
+
+# === Extra config options
+#ROOTFS_SIZE="512"
+#KERNEL_SIZE="64"
 
 # === SOURCE BUILDER CONFIG
 SRC_REPO="$($GlobalState.RepoUrl)"
@@ -496,41 +486,35 @@ SRC_ARCH="$arch"
 SRC_PACKAGES="`$PKGS"
 SRC_CORES="safe"
 
-# === Extra config options
-#ROOTFS_SIZE="512"
-#KERNEL_SIZE="64"
-SRC_EXTRA_CONFIG="CONFIG_TARGET_MULTI_PROFILE=n \
-CONFIG_BUILD_LOG=y"
-
 ## SPACE SAVING (For 4MB / 8MB flash devices)
 #    - CONFIG_LUCI_SRCDIET=y      -> Compresses Lua/JS in LuCI (saves ~100-200KB)
 #    - CONFIG_IPV6=n              -> Completely removes IPv6 support (saves ~300KB)
 #    - CONFIG_KERNEL_DEBUG_INFO=n -> Removes debugging information from the kernel
 #    - CONFIG_STRIP_KERNEL_EXPORTS=y -> Strips kernel export symbols (if no external kmods needed)
-# SRC_EXTRA_CONFIG="CONFIG_LUCI_SRCDIET=y CONFIG_IPV6=n CONFIG_KERNEL_DEBUG_INFO=n"
-
 ## FILE SYSTEMS (For SD cards / x86 / NanoPi)
 #    By default, SquashFS (Read-Only) is created. EXT4 is recommended for SBCs.
 #    - CONFIG_TARGET_ROOTFS_SQUASHFS=n -> Disable SquashFS
 #    - CONFIG_TARGET_ROOTFS_EXT4FS=y   -> Enable EXT4 (Read/Write partition)
 #    - CONFIG_TARGET_ROOTFS_TARGZ=y    -> Create an archive (for containers/backups)
-# CONFIG_TARGET_ROOTFS_SQUASHFS=n CONFIG_TARGET_ROOTFS_EXT4FS=y
-
 ## DEBUGGING AND LOGS
 #    - CONFIG_KERNEL_PRINTK=n     -> Disables boot log output to console (quiet boot)
 #    - CONFIG_BUILD_LOG=y         -> Saves build logs for each package (to debug build errors)
-# CONFIG_BUILD_LOG=y
-
 ## FORCED MODULE INCLUSION
 #    If a package fails to install via SRC_PACKAGES, you can force-enable it here.
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
+
+SRC_EXTRA_CONFIG="
+CONFIG_TARGET_$($GlobalState.Target)=y
+CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)=y
+CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalState.ModelID)=y
+CONFIG_BUILD_LOG=y
+"
 "@
-                $content | Out-File -FilePath $confPath -Encoding utf8 -Force
+                [System.IO.File]::WriteAllText($confPath, $content, (New-Object System.Text.UTF8Encoding($false)))
                 Write-Host "`n[OK] $($L.Step6_Saved) $confPath" -ForegroundColor Green
                 
                 Write-Host "`n$($L.FinalAction)"
-                $finalAction = Read-Host
-                if ($finalAction -eq 'q') { exit }
+                if ((Read-Host).ToLower() -eq 'q') { exit }
                 $Step = 1
             } # <-- Закрывает Шаг 6
         } # <-- Закрывает Switch
