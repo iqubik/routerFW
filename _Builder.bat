@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.04"
+set "VER_NUM=4.06"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -1132,7 +1132,7 @@ echo     if [ -n "$ROOTFS_SIZE" ]; then echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROO
 echo     if [ -n "$KERNEL_SIZE" ]; then echo "CONFIG_TARGET_KERNEL_PARTSIZE=$KERNEL_SIZE" ^>^> .config; fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     if [ -n "$SRC_EXTRA_CONFIG" ]; then >> "%RUNNER_SCRIPT%"
-echo         echo "$SRC_EXTRA_CONFIG" ^>^> .config >> "%RUNNER_SCRIPT%"
+echo         echo "$SRC_EXTRA_CONFIG" ^| sed '/^^$/d' ^>^> .config >> "%RUNNER_SCRIPT%"
 echo     fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     make defconfig >> "%RUNNER_SCRIPT%"
@@ -1196,19 +1196,22 @@ if exist "%WIN_OUT_PATH%\manual_config" (
     set /p "m_apply=%L_K_MOVE_ASK%: "
     
     if /i "!m_apply!"=="Y" (
-        echo [PROCESS] Syncing data...
+        echo [PROCESS] Syncing data and cleaning profile...
         powershell -NoProfile -Command ^
             "$confPath = 'profiles\%CONF_FILE%';" ^
             "$manualPath = '%WIN_OUT_PATH%\manual_config';" ^
-            "$confLines = Get-Content $confPath;" ^
-            "$manualLines = Get-Content $manualPath | Where-Object { $_.Trim() -ne '' };" ^
-            "if ($manualLines) {" ^
-            "    $cleanConf = $confLines | Where-Object { $_ -notmatch '^SRC_EXTRA_CONFIG=' };" ^
+            "$newConfig = Get-Content $manualPath | Where-Object { $_.Trim() -ne '' };" ^
+            "if ($newConfig) {" ^
+            "    $raw = Get-Content $confPath -Raw;" ^
             "    $LF = [char]10;" ^
-            "    $formatted = $manualLines -join $LF;" ^
-            "    $newVar = 'SRC_EXTRA_CONFIG=\"' + $LF + $formatted + $LF + '\"';" ^
-            "    $finalContent = ($cleanConf -join $LF).TrimEnd() + $LF + $LF + $newVar + $LF;" ^
-            "    [System.IO.File]::WriteAllText($confPath, $finalContent, (New-Object System.Text.UTF8Encoding($false)));" ^
+            "    $newContent = $newConfig -join $LF;" ^
+            "    $newVar = 'SRC_EXTRA_CONFIG=\"' + $LF + $newContent + $LF + '\"';" ^
+            "    if ($raw -match '(?ms)SRC_EXTRA_CONFIG=\".*?\"') {" ^
+            "        $final = $raw -replace '(?ms)SRC_EXTRA_CONFIG=\".*?\"', $newVar;" ^
+            "    } else {" ^
+            "        $final = $raw.Trim() + $LF + $LF + $newVar + $LF;" ^
+            "    }" ^
+            "    [System.IO.File]::WriteAllText($confPath, $final, (New-Object System.Text.UTF8Encoding($false)));" ^
             "    Write-Host '%L_K_MOVE_OK%';" ^
             "}"
         :: Сохраняем архив примененных настроек
