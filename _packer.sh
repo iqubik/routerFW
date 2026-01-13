@@ -52,7 +52,8 @@ FILES=(
     "profiles/xiaomi_4a_gigabit_23056_full.conf"
     "profiles/rax3000m_i_24104_full.conf"
     "profiles/rax3000m_emmc_test_new.conf"
-    "profiles/giga_24104_immortal_full.conf"    
+    "profiles/giga_24104_immortal_full.conf"
+    "profiles/friendlyarm_nanopi_r3s_24105_ow_full.conf"
 )
 
 TEMP_DIR="temp_packer_sh"

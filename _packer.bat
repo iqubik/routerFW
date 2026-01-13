@@ -60,6 +60,7 @@ call :ADD_FILE "profiles\xiaomi_4a_gigabit_23056_full.conf"
 call :ADD_FILE "profiles\rax3000m_i_24104_full.conf"
 call :ADD_FILE "profiles\rax3000m_emmc_test_new.conf"
 call :ADD_FILE "profiles\giga_24104_immortal_full.conf"
+call :ADD_FILE "profiles\friendlyarm_nanopi_r3s_24105_ow_full.conf"
 
 :: Настройки путей (Используем абсолютные пути во избежание ошибок)
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"
