@@ -53,13 +53,30 @@ Version **4.03** implements a seamless synchronization cycle between the interac
 
 ### 🪝 4. Automation via Hooks & The "Vermagic Hack"
 
-The script `custom_files/%ID%/hooks.sh` (Indicator **H**) is your tool for "last-minute" automation before compilation.
+The script `custom_files/%ID%/hooks.sh` (Indicator **H**) is your tool for "last-minute" automation before compilation. The `scripts/hooks.sh` template already includes several useful, pre-built functions:
 
-*   **Feeds & Patching**: Use `add_feed` to connect extra repos or `patch -p1` to apply custom code fixes.
-*   **The Vermagic Problem**: If you build custom firmware, you usually cannot install official kernel modules (`kmod-*.ipk`) due to a `vermagic mismatch`.
-*   **The Solution**: This is resolved **automatically** for release builds. If `hooks.sh` is present in your custom files, the Builder identifies your version, downloads the official kernel "signature" (vermagic), and embeds it into your build.
+*   **Auto-Enable Wi-Fi:** When the hook is used, a `uci-defaults` script is automatically added to the image. It runs once on the router's first boot and enables all wireless interfaces, saving you from needing a wired connection for initial setup.
+*   **Add Feeds**: Use the `add_feed` function to connect external package repositories that are not included in the default OpenWrt source.
+    ```bash
+    # Example: Adds the repository containing the amneziawg package
+    add_feed "amneziawg" "https://github.com/amnezia-vpn/amnezia-wg-openwrt.git"
+    ```
+*   **Patching**: Apply custom code modifications using `patch -p1`.
+*   **The Vermagic Hack (Automatic)**: If you build custom firmware, you usually cannot install official kernel modules (`kmod-*.ipk`) due to a `vermagic mismatch`. This is resolved automatically for release builds. If `hooks.sh` is present, the Builder identifies your version, downloads the official kernel "signature" (vermagic), and embeds it into your build.
 
-> **Note:** If you remove `hooks.sh`, the source code will automatically roll back to the default state during the next build.
+#### 🛡️ Reliability Architecture: The "Self-Healing" Mechanism (v4.09+)
+
+One of the most powerful but non-obvious features of the builder is its protection against a "dirty" build environment.
+
+*   **The Problem:** Using `hooks.sh` to apply patches (like the Vermagic Hack) leaves a trace in the working directory. If you later decide to build firmware for another profile (or the same one, but without `hooks.sh`), residual changes from the patches could cause hard-to-diagnose compilation errors. You would get a "dirty" build without even realizing it.
+
+*   **The Solution — Automatic Rollback:** Starting with v4.09, the builder performs a check before every `Source` mode run. If it detects that `hooks.sh` is **missing** from the current profile, but the build environment **has been modified** previously, it triggers a **full self-healing cycle**:
+    1.  Restores the original `Makefile` files from backups.
+    2.  Deletes `vermagic` markers.
+    3.  Performs a deep kernel cache clean (`make target/linux/clean`).
+    4.  **Completely resets CCACHE** for that working directory.
+
+*   **The Result:** This mechanism guarantees that every build without hooks starts in a **predictably clean state**. It significantly increases build reliability and reproducibility, saving you from having to manually clean caches.
 
 ---
 

@@ -148,18 +148,27 @@ SRC_CORES="safe"
 
 ## 🪝 Smart Hooks and Vermagic Hack
 
-The package includes a smart script `scripts/hooks.sh` (version 1.2+).
-When placed in the `custom_files/your_profile/` folder, it activates two powerful functions:
+The package includes a smart script `scripts/hooks.sh`.
+When placed in the `custom_files/your_profile/` folder, it activates several powerful functions:
 
-1.  **Git-Safe Patching:** Safely modifies source code before building. Allows changing DTS, Makefiles (e.g., for 16MB mods). Automatic backups protect against breaking the source tree when changing versions.
-2.  **Vermagic Hack (Repository Compatibility):**
+1.  **Auto-Enable Wi-Fi on First Boot:** The script automatically creates a `uci-defaults` script that enables all wireless radios when the router first starts up. This saves you from needing a wired connection for initial setup.
+2.  **Git-Safe Patching:** Safely modifies source code before building. Allows changing DTS, Makefiles (e.g., for 16MB mods). Automatic backups protect against breaking the source tree when changing versions.
+3.  **Vermagic Hack (Repository Compatibility):**
     *   *The Problem:* Normally, when you build your own kernel (SourceBuilder), its "fingerprint" (vermagic) differs from the official one. This prevents you from installing `kmod-*` (driver) packages from the official repository.
     *   *The Solution:* The script **automatically downloads the official manifest** for your OpenWrt version, extracts the correct hash, and "tricks" the build system.
     *   *Result:* You get custom firmware where **official drivers can be installed** (USB, Wireguard, FS) without errors!
-    
-> **💡 Self-Healing Logic:** The SourceBuilder module has a **built-in rollback mechanism**.
-> **Scenario:** You used a profile with `hooks.sh` (for Vermagic or other patches) and then removed that hook.
-> **Result:** The system will detect the "dirty" state of the build and perform a **full automatic cleanup**: restore original build files, perform deep kernel cache cleaning, and **completely reset CCACHE**. This prevents hard-to-diagnose errors and makes the system much more reliable.
+
+### 🛡️ Reliability Architecture (v4.09+)
+
+Starting with version 4.09, the builder's architecture has been significantly redesigned with a focus on predictability and stability.
+
+*   **"Self-Healing" Mechanism (Source Builder):**
+    *   **The Problem:** Using patches (`hooks.sh`) to modify source code (e.g., for the Vermagic Hack) leaves a "dirty" trace in the build environment. If you then built firmware without these patches, the residual changes could lead to errors.
+    *   **The Solution:** The builder now **automatically** detects this state. If `hooks.sh` is missing but the system has been modified, it initiates a **full rollback cycle**: restoring clean Makefiles, clearing the kernel cache, and resetting CCACHE. This ensures that every build starts in a predictably clean environment.
+
+*   **Docker Stability on WSL/Linux:**
+    *   **The Problem:** Docker's interaction with the Windows file system (via WSL) could lead to file locking errors, interrupting the build.
+    *   **The Solution:** A new, more robust container management cycle has been implemented. Before starting a build, the system forcibly stops and removes old containers, giving the file system time to "breathe." This almost completely eliminates this class of errors.
 
 ---
 
