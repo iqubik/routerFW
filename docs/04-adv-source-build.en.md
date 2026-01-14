@@ -59,7 +59,7 @@ The script `custom_files/%ID%/hooks.sh` (Indicator **H**) is your tool for "last
 *   **Add Feeds**: Use the `add_feed` function to connect external package repositories that are not included in the default OpenWrt source.
     ```bash
     # Example: Adds the repository containing the amneziawg package
-    add_feed "amneziawg" "https://github.com/amnezia-vpn/amnezia-wg-openwrt.git"
+    add_feed "amneziawg" "https://github.com/amnezia-vpn/amneziawg-openwrt.git"
     ```
 *   **Patching**: Apply custom code modifications using `patch -p1`.
 *   **The Vermagic Hack (Automatic)**: If you build custom firmware, you usually cannot install official kernel modules (`kmod-*.ipk`) due to a `vermagic mismatch`. This is resolved automatically for release builds. If `hooks.sh` is present, the Builder identifies your version, downloads the official kernel "signature" (vermagic), and embeds it into your build.

@@ -197,7 +197,7 @@ add_feed() {
 # --- СПИСОК РЕПОЗИТОРИЕВ ДЛЯ ДОБАВЛЕНИЯ ---
 # Здесь вы можете добавлять любые необходимые репозитории
 # 1. AmneziaWG
-# add_feed "amneziawg" "https://github.com/amnezia-vpn/amnezia-wg-openwrt.git"
+# add_feed "amneziawg" "https://github.com/amnezia-vpn/amneziawg-openwrt.git"
 
 # 2. OpenClash / SSClash (Если нужны специфичные версии, раскомментируйте)
 # add_feed "openclash" "https://github.com/vernesong/OpenClash.git"
