@@ -1,95 +1,101 @@
 #!/bin/bash
 # ======================================================================================
-#  Универсальный скрипт-хук для Source Builder v1.5.0
+#  Универсальный скрипт-хук для Source Builder v1.5.1 // Universal hook script for Source Builder
 # ======================================================================================
 #
-#  ИЗМЕНЕНИЕ: Комментарий был полностью переработан для ясности и точности.
+#  ИЗМЕНЕНИЕ: Комментарии внутри скрипта были улучшены для максимальной ясности.
+#  CHANGE: In-script comments improved for maximum clarity.
 #
-#  ОПИСАНИЕ:
+#  ОПИСАНИЕ: // DESCRIPTION:
 #  Этот скрипт является мощным инструментом для глубокой настройки процесса сборки.
+#  This script is a powerful tool for deep customization of the build process.
 #  Он выполняется внутри Docker-контейнера и позволяет вносить изменения "на лету"
 #  непосредственно перед основной фазой компиляции.
+#  It runs inside Docker and allows "on-the-fly" changes before the main compilation.
 #
-#  КОНТЕКСТ ВЫПОЛНЕНИЯ (src_builder.sh):
-#  Скрипт запускается в строго определенный момент:
-#    1. git clone/fetch: Исходный код OpenWrt скачан и обновлен.
-#    2. ./scripts/feeds update/install: Стандартные фиды (репозитории пакетов) установлены.
-#    3. >> ЗАПУСК hooks.sh << : В этот момент можно модифицировать исходники или добавить новые фиды.
-#    4. make defconfig: Генерируется финальный .config, учитывающий все изменения.
-#    5. make: Начинается основная компиляция.
+#  КОНТЕКСТ ВЫПОЛНЕНИЯ (src_builder.sh): // EXECUTION CONTEXT:
+#  Скрипт запускается в строго определенный момент: // Script runs at a specific stage:
+#    1. git clone/fetch: Исходный код OpenWrt скачан и обновлен. // OpenWrt source downloaded.
+#    2. ./scripts/feeds update/install: Стандартные фиды установлены. // Standard feeds installed.
+#    3. >> ЗАПУСК hooks.sh << : Модификация исходников или фидов. // >> START hooks.sh << : Source modification.
+#    4. make defconfig: Генерируется финальный .config. // Final .config generation.
+#    5. make: Начинается основная компиляция. // Main compilation starts.
 #
-#  КЛЮЧЕВЫЕ ВОЗМОЖНОСТИ ШАБЛОНА:
-#    - Модификация файлов: Правка любых файлов в дереве исходников (DTS, Makefile, C-код).
-#    - Скрипты первого запуска: Создание uci-defaults скриптов (например, для включения Wi-Fi).
-#    - Управление фидами: Динамическое добавление сторонних репозиториев пакетов.
-#    - Vermagic Hack: Автоматическая подмена "сигнатуры" ядра для совместимости с kmod-пакетами.
-#    - Умная очистка кэша: Сброс кэшей только при необходимости, ускоряя повторные сборки.
+#  КЛЮЧЕВЫЕ ВОЗМОЖНОСТИ ШАБЛОНА: // KEY TEMPLATE FEATURES:
+#    - Модификация файлов: Правка DTS, Makefile, C-кода. // File modification: DTS, Makefile, C-code.
+#    - Скрипты первого запуска: Создание uci-defaults. // First-run scripts: uci-defaults creation.
+#    - Управление фидами: Добавление репозиториев. // Feed management: Adding repositories.
+#    - Vermagic Hack: Совместимость с официальными kmod. // Vermagic Hack: Official kmod compatibility.
+#    - Умная очистка кэша: Сброс при необходимости. // Smart cache cleaning: Reset if needed.
 #
 # ======================================================================================
 
-# 1. Настройка окружения и цветов
+# ======================================================================================
+#  БЛОК 0: ИНИЦИАЛИЗАЦИЯ И ЛОГИРОВАНИЕ // BLOCK 0: INITIALIZATION & LOGGING
+# ======================================================================================
+# Настройка переменных для цветного вывода. // Setup variables for color output.
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# ВАЖНО: Отключаем интерактивный ввод пароля для Git (чтобы не вис в Docker)
+# ВАЖНО: Отключаем интерактивный ввод пароля для Git // IMPORTANT: Disable Git interactive prompts
 export GIT_TERMINAL_PROMPT=0
 
-# Вспомогательные функции логгирования
+# Вспомогательные функции для вывода сообщений. // Helper functions for logging.
 log() { echo -e "${CYAN}[HOOK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[HOOK] WARNING: $1${NC}"; }
 err()  { echo -e "${RED}[HOOK] ERROR: $1${NC}"; }
-log ">>> Запуск сценария hooks.sh (Universal v1.4.3)..."
+log ">>> Запуск сценария hooks.sh (Universal v1.5.1)..."
 
 # ======================================================================================
-# БЛОК 1: Демонстрационный пример (Автограф в README)
+#  БЛОК 1: ДЕМОНСТРАЦИЯ МОДИФИКАЦИИ ФАЙЛОВ // BLOCK 1: FILE MODIFICATION DEMO
 # ======================================================================================
-# Этот блок показывает, как безопасно модифицировать файл.
+# Этот блок показывает, как безопасно изменять файлы. // This block shows how to safely modify files.
+# Ключевой аспект - идемпотентность (проверка на дубликаты). // Key aspect: idempotency (check for duplicates).
+# ======================================================================================
+log "Проверка и установка автографа сборки..." # Checking and setting build signature...
 TARGET_FILE=$(find . -maxdepth 1 -name "README*" | head -n 1)
 [ -z "$TARGET_FILE" ] && TARGET_FILE="README.md" && touch "$TARGET_FILE"
 TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
 SIGNATURE="Build processed by SourceBuilder"
-# Проверка на идемпотентность
+
+# Проверяем, что подпись отсутствует, и только тогда добавляем. // Check if signature is missing before adding.
 if ! grep -Fq "$SIGNATURE" "$TARGET_FILE"; then
-    log "Добавляем автограф в $TARGET_FILE..."
+    log "Добавляем автограф в $TARGET_FILE..." # Adding signature to file...
     echo "" >> "$TARGET_FILE"
     echo "--- $SIGNATURE on $TIMESTAMP ---" >> "$TARGET_FILE"
-    
-    # Валидация записи
+    # Валидация записи для надежности // Record validation for reliability
     if grep -Fq "$SIGNATURE" "$TARGET_FILE"; then
-        echo -e "${GREEN}       УСПЕХ: README обновлен.${NC}"
-        echo -e "${CYAN}       Содержимое последней строки:${NC}"
-        tail -n 1 "$TARGET_FILE"
+        echo -e "${GREEN}       УСПЕХ: README обновлен.${NC}" # SUCCESS: README updated.
     else
-        err "Не удалось записать в файл!"
-        exit 1
+        err "Не удалось записать автограф в файл!" # Failed to write signature!
     fi
 fi
 
 # ======================================================================================
-# БЛОК 1.1: Авто-включение Wi-Fi (Первая загрузка)
+#  БЛОК 1.1: АВТО-ВКЛЮЧЕНИЕ WI-FI (ЧЕРЕЗ UCI-DEFAULTS) // BLOCK 1.1: AUTO-ENABLE WI-FI
 # ======================================================================================
-# Создает скрипт 'uci-defaults', который сработает ПРИ ПЕРВОМ старте роутера.
-# В отличие от жесткой правки конфигов, это позволяет пользователю потом выключить 
-# Wi-Fi через веб-интерфейс, и настройки не "слетят" обратно при перезагрузке.
-log ">>> Проверка конфигурации Wi-Fi (Auto-enable)..."
-# Исключаем x86 и другие платформы, где Wi-Fi обычно отсутствует или не нужен по умолчанию
+# Назначение: Обеспечить работающий Wi-Fi "из коробки". // Purpose: Ensure Wi-Fi works out-of-the-box.
+# Метод: Создание скрипта в /etc/uci-defaults. // Method: Create script in /etc/uci-defaults.
+# ======================================================================================
+log "Проверка конфигурации Wi-Fi (Auto-enable)..." # Checking Wi-Fi config...
+# Исключаем платформы (например, x86). // Exclude platforms like x86.
 if [[ "$SRC_TARGET" == "x86" ]]; then
-    warn "Для платформы x86 авто-включение Wi-Fi пропущено."
+    warn "Для платформы x86 авто-включение Wi-Fi пропущено." # Skip Wi-Fi for x86.
 else
-    # Путь внутри исходников OpenWrt, который копируется в корень прошивки
+    # Путь /files/ соответствует корню / в прошивке. // /files/ path matches root / in firmware.
     UCI_DEFAULTS_DIR="files/etc/uci-defaults"
     SCRIPT_NAME="99-enable-wifi"
-    # Создаем директорию, если её нет
+    # Создаем директорию, если её нет // Create directory if missing
     mkdir -p "$UCI_DEFAULTS_DIR"
-    log "Создание сценария первой загрузки: $UCI_DEFAULTS_DIR/$SCRIPT_NAME"    
-    # Генерируем скрипт    
+    log "Создание сценария первой загрузки: $UCI_DEFAULTS_DIR/$SCRIPT_NAME" # Creating uci-defaults script...
+
+    # Генерируем скрипт активации. // Generate activation script.
     cat <<EOF > "$UCI_DEFAULTS_DIR/$SCRIPT_NAME"
 #!/bin/sh
-# Этот скрипт выполняется один раз при первой загрузке системы
-# Включаем все найденные радио-модули
+# Включаем все найденные радио-модули // Enable all found radio modules
 for radio in \$(uci show wireless | grep =device | cut -d. -f2); do
     uci set wireless.\$radio.disabled='0'
 done
@@ -97,132 +103,97 @@ uci commit wireless
 /sbin/wifi reload
 exit 0
 EOF
-    # Важно: Скрипт в uci-defaults ДОЛЖЕН быть исполняемым
+    # Скрипт в uci-defaults ДОЛЖЕН быть исполняемым. // Script must be executable.
     chmod +x "$UCI_DEFAULTS_DIR/$SCRIPT_NAME"
 
     if [ -f "$UCI_DEFAULTS_DIR/$SCRIPT_NAME" ]; then
-        echo -e "${GREEN}       УСПЕХ: Скрипт активации Wi-Fi добавлен в образ.${NC}"
+        echo -e "${GREEN}       УСПЕХ: Скрипт активации Wi-Fi добавлен в образ.${NC}" # SUCCESS: Wi-Fi script added.
     else
-        err "Не удалось создать скрипт активации Wi-Fi!"
+        err "Не удалось создать скрипт активации Wi-Fi!" # Failed to create Wi-Fi script!
     fi
 fi
 
 # ======================================================================================
-# БЛОК 1.2: FLASH MEMORY HACK (Увеличение лимитов с 8МБ до 16МБ)
+#  БЛОК 1.2: АВТОМАТИЧЕСКИЙ ПАТЧ ДЛЯ 16MB FLASH // BLOCK 1.2: AUTO-PATCH FOR 16MB FLASH
 # ======================================================================================
-# Назначение: Автоматическая подготовка прошивки для устройств с перепаянной флеш-памятью.
-# Применимо для: Платформы ramips (чипы mt7621/7628/7688), например Xiaomi 4C, Mi Nano и др.
-# Логика работы: 
-#   1. В Device Tree (DTS) увеличивается размер системного раздела (firmware).
-#   2. В Makefile сборщика (MK) увеличивается лимит допустимого размера образа.
-# Идемпотентность: Скрипт проверяет наличие изменений перед правкой, исключая повторные записи.
+# Назначение: Подготовка для устройств с перепаянной флеш-памятью. // Purpose: Hack for 16MB flash mods.
+# Применимо для: ramips (mt7621/7628/7688). // Applicable for: ramips platforms.
 # ======================================================================================
-# Проверка: выполняем только если целевая платформа соответствует mt76x8 (ramips)
 # if [[ "$SRC_TARGET" == "ramips" && "$SRC_SUBTARGET" == "mt76x8" ]]; then
-#     log ">>> Проверка аппаратных лимитов Flash памяти..."
-#     # Конфигурация путей к файлам (стандартные пути OpenWrt/ImmortalWrt)
+#     log ">>> Проверка аппаратных лимитов Flash памяти (16MB Hack)..." # Checking flash limits...
 #     DTS_FILE="target/linux/ramips/dts/mt7628an.dtsi"
 #     MK_FILE="target/linux/ramips/image/mt76x8.mk"
-#     # --- ПУНКТ 1: Модификация Device Tree (DTS) ---
-#     if [ -f "$DTS_FILE" ]; then
-#         # Проверяем, не установлен ли уже размер 16МБ (0xfb0000)
-#         if grep -q "0xfb0000" "$DTS_FILE"; then
-#             log "DTS: Разметка под 16МБ уже активна. Пропуск."
-#         else
-#             log "DTS: Увеличиваю размер раздела 'firmware' (0x7b0000 -> 0xfb0000)..."            
-#             # Создаем резервную копию оригинала перед первой правкой
-#             [ ! -f "${DTS_FILE}.bak" ] && cp "$DTS_FILE" "${DTS_FILE}.bak"            
-#             # Заменяем старое значение размера на новое
-#             # Используем безопасный паттерн с учетом возможных пробелов
-#             sed -i 's/<0x7b0000>/<0xfb0000>/g' "$DTS_FILE"            
-#             # Проверка результата
-#             if grep -q "0xfb0000" "$DTS_FILE"; then
-#                 echo -e "${GREEN}       УСПЕХ: Таблица разделов DTS обновлена.${NC}"
-#             else
-#                 err "Ошибка при модификации $DTS_FILE"
-#             fi
-#         fi
-#     else
-#         warn "Файл структуры устройства (DTS) не найден: $DTS_FILE"
+
+#     # --- Модификация Device Tree (DTS) --- // DTS Modification
+#     if [ -f "$DTS_FILE" ] && ! grep -q "0xfb0000" "$DTS_FILE"; then
+#         log "DTS: Увеличиваю размер раздела 'firmware'..." # Increasing firmware partition size...
+#         [ ! -f "${DTS_FILE}.bak" ] && cp "$DTS_FILE" "${DTS_FILE}.bak"
+#         sed -i 's/<0x7b0000>/<0xfb0000>/g' "$DTS_FILE"
+#         if grep -q "0xfb0000" "$DTS_FILE"; then echo -e "${GREEN}       УСПЕХ: DTS обновлен.${NC}"; else err "Ошибка модификации $DTS_FILE"; fi
 #     fi
-# # --- ПУНКТ 2: Модификация лимитов сборщика (Makefile) ---
-#     if [ -f "$MK_FILE" ]; then
-#         # Проверяем наличие типичных значений для 16МБ флешек
-#         if grep -Eiq "16064k|15872k" "$MK_FILE"; then
-#             log "MK: Лимиты размера образа уже увеличены. Пропуск."
-#         else
-#             log "MK: Снятие ограничения 'Image too big' для 16МБ..."            
-#             # Резервное копирование
-#             [ ! -f "${MK_FILE}.bak" ] && cp "$MK_FILE" "${MK_FILE}.bak"            
-#             # Заменяем стандартные лимиты 8-мегабайтных моделей на 16-мегабайтные
-#             # 7872k (стандарт) -> 15872k (безопасный максимум для 16МБ)
-#             sed -i 's/7872k/15872k/g' "$MK_FILE"
-#             # 8064k (максимум) -> 16064k
-#             sed -i 's/8064k/16064k/g' "$MK_FILE"            
-#             echo -e "${GREEN}       УСПЕХ: Лимиты сборщика в Makefile обновлены.${NC}"
-#         fi
-#     else
-#         warn "Конфигурационный файл образов (MK) не найден: $MK_FILE"
+
+#     # --- Модификация лимитов Makefile --- // Makefile limits modification
+#     if [ -f "$MK_FILE" ] && ! grep -Eiq "16064k|15872k" "$MK_FILE"; then
+#         log "MK: Снятие ограничения 'Image too big'..." # Removing image size limits...
+#         [ ! -f "${MK_FILE}.bak" ] && cp "$MK_FILE" "${MK_FILE}.bak"
+#         sed -i -e 's/7872k/15872k/g' -e 's/8064k/16064k/g' "$MK_FILE"
+#         echo -e "${GREEN}       УСПЕХ: Лимиты сборщика обновлены.${NC}"
 #     fi
 # fi
 
 # ======================================================================================
-# БЛОК 2: Smart Feed Manager (Добавление внешних репозиториев)
+#  БЛОК 2: SMART FEED MANAGER
 # ======================================================================================
-log ">>> Проверка и интеграция внешних фидов (Feeds)..."
-# Функция для безопасного добавления и установки фида
+# Назначение: Управление внешними репозиториями пакетов. // Purpose: Manage external package feeds.
+# Функция add_feed инкапсулирует логику добавления. // add_feed function encapsulates addition logic.
+# ======================================================================================
+log ">>> Проверка и интеграция внешних фидов (Feeds)..." # Checking external feeds...
 add_feed() {
     local FEED_NAME="$1"
     local FEED_URL="$2"
     local FEED_FILE="feeds.conf.default"
-    # Проверяем, есть ли уже такой фид (по имени или URL)
+
+    # 1. Проверка, не добавлен ли фид ранее. // Check if feed exists.
     if grep -qE "^src-git ${FEED_NAME} " "$FEED_FILE" || grep -Fq "$FEED_URL" "$FEED_FILE"; then
-        log "Фид '$FEED_NAME' уже присутствует. Пропуск."
+        log "Фид '$FEED_NAME' уже присутствует. Пропуск." # Feed already exists. Skip.
     else
-        log "Добавляем фид: $FEED_NAME -> $FEED_URL"
+        log "Добавляем фид: $FEED_NAME -> $FEED_URL" # Adding new feed...
         echo "src-git ${FEED_NAME} ${FEED_URL}" >> "$FEED_FILE"
-        # Принудительно обновляем и устанавливаем пакеты ТОЛЬКО из этого фида
-        log "Интеграция пакетов из $FEED_NAME..."        
-        # Попытка 1
-        ./scripts/feeds update "$FEED_NAME"        
-        if [ $? -ne 0 ]; then
-            warn "Первая попытка обновления $FEED_NAME неудачна. Пробуем повторно через 3 сек..."
+
+        # 2. Обновление и установка пакетов ТОЛЬКО из этого фида. // Update/Install ONLY this feed.
+        log "Интеграция пакетов из '$FEED_NAME'..." # Integrating packages...
+        if ! ./scripts/feeds update "$FEED_NAME"; then
+            warn "Первая попытка обновления '$FEED_NAME' неудачна. Повтор..." # Retry update...
             sleep 3
             ./scripts/feeds update "$FEED_NAME"
         fi
-        if [ $? -eq 0 ]; then
-            ./scripts/feeds install -a -p "$FEED_NAME"
-            echo -e "${GREEN}       УСПЕХ: Пакеты из $FEED_NAME установлены.${NC}"
+
+        # 3. Финальная проверка и установка. // Final check and install.
+        if ./scripts/feeds install -a -p "$FEED_NAME"; then
+            echo -e "${GREEN}       УСПЕХ: Пакеты из '$FEED_NAME' установлены.${NC}" # SUCCESS: Packages installed.
         else
-            err "Критическая ошибка: Не удалось обновить фид $FEED_NAME."
-            err "Git вернул ошибку. Проверьте доступность URL: $FEED_URL"
-            sed -i "/${FEED_NAME}/d" "$FEED_FILE"
+            err "Критическая ошибка: Не удалось обновить фид '$FEED_NAME'." # Error: Failed to update feed.
+            sed -i "/${FEED_NAME}/d" "$FEED_FILE" # Rollback
         fi
     fi
 }
 
-# --- СПИСОК РЕПОЗИТОРИЕВ ДЛЯ ДОБАВЛЕНИЯ ---
-# Здесь вы можете добавлять любые необходимые репозитории
-# 1. AmneziaWG
+# --- СПИСОК РЕПОЗИТОРИЕВ ДЛЯ ДОБАВЛЕНИЯ --- // REPOSITORY LIST TO ADD
 # add_feed "amneziawg" "https://github.com/amnezia-vpn/amneziawg-openwrt.git"
 
-# 2. OpenClash / SSClash (Если нужны специфичные версии, раскомментируйте)
-# add_feed "openclash" "https://github.com/vernesong/OpenClash.git"
-
-# 3. Дополнительные пакеты (Kenzok8/Small - содержит ssclash, passwall и кучу всего)
-# Внимание: может конфликтовать со стандартными пакетами, использовать аккуратно!
-# add_feed "small" "https://github.com/kenzok8/small-package"
-
 # ======================================================================================
-# БЛОК 3: Vermagic Hack + SMART CACHE CLEAN (OpenWrt & ImmortalWrt)
+#  БЛОК 3: VERMAGIC HACK И УМНАЯ ОЧИСТКА КЭША // BLOCK 3: VERMAGIC HACK & SMART CACHE CLEAN
 # ======================================================================================
-log ">>> Проверка необходимости Vermagic Hack..."
-# 1. Очистка версии
+# Назначение: Обеспечить совместимость с официальными kmod. // Purpose: Ensure kmod compatibility.
+# Решение: Подмена vermagic в процессе сборки. // Solution: Patch vermagic during build.
+# ======================================================================================
+log ">>> Проверка необходимости Vermagic Hack..." # Checking for Vermagic Hack...
 CLEAN_VER=$(echo "$SRC_BRANCH" | sed 's/^v//')
 VERMAGIC_MARKER=".last_vermagic"
 TARGET_MK="include/kernel-defaults.mk"
 BACKUP_MK="include/kernel-defaults.mk.bak"
-# 2. Определение дистрибутива
+
+# 1. Определяем дистрибутив (OpenWrt/ImmortalWrt). // Determine distro type.
 if grep -riq "immortalwrt" include/version.mk package/base-files/files/etc/openwrt_release 2>/dev/null; then
     DISTRO_NAME="immortalwrt"
     DOWNLOAD_DOMAIN="downloads.immortalwrt.org"
@@ -232,124 +203,96 @@ else
     DOWNLOAD_DOMAIN="downloads.openwrt.org"
     log "Обнаружен дистрибутив: OPENWRT"
 fi
-# Проверка на SNAPSHOT/Master/Dev ветки
+
+# 2. Пропускаем SNAPSHOT/master сборки. // Skip SNAPSHOT/master builds.
 if [[ "$CLEAN_VER" == *"SNAPSHOT"* ]] || [[ "$CLEAN_VER" == *"master"* ]]; then
-    warn "Сборка SNAPSHOT/Master. Vermagic Hack не применяется."
-    # Если файл был патчен ранее, восстанавливаем оригинал
+    warn "Сборка SNAPSHOT/Master. Vermagic Hack не применяется." # Skip hack for SNAPSHOT.
     if [ -f "$BACKUP_MK" ]; then
-        # Проверяем, не патчен ли уже файл (используем безопасную проверку)
-        if grep -q "echo [0-9a-f]\{32\}" "$TARGET_MK" 2>/dev/null; then
-            log "Восстанавливаем оригинальный Makefile (Revert patch)..."
-            cp -f "$BACKUP_MK" "$TARGET_MK"
-        fi
+        log "Восстанавливаем оригинальный Makefile..." # Restoring original Makefile...
+        cp -f "$BACKUP_MK" "$TARGET_MK"
     fi
 else
-    log "Целевая версия: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)"
-    # 3. Формирование URL
-    MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"    
-    # Пытаемся скачать манифест
-    MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")    
-    if [ $? -ne 0 ] || [ -z "$MANIFEST_DATA" ]; then
-        warn "Манифест не найден ($MANIFEST_URL)."
-        warn "Возможно, версия $CLEAN_VER ещё не выпущена официально или это Dev-ветка."
-        warn "Сборка продолжится с оригинальным Vermagic."
+    log "Целевая версия: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)" # Target version...
+    MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+
+    # 3. Скачиваем манифест. // Download manifest.
+    MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+    if [ -z "$MANIFEST_DATA" ]; then
+        warn "Манифест не найден ($MANIFEST_URL)." # Manifest not found.
     else
-        # 4. Извлечение хэша (32 hex символа)
+        # 4. Извлекаем хэш ядра (vermagic). // Extract kernel hash.
         KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)
 
         if [[ ! "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
-            err "Некорректный хэш ядра: '$KERNEL_HASH'"
+            err "Некорректный хэш ядра из манифеста." # Invalid kernel hash.
         else
             echo -e "${GREEN}       Официальный Vermagic Hash: $KERNEL_HASH${NC}"
-            # 5. Smart Cache Cleaning (Enhanced for v19.07 + Modern)
             OLD_HASH=""
             [ -f "$VERMAGIC_MARKER" ] && OLD_HASH=$(cat "$VERMAGIC_MARKER")
+
+            # 5. УМНАЯ ОЧИСТКА КЭША. // SMART CACHE CLEANING.
             if [ "$OLD_HASH" != "$KERNEL_HASH" ]; then
-                # 1. Мягкая очистка через make
-                warn "Хеш изменился ($OLD_HASH -> $KERNEL_HASH). Чистка кэша ядра..."
+                warn "Хеш изменился. Глубокая очистка кэша..." # Hash changed. Deep clean...
                 make target/linux/clean > /dev/null 2>&1
-                # 2. Удаление временных файлов конфигурации (Критично для 19.07)
                 rm -rf tmp/.packageinfo tmp/.targetinfo tmp/.config-target.in
-                # 3. Удаление артефактов ядра в build_dir
                 find build_dir/target-* -maxdepth 1 -type d -name "linux-*" -exec rm -rf {} + 2>/dev/null
-                # 4. Удаление штампов установки ядра (чтобы заставить систему пересчитать vermagic)
                 rm -rf staging_dir/target-*/pkginfo/kernel.default.install 2>/dev/null
-                # 5. Если это ветка 19.07 — чистим staging_dir более точечно                
-                if [[ "$CLEAN_VER" == "19.07"* ]]; then
-                    rm -rf staging_dir/target-*/root-* 2>/dev/null
-                fi
-                # Сохраняем новый хеш
+                if [[ "$CLEAN_VER" == "19.07"* ]]; then rm -rf staging_dir/target-*/root-* 2>/dev/null; fi
                 echo "$KERNEL_HASH" > "$VERMAGIC_MARKER"
-                log "Кэши полностью сброшены. Готово к чистой сборке ядра."
+                log "Кэши полностью сброшены." # Caches reset.
             else
-                log "Хеш ядра не изменился ($KERNEL_HASH). Используем кэш."
+                log "Хеш ядра не изменился. Кэш будет использован." # Hash unchanged. Use cache.
             fi
-            # 6. Патчинг Makefile
+
+            # 6. Патчинг Makefile // Patching Makefile
             if [ -f "$TARGET_MK" ]; then
-                # Определение типа синтаксиса в файле
                 PATCH_STRATEGY=""
                 SEARCH_PATTERN=""
-                # Стратегия 1: Современный OpenWrt (>= 21.02)
+                # Определение типа синтаксиса // Detect syntax type
                 if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
-                    PATCH_STRATEGY="modern"
-                    SEARCH_PATTERN='\$(MKHASH) md5'
-                # Стратегия 2: Старый OpenWrt (19.07 и старее)
+                    PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'
                 elif grep -Fq 'mkhash md5' "$TARGET_MK"; then
-                    PATCH_STRATEGY="legacy_mkhash"
-                    SEARCH_PATTERN='mkhash md5'
-                # Стратегия 3: Древний OpenWrt
+                    PATCH_STRATEGY="legacy_mkhash"; SEARCH_PATTERN='mkhash md5'
                 elif grep -Fq 'md5sum' "$TARGET_MK" && grep -Fq '.vermagic' "$TARGET_MK"; then
-                    PATCH_STRATEGY="legacy_md5sum"
-                    # Тут сложнее, нужно заменить пайплайн
-                    SEARCH_PATTERN='md5sum | cut -d . .'
+                    PATCH_STRATEGY="legacy_md5sum"; SEARCH_PATTERN='md5sum | cut -d . .'
                 fi
-                # Если стратегия не найдена, но есть бэкап - возможно файл уже патчен
+
                 if [ -z "$PATCH_STRATEGY" ] && [ -f "$BACKUP_MK" ]; then
-                    log "Синтаксис не найден, но есть бэкап. Восстанавливаем..."
                     cp -f "$BACKUP_MK" "$TARGET_MK"
-                    # Пробуем определить снова после восстановления
-                    if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5';
-                    elif grep -Fq 'mkhash md5' "$TARGET_MK"; then PATCH_STRATEGY="legacy_mkhash"; SEARCH_PATTERN='mkhash md5';
-                    fi
+                    # Re-detect...
+                    if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'; fi
                 fi
+
                 if [ -n "$PATCH_STRATEGY" ]; then
-                    # Логика бэкапа и CCACHE (как в оригинале)
                     if [ ! -f "$BACKUP_MK" ]; then
-                        warn "Обнаружен переход из unpatched состояния. Очистка CCACHE..."
-                        # Первый патч - чистим ccache
+                        warn "Первый патч. Очистка CCACHE..." # First patch. Clear CCACHE.
                         [ -d "/ccache" ] && rm -rf /ccache/* 2>/dev/null
                         cp "$TARGET_MK" "$BACKUP_MK"
                     else
-                        # Всегда восстанавливаем из бэкапа перед новым патчем, чтобы избежать наслоений
                         cp -f "$BACKUP_MK" "$TARGET_MK"
                     fi
-                    log "Применяем Vermagic патч ($PATCH_STRATEGY) к $TARGET_MK..."                    
+                    log "Применяем Vermagic патч ($PATCH_STRATEGY)..." # Applying patch...
                     if [ "$PATCH_STRATEGY" == "legacy_md5sum" ]; then
-                        # Для совсем старых версий заменяем пайплайн md5sum
                         sed -i "s/md5sum | cut -d ' ' -f1/echo $KERNEL_HASH/g" "$TARGET_MK"
                     else
-                        # Для Modern и Legacy (mkhash) замена одинакова по сути
                         sed -i "s/$SEARCH_PATTERN/echo $KERNEL_HASH/g" "$TARGET_MK"
-                    fi                    
-                    # Финальная проверка
+                    fi
                     if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
-                        echo -e "${GREEN}       УСПЕХ: Makefile модифицирован для версии $CLEAN_VER.${NC}"
+                        echo -e "${GREEN}       УСПЕХ: Makefile модифицирован.${NC}" # SUCCESS: Makefile modified.
                     else
-                        err "Ошибка патчинга!"
-                        exit 1
+                        err "Ошибка патчинга!"; exit 1
                     fi
                 else
-                    warn "Не удалось определить метод хэширования. Патчинг пропущен."
+                    warn "Не удалось определить метод хэширования." # Could not detect hashing method.
                 fi
             else
-                err "Файл $TARGET_MK не найден."
-                exit 1
+                err "Файл $TARGET_MK не найден."; exit 1
             fi
         fi
     fi
 fi
 # ======================================================================================
-# ФИНАЛ
+#  ФИНАЛ // FINAL
 # ======================================================================================
-log ">>> Сценарий hooks.sh завершен."
+log ">>> Сценарий hooks.sh завершен." # hooks.sh completed.
 exit 0
