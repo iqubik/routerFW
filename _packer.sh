@@ -19,6 +19,8 @@ FILES=(
     "system/openssl.cnf"
     "system/docker-compose.yaml"
     "system/docker-compose-src.yaml"
+    "system/ib_builder.sh"
+    "system/src_builder.sh"
     "system/dockerfile"
     "system/dockerfile.legacy"
     "system/src.dockerfile"

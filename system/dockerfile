@@ -1,8 +1,9 @@
-# file system/dockerfile v1.1
+# file system/dockerfile v1.2
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
-	mc build-essential git libncurses5-dev zlib1g-dev subversion mercurial autoconf libtool libssl-dev libglib2.0-dev libgmp-dev libmpc-dev libmpfr-dev texinfo gawk python3-distutils python3-setuptools rsync unzip wget file zstd \
+	mc build-essential git libncurses5-dev zlib1g-dev subversion mercurial autoconf libtool libssl-dev libglib2.0-dev libgmp-dev \
+	libmpc-dev libmpfr-dev texinfo gawk python3-distutils python3-setuptools rsync unzip wget file zstd \
 	&& rm -rf /var/lib/apt/lists/*
 COPY system/openssl.cnf /etc/ssl/openssl.cnf
 WORKDIR /builder_workspace

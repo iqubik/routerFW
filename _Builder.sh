@@ -1,13 +1,17 @@
 #!/bin/bash
 # file: _Builder.sh
+# Гарантируем, что мы работаем в папке скрипта
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_DIR"
 
-VER_NUM="4.08"
+VER_NUM="4.09"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
 
 # Функция восстановления курсора и очистки при прерывании (Ctrl+C)
 cleanup_exit() {
+    rm -rf "$PROJECT_DIR/.docker_tmp" # Удаляем временный конфиг Docker
     tput cnorm
     echo -e "${C_RST}"
     exit 0
@@ -206,8 +210,20 @@ fi
 echo ""
 
 # === КОНФИГУРАЦИЯ ===
+PROJECT_DIR=$(pwd)  # Должно быть выше всего, что использует пути
+export DOCKER_BUILDKIT=1
 BUILD_MODE="IMAGE"
 echo -e "$L_INIT_ENV"
+
+# === ФИКС DOCKER CREDENTIALS ===
+export DOCKER_CONFIG_DIR="$PROJECT_DIR/.docker_tmp"
+mkdir -p "$DOCKER_CONFIG_DIR"
+# Создаем временный конфиг без credsStore
+echo '{"auths": {}}' > "$DOCKER_CONFIG_DIR/config.json"
+export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"
+
+# Предварительный пулл теперь точно сработает
+echo -e "${C_LBL}[INIT]${C_RST} Pulling base image..."
 
 # Проверка Docker
 D_VER=$(docker --version 2>/dev/null)
@@ -286,7 +302,20 @@ build_routine() {
 
     mkdir -p "$HOST_OUTPUT_DIR"
     echo -e "${C_LBL}[BUILD]${C_RST} Target: ${C_VAL}$p_id${C_RST}"
-    $C_EXE -f "$comp_file" -p "$proj_name" up --build --force-recreate --remove-orphans "$service"
+    
+    # === ФИКС БАГА "file exists" ===
+    # 1. Принудительно удаляем контейнер, если он завис в базе Docker
+    docker rm -f "${proj_name}-${service}-1" >/dev/null 2>&1
+    
+    # 2. Полный down с удалением анонимных томов (-v)
+    $C_EXE -f "$comp_file" -p "$proj_name" down -v --remove-orphans >/dev/null 2>&1
+    
+    # 3. Даем WSL "продышаться". 2 секунды — золотой стандарт для освобождения bind-mounts
+    sleep 2
+
+    # 4. Запуск через 'run --rm'. 
+    # Это чище, чем 'up', так как контейнер гарантированно удалится после работы.
+    $C_EXE -f "$comp_file" -p "$proj_name" run --rm --quiet-pull "$service"
 }
 
 run_menuconfig() {
@@ -522,9 +551,16 @@ cleanup_wizard() {
 # === Вспомогательные функции ===
 create_perms_script() {
     local p_id=$1
-    local target="custom_files/${p_id}/etc/uci-defaults/99-permissions.sh"
-    [ -f "$target" ] && return
-    mkdir -p "$(dirname "$target")"
+    local dir="custom_files/${p_id}/etc/uci-defaults"
+    local target="${dir}/99-permissions.sh"
+    
+    # Пытаемся создать путь, игнорируя ошибки
+    mkdir -p "$dir" 2>/dev/null
+    
+    # Если файл уже существует - выходим
+    [ -f "$target" ] && return 
+    
+    # Пишем файл
     cat <<EOF > "$target"
 #!/bin/sh
 [ -d /etc/dropbear ] && chmod 700 /etc/dropbear
@@ -532,22 +568,7 @@ create_perms_script() {
 [ -f /etc/shadow ] && chmod 600 /etc/shadow
 exit 0
 EOF
-    chmod +x "$target"
-}
-
-create_wifi_on_script() {
-    local p_id=$1
-    local target="custom_files/${p_id}/etc/uci-defaults/10-enable-wifi"
-    [ -f "$target" ] && return
-    mkdir -p "$(dirname "$target")"
-    cat <<EOF > "$target"
-#!/bin/sh
-uci set wireless.radio0.disabled='0'
-uci set wireless.radio1.disabled='0'
-uci commit wireless && wifi reload
-exit 0
-EOF
-    chmod +x "$target"
+    chmod +x "$target" 2>/dev/null
 }
 
 # === ADVANCED ARCHITECTURE MAPPING (v3.0) ===
@@ -626,16 +647,38 @@ while true; do
         [ -e "$f" ] || continue
         ((count++))
         p_name=$(basename "$f")
-        p_id="${p_name%.conf}"
+        # Очищаем имя от возможных невидимых символов Windows (\r)
+        p_id=$(echo "${p_name%.conf}" | tr -d '\r')
         profiles[$count]=$p_name
         
-        # Инфраструктура
-        mkdir -p "custom_files/$p_id" "custom_packages/$p_id" "src_packages/$p_id"
+        # --- [БЫСТРАЯ ИНИЦИАЛИЗАЦИЯ] ---
+        # Создаем только основные пути один раз, без лишних проверок
+        # --- [FORCE INITIALIZATION] ---
+        for base in "custom_files" "custom_packages" "src_packages" "firmware_output/imagebuilder" "firmware_output/sourcebuilder"; do
+            target_path="$base/$p_id"
+            
+            # Если это файл (а не папка) - удаляем принудительно, иначе mkdir не сработает
+            if [ -e "$target_path" ] && [ ! -d "$target_path" ]; then
+                rm -f "$target_path"
+            fi
+
+            # Создаем папку. 
+            mkdir -p "$target_path" 2>/dev/null
+        done
+
+        # Создаем вложенную структуру (etc/uci-defaults)
+        # Если 'etc' - это файл, сносим его
+        if [ -e "custom_files/$p_id/etc" ] && [ ! -d "custom_files/$p_id/etc" ]; then
+             rm -f "custom_files/$p_id/etc"
+        fi
+        mkdir -p "custom_files/$p_id/etc/uci-defaults" 2>/dev/null
+
+        # Теперь создание скрипта точно сработает
         create_perms_script "$p_id"
-        #create_wifi_on_script "$p_id"
+        # ------------------------------
 
         # Архитектура
-        this_arch=$(grep "SRC_ARCH=" "$f" | cut -d'"' -f2)
+        this_arch=$(grep "SRC_ARCH=" "$f" | cut -d'"' -f2 | tr -d '\r')
         [ -z "$this_arch" ] && this_arch="--------"
 
         # Статусы ресурсов (F P S M H)
