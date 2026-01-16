@@ -148,7 +148,12 @@ else
     done
     [ -n "$ROOTFS_SIZE" ] && echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE" >> .config
     [ -n "$KERNEL_SIZE" ] && echo "CONFIG_TARGET_KERNEL_PARTSIZE=$KERNEL_SIZE" >> .config
-    for opt in $SRC_EXTRA_CONFIG; do echo "$opt" >> .config; done
+    # Исправление: выводим блок целиком, сохраняя пробелы внутри строк
+    if [ -n "$SRC_EXTRA_CONFIG" ]; then
+        printf "%b\n" "$SRC_EXTRA_CONFIG" | tr -d '\r' | while IFS= read -r line; do
+            [ -n "$line" ] && echo "$line" >> .config
+        done
+    fi
 fi
 
 make defconfig

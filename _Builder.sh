@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.09"
+VER_NUM="4.10"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -394,10 +394,11 @@ else
         fi
     done
     [ -n "\$ROOTFS_SIZE" ] && echo "CONFIG_TARGET_ROOTFS_PARTSIZE=\$ROOTFS_SIZE" >> .config
-    [ -n "\$KERNEL_SIZE" ] && echo "CONFIG_TARGET_KERNEL_PARTSIZE=\$KERNEL_SIZE" >> .config
-    if [ -n "\$SRC_EXTRA_CONFIG" ]; then
-        printf "%b\n" "\$SRC_EXTRA_CONFIG" >> .config
-    fi
+    [ -n "\$KERNEL_SIZE" ] && echo "CONFIG_TARGET_KERNEL_PARTSIZE=\$KERNEL_SIZE" >> .config    
+    # Replicating Batch logic: print -> trim CR -> loop write non-empty lines
+    printf "%b\n" "\$SRC_EXTRA_CONFIG" | tr -d '\r' | while IFS= read -r line; do
+        [ -n "\$line" ] && echo "\$line" >> .config
+    done    
     make defconfig
 fi
 
@@ -451,22 +452,23 @@ EOF
         
         if [[ "$m_apply" =~ ^[Yy]$ ]]; then
             echo -e "[PROCESS] Updating profiles/$conf_file..."
-            manual_data=$(cat "$out_path/manual_config")
-            new_block=$(printf "SRC_EXTRA_CONFIG=\"\n%s\n\"" "$manual_data")
+            # 1. Читаем конфиг, убираем \r
+            # 2. Экранируем одинарные кавычки для Bash-формата: ' меняем на '\''
+            manual_data=$(cat "$out_path/manual_config" | tr -d '\r' | sed "s/'/'\\\\''/g")
+            # Формируем новый блок, используя ОДИНАРНЫЕ кавычки (как в PowerShell версии)
+            new_block="SRC_EXTRA_CONFIG='${manual_data}'"
 
             if grep -q "^SRC_EXTRA_CONFIG=" "profiles/$conf_file"; then
                 export NEW_BLOCK="$new_block"
-                perl -i -0777 -pe 's/^SRC_EXTRA_CONFIG=".*?"/$ENV{NEW_BLOCK}/ms' "profiles/$conf_file"
+                # Perl Regex: ищем SRC_EXTRA_CONFIG=, затем любую кавычку (одинарную \x27 или двойную \x22),
+                # захватываем контент до такой же закрывающей кавычки (\1).
+                perl -i -0777 -pe 's/^SRC_EXTRA_CONFIG=([\x22\x27]).*?\1/$ENV{NEW_BLOCK}/ms' "profiles/$conf_file"
             else
                 echo -e "\n$new_block" >> "profiles/$conf_file"
             fi
             echo -e "$L_K_MOVE_OK"
             mv "$out_path/manual_config" "$out_path/applied_config_${ts}.bak"
             echo -e "[INFO] Archived to: applied_config_${ts}.bak"
-        else
-            # ВОТ ЭТОТ БЛОК НУЖНО ВЕРНУТЬ:
-            mv "$out_path/manual_config" "$out_path/discarded_config_${ts}.bak"
-            echo -e "[INFO] Archived to: discarded_config_${ts}.bak"
         fi
         echo -e "${C_KEY}----------------------------------------------------------${C_RST}"
     fi

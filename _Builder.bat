@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.09"
+set "VER_NUM=4.10"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -1132,7 +1132,7 @@ echo     if [ -n "$ROOTFS_SIZE" ]; then echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROO
 echo     if [ -n "$KERNEL_SIZE" ]; then echo "CONFIG_TARGET_KERNEL_PARTSIZE=$KERNEL_SIZE" ^>^> .config; fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     if [ -n "$SRC_EXTRA_CONFIG" ]; then >> "%RUNNER_SCRIPT%"
-echo         echo "$SRC_EXTRA_CONFIG" ^| sed '/^^$/d' ^>^> .config >> "%RUNNER_SCRIPT%"
+echo         printf "%%b\n" "$SRC_EXTRA_CONFIG" ^| tr -d '\r' ^| while IFS= read -r line; do [ -n "$line" ] ^&^& echo "$line" ^>^> .config; done >> "%RUNNER_SCRIPT%"
 echo     fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     make defconfig >> "%RUNNER_SCRIPT%"
@@ -1197,30 +1197,14 @@ if exist "%WIN_OUT_PATH%\manual_config" (
     
     if /i "!m_apply!"=="Y" (
         echo [PROCESS] Syncing data and cleaning profile...
-        powershell -NoProfile -Command ^
-            "$confPath = 'profiles\%CONF_FILE%';" ^
-            "$manualPath = '%WIN_OUT_PATH%\manual_config';" ^
-            "$newConfig = Get-Content $manualPath | Where-Object { $_.Trim() -ne '' };" ^
-            "if ($newConfig) {" ^
-            "    $raw = Get-Content $confPath -Raw;" ^
-            "    $LF = [char]10;" ^
-            "    $newContent = $newConfig -join $LF;" ^
-            "    $newVar = 'SRC_EXTRA_CONFIG=\"' + $LF + $newContent + $LF + '\"';" ^
-            "    if ($raw -match '(?ms)SRC_EXTRA_CONFIG=\".*?\"') {" ^
-            "        $final = $raw -replace '(?ms)SRC_EXTRA_CONFIG=\".*?\"', $newVar;" ^
-            "    } else {" ^
-            "        $final = $raw.Trim() + $LF + $LF + $newVar + $LF;" ^
-            "    }" ^
-            "    [System.IO.File]::WriteAllText($confPath, $final, (New-Object System.Text.UTF8Encoding($false)));" ^
-            "    Write-Host '%L_K_MOVE_OK%';" ^
-            "}"
+        powershell -NoProfile -Command "$p='profiles\%CONF_FILE%'; $m='%WIN_OUT_PATH%\manual_config'; $n=Get-Content $m | Where-Object {$_.Trim() -ne ''} | ForEach-Object { $_.Trim() -replace [char]39, ([char]39+[char]92+[char]39+[char]39) }; if ($n) { $old=Get-Content $p -Raw; $v='SRC_EXTRA_CONFIG=' + [char]39 + ($n -join [char]10) + [char]39; $reg='(?ms)SRC_EXTRA_CONFIG\s*=\s*[\x22\x27].*?([\x22\x27]\s*(\r?\n|$))'; if ($old -match $reg) { $f=$old -replace $reg, $v } elseif ($old -match 'SRC_EXTRA_CONFIG=') { $f=$old -replace '(?ms)SRC_EXTRA_CONFIG=.*', $v } else { $f=$old.Trim() + [char]10 + [char]10 + $v + [char]10 }; [IO.File]::WriteAllText($p, $f, [System.Text.UTF8Encoding]::new($false)); Write-Host '%L_K_MOVE_OK%' }"
         :: Сохраняем архив примененных настроек
         move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\applied_config_!ts!.bak" >nul
         echo [INFO] Archived to: applied_config_!ts!.bak
     ) else (
         :: Сохраняем архив отмененных настроек
-        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\discarded_config_!ts!.bak" >nul
-        echo [INFO] Archived to: discarded_config_!ts!.bak
+        rem move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\discarded_config_!ts!.bak" >nul
+        rem echo [INFO] Archived to: discarded_config_!ts!.bak
     )
     echo %C_KEY%----------------------------------------------------------%C_RST%
 )
