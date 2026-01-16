@@ -47,8 +47,7 @@ SRC_TARGET="mediatek"
 SRC_SUBTARGET="filogic"
 
 # Leave this variable empty for now
-SRC_EXTRA_CONFIG="
-"
+SRC_EXTRA_CONFIG=''
 
 ```
 
