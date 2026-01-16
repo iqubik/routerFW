@@ -77,6 +77,9 @@ if [ "$FORCE_LANG" == "EN" ]; then SYS_LANG="EN"; fi
 # Примечание: Переменные очищены от «мусора» и соответствуют только реальным вызовам в коде. v4
 if [ "$SYS_LANG" == "RU" ]; then
     # RUSSIAN DICTIONARY
+    L_K_MENU_HEADER="MENUCONFIG / SHELL / MC"
+    L_CANCEL_0="Введите 0 для отмены"
+    L_PRESS_ENTER="Нажмите Enter для возврата..."
     L_K_MOVE_ASK="Обновить текущий профиль данными из Menuconfig? [Y/N]"
     L_K_MOVE_OK="${C_OK}[DONE]${C_RST} Переменная SRC_EXTRA_CONFIG в профиле обновлена."
     L_K_MOVE_ARCH="Временный файл переименован в _manual_config."    
@@ -139,6 +142,9 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_ERR_WIZ="[ERROR] create_profile.sh не найден!"
 else
     # ENGLISH DICTIONARY
+    L_K_MENU_HEADER="MENUCONFIG / SHELL / MC"
+    L_CANCEL_0="Type 0 to cancel"
+    L_PRESS_ENTER="Press Enter to return..."
     L_K_MOVE_ASK="Update current profile with Menuconfig data? [Y/N]"
     L_K_MOVE_OK="${C_OK}[DONE]${C_RST} SRC_EXTRA_CONFIG variable in profile updated."
     L_K_MOVE_ARCH="Temporary file renamed to _manual_config."    
@@ -475,6 +481,10 @@ EOF
 
     # Очистка временного файла
     rm -f "$out_path/_menuconfig_runner.sh"
+    
+    # Пауза, чтобы прочитать результат работы скрипта импорта
+    echo ""
+    read -p "$L_PRESS_ENTER"
 }
 
 # === GRANULAR CLEANUP SYSTEM ===
@@ -819,11 +829,26 @@ while true; do
             ;;
         [Kk])
             if [ "$BUILD_MODE" == "SOURCE" ]; then
-                # Здесь вызов функции Menuconfig
-                echo -e "${L_K_SEL}:"
-                for ((i=1; i<=count; i++)); do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
-                read -p "ID: " k_id
-                [ -n "${profiles[$k_id]}" ] && run_menuconfig "${profiles[$k_id]}"
+                # Очищаем экран, чтобы список не прилипал к главному меню
+                clear
+                echo -e "${C_GRY}┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐${C_RST}"
+                echo -e "  ${C_VAL}${L_K_MENU_HEADER}${C_RST}"
+                echo -e "${C_GRY}└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘${C_RST}"
+                echo ""
+                echo -e "  ${L_K_SEL}:"
+                echo ""
+                # Выводим список красиво, с выравниванием и цветами
+                for ((i=1; i<=count; i++)); do
+                    printf "  ${C_LBL}[%2d]${C_RST} %s\n" "$i" "${profiles[$i]}"
+                done                
+                echo ""
+                echo -e "  ${C_GRY}${L_CANCEL_0}${C_RST}"
+                echo ""
+                read -p "  ${L_CHOICE}: " k_id
+                # Проверка ввода и запуск (если 0 или пусто - ничего не делаем)
+                if [ "$k_id" != "0" ] && [ -n "${profiles[$k_id]}" ]; then
+                    run_menuconfig "${profiles[$k_id]}"
+                fi
             fi ;;
         [Cc])
             cleanup_wizard ;;
