@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.10"
+VER_NUM="4.11"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -321,7 +321,7 @@ build_routine() {
 
     # 4. Запуск через 'run --rm'. 
     # Это чище, чем 'up', так как контейнер гарантированно удалится после работы.
-    $C_EXE -f "$comp_file" -p "$proj_name" run --rm --quiet-pull "$service"
+    $C_EXE -f "$comp_file" -p "$proj_name" run --rm --security-opt seccomp=unconfined --quiet-pull "$service"
 }
 
 run_menuconfig() {
@@ -442,9 +442,9 @@ EOF
     
     # 4. ФАКТИЧЕСКИЙ ЗАПУСК КОНТЕЙНЕРА (Интерактивный режим -it)
     # Добавляем chown для установки правильных прав доступа, как в .bat
-    local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && sudo -E -u build bash /output/_menuconfig_runner.sh"
-    
-    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "$run_cmd"
+    local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && sudo -E -u build bash /output/_menuconfig_runner.sh"    
+    # Добавляем --security-opt seccomp=unconfined для совместимости с новыми ядрами (Ubuntu 24.04+)
+    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it --security-opt seccomp=unconfined "$service" /bin/bash -c "$run_cmd"
     
     # --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ (BASH EDITION) ---
     if [ -f "$out_path/manual_config" ]; then

@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.10"
+set "VER_NUM=4.11"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -1178,8 +1178,8 @@ echo     /bin/bash >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
 echo %L_K_LAUNCH%
 echo.
-:: Важно: добавлена опция -it для интерактивного режима shell
-set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --build --rm -it %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
+:: FIX: Добавлен флаг security-opt для совместимости с новыми ядрами (Ubuntu 24.04 WSL)
+set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --build --rm -it --security-opt seccomp=unconfined %SERVICE_NAME% /bin/bash -c "chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
 :: --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ ---
 if exist "%WIN_OUT_PATH%\manual_config" (
     echo.

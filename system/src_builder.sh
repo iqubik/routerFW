@@ -12,6 +12,9 @@ set -e
 export HOME=/home/build
 PROFILE_ID=$(basename "$CONF_FILE" .conf)
 
+# FIX: Разрешаем Git работать с папкой, даже если owner UID отличается (актуально для Docker)
+git config --global --add safe.directory '*'
+
 # Цвета
 GREEN='\033[0;32m'
 RED='\033[0;31m'

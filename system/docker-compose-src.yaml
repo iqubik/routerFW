@@ -4,6 +4,9 @@ services:
     build:
       context: ..
       dockerfile: system/src.dockerfile
+    # FIX: Добавляем и сюда для страховки от строгих ядер
+    security_opt:
+      - seccomp:unconfined
     user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}
@@ -24,6 +27,9 @@ services:
     build:
       context: ..
       dockerfile: system/src.dockerfile.legacy
+    # FIX: Критически важно для Ubuntu 18.04 container on Ubuntu 24.04 Host
+    security_opt:
+      - seccomp:unconfined
     user: "root"
     environment:
       - CONF_FILE=${SELECTED_CONF}

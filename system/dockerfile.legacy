@@ -1,6 +1,10 @@
 # file system/dockerfile.legacy v1.2
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
+# FIX: Переключение на old-releases, так как 18.04 EOL. Обычные зеркала могут не работать.
+RUN sed -i -r 's/([a-z]{2}\.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && \
+    sed -i -r 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+
 RUN apt-get update && apt-get install -y \
 	mc python3 build-essential python2.7 libncurses5-dev libncursesw5-dev zlib1g-dev gawk git \
 	gettext libssl-dev xsltproc wget unzip xz-utils ca-certificates \

@@ -1,6 +1,10 @@
 # file: system\src.dockerfile.legacy v1.2
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
+# FIX: Переключение на old-releases для стабильности apt-get update
+RUN sed -i -r 's/([a-z]{2}\.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && \
+    sed -i -r 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+
 RUN apt-get update && apt-get install -y \
     mc build-essential ccache patch bzip2 flex bison g++ gawk \
     gettext git subversion rsync unzip wget curl file \
