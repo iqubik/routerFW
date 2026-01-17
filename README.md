@@ -295,7 +295,7 @@ SRC_CORES="safe"
 *   `show_pkgs.sh` - Альтернативный вариант получить список пакетов из уроков.
 *   `99-permissions.sh` — Авто-фикс прав доступа для файлов (Dropbear/SSH).
 
-<img width="915" height="547" alt="{F77A44F7-5A52-489A-BD37-6DC2169F4F26}" src="https://github.com/user-attachments/assets/8c77b424-12cb-4502-9201-a7927637d2a2" />
+<img width="902" height="538" alt="{3AF20F0A-DDC7-4F91-8BA7-EE179F804C6E}" src="https://github.com/user-attachments/assets/be9d6d7b-030b-4a51-8e53-00e4ad4c4282" />
 
 ---
 
