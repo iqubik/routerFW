@@ -1203,8 +1203,8 @@ if exist "%WIN_OUT_PATH%\manual_config" (
         echo [INFO] Archived to: applied_config_!ts!.bak
     ) else (
         :: Сохраняем архив отмененных настроек
-        rem move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\discarded_config_!ts!.bak" >nul
-        rem echo [INFO] Archived to: discarded_config_!ts!.bak
+        move /y "%WIN_OUT_PATH%\manual_config" "%WIN_OUT_PATH%\discarded_config_!ts!.bak" >nul
+        echo [INFO] Archived to: discarded_config_!ts!.bak
     )
     echo %C_KEY%----------------------------------------------------------%C_RST%
 )
