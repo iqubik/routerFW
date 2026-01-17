@@ -442,7 +442,7 @@ EOF
     
     # 4. ФАКТИЧЕСКИЙ ЗАПУСК КОНТЕЙНЕРА (Интерактивный режим -it)
     # Добавляем chown для установки правильных прав доступа, как в .bat
-    local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && sudo -E -u build bash /output/_menuconfig_runner.sh"    
+    local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && sudo -E -u build bash /output/_menuconfig_runner.sh"
     # Добавляем --security-opt seccomp=unconfined для совместимости с новыми ядрами (Ubuntu 24.04+)
     $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it --security-opt seccomp=unconfined "$service" /bin/bash -c "$run_cmd"
     
