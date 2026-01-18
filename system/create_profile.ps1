@@ -503,12 +503,12 @@ SRC_CORES="safe"
 #    If a package fails to install via SRC_PACKAGES, you can force-enable it here.
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
 
-SRC_EXTRA_CONFIG="
+SRC_EXTRA_CONFIG='
 CONFIG_TARGET_$($GlobalState.Target)=y
 CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)=y
 CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalState.ModelID)=y
 CONFIG_BUILD_LOG=y
-"
+'
 "@
                 [System.IO.File]::WriteAllText($confPath, $content, (New-Object System.Text.UTF8Encoding($false)))
                 Write-Host "`n[OK] $($L.Step6_Saved) $confPath" -ForegroundColor Green
