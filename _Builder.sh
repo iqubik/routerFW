@@ -289,6 +289,8 @@ build_routine() {
     local is_legacy=0
     [[ "$target_val" =~ /(17|18|19)\. ]] && is_legacy=1
 
+    # === FIX 1: ИСПОЛЬЗУЕМ АБСОЛЮТНЫЕ ПУТИ ===
+    # Это решает проблемы с монтированием в WSL
     export SELECTED_CONF="$conf_file"
     export HOST_FILES_DIR="./custom_files/$p_id"
     
@@ -306,22 +308,23 @@ build_routine() {
         [ $is_legacy -eq 1 ] && local service="builder-src-oldwrt" || local service="builder-src-openwrt"
     fi
 
-    mkdir -p "$HOST_OUTPUT_DIR"
+    # === FIX 2: Безопасное создание папок ===
+    [ -d "$HOST_OUTPUT_DIR" ] || mkdir -p "$HOST_OUTPUT_DIR" 2>/dev/null
+    
     echo -e "${C_LBL}[BUILD]${C_RST} Target: ${C_VAL}$p_id${C_RST}"
     
-    # === ФИКС БАГА "file exists" ===
-    # 1. Принудительно удаляем контейнер, если он завис в базе Docker
+    # 1. Принудительно удаляем контейнер (чистка хвостов)
     docker rm -f "${proj_name}-${service}-1" >/dev/null 2>&1
     
     # 2. Полный down с удалением анонимных томов (-v)
-    $C_EXE -f "$comp_file" -p "$proj_name" down -v --remove-orphans >/dev/null 2>&1
+    $C_EXE -f "$comp_file" -p "$proj_name" down --remove-orphans >/dev/null 2>&1
     
-    # 3. Даем WSL "продышаться". 2 секунды — золотой стандарт для освобождения bind-mounts
+    # 3. Пауза (важно для Windows/WSL)
     sleep 2
 
-    # 4. Запуск через 'run --rm'. 
-    # Это чище, чем 'up', так как контейнер гарантированно удалится после работы.
-    $C_EXE -f "$comp_file" -p "$proj_name" run --quiet-pull "$service"
+    # 4. Запуск (Флаг --security-opt удален, так как compose его не поддерживает здесь)
+    $C_EXE -f "$comp_file" -p "$proj_name" run --rm --quiet-pull "$service"
+    docker run --rm -v "$(pwd)/${HOST_OUTPUT_DIR#./}:/work" alpine chown -R $(id -u):$(id -g) /work
 }
 
 run_menuconfig() {
@@ -676,16 +679,22 @@ while true; do
         # --- [БЫСТРАЯ ИНИЦИАЛИЗАЦИЯ] ---
         # Создаем только основные пути один раз, без лишних проверок
         # --- [FORCE INITIALIZATION] ---
+        # --- [FORCE INITIALIZATION] ---
         for base in "custom_files" "custom_packages" "src_packages" "firmware_output/imagebuilder" "firmware_output/sourcebuilder"; do
             target_path="$base/$p_id"
             
-            # Если это файл (а не папка) - удаляем принудительно, иначе mkdir не сработает
+            # 1. Если там файл-призрак или мусор - сносим
             if [ -e "$target_path" ] && [ ! -d "$target_path" ]; then
                 rm -f "$target_path"
             fi
 
-            # Создаем папку. 
-            mkdir -p "$target_path" 2>/dev/null
+            # 2. Пытаемся создать. Если ошибка (глюк NTFS) - повторяем жестко.
+            if ! mkdir -p "$target_path" 2>/dev/null; then
+                # Если сбой, значит WSL видит "призрак". Удаляем и ждем.
+                rm -rf "$target_path"
+                sleep 0.1
+                mkdir -p "$target_path" 2>/dev/null
+            fi
         done
 
         # Создаем вложенную структуру (etc/uci-defaults)
@@ -770,29 +779,35 @@ while true; do
             echo -e "\n${C_VAL}${L_PARALLEL_BUILDS_START}${C_RST} ${C_LBL}$LOG_DIR${C_RST}\n"
             
             pids=()
+            # ВАЖНО: Объявляем ассоциативный массив ДО цикла
+            declare -A pid_map
+            
             printf "    %-65s | %s\n" "${C_GRY}PROFILE" "LOG FILE${C_RST}"
             printf "    %s\n" "${C_GRY}--------------------------------------------------------------------------------------------------------------------${C_RST}"
+            
             for p in "${profiles[@]}"; do
-                p_id="${p%.conf}"
+                # Очищаем имя от \r и расширения
+                p_id=$(echo "${p%.conf}" | tr -d '\r')
                 log_file="$LOG_DIR/${p_id}.log"
                 
                 printf "    %-65s | %s\n" "${C_KEY}-> Starting: $p_id${C_RST}" "${C_LBL}${log_file}${C_RST}"
                 
-                # Запускаем сборку в фоне, перенаправляя вывод в лог
+                # Запускаем сборку в фоне
                 build_routine "$p" > "$log_file" 2>&1 &
-                pids+=($!)
+                
+                # Сразу запоминаем PID и имя
+                pid=$!
+                pids+=($pid)
+                # Сохраняем правильное имя прямо сейчас
+                pid_map[$pid]="$p_id"
+
+                # === FIX 2: ЗАДЕРЖКА ЗАПУСКА ===
+                # Даем Docker Desktop 3 секунды, чтобы зарегистрировать Bind-Mounts
+                sleep 1
             done
             
             echo -e "\n${C_OK}${L_ALL_BUILDS_LAUNCHED}${C_RST}"
             echo -e "${C_LBL}${L_MONITOR_HINT}${C_RST}\n"
-            
-            # --- ADVANCED WAIT with STATUS ---
-            # Create an associative array to map PIDs to profile names for better reporting
-            declare -A pid_map
-            for i in "${!pids[@]}"; do
-                # Bash array is 0-indexed, 'profiles' array is 1-indexed
-                pid_map[${pids[$i]}]="${profiles[$((i+1))]%.conf}"
-            done
             
             running_pids=("${pids[@]}")
             spinner=("/" "-" "\\" "|")
@@ -808,31 +823,38 @@ while true; do
                     else
                         # Process has finished, check its exit code
                         if ! wait "$pid"; then
-                            # Clear the spinner line before printing an error to avoid visual glitches
+                            # Clear the spinner line before printing an error
                             printf "\r%120s\r" " " 
                             echo -e "${C_ERR}[ERROR] Build for profile '${pid_map[$pid]}' failed. Check log.${C_RST}"
+                        else
+                            # === ВОТ ЭТОГО НЕ ХВАТАЛО ===
+                            printf "\r%120s\r" " "
+                            echo -e "${C_OK}[DONE]  Build for profile '${pid_map[$pid]}' completed successfully.${C_RST}"
                         fi
                     fi
                 done
 
-                # Update the list of running PIDs for the next loop iteration
+                # Update the list of running PIDs
                 running_pids=("${still_running[@]}")
                 
-                # Print the dynamic status line with spinner and list of running jobs
+                # Print the dynamic status line
                 if [ ${#running_pids[@]} -gt 0 ]; then
                     running_names=""
                     for pid in "${running_pids[@]}"; do
                         running_names+="${pid_map[$pid]} "
                     done
-                    # The trailing spaces are to clear any previous, longer text on the same line
-                    printf "\r${C_LBL}[%s]${C_RST} ${L_WAITING_FOR_BUILDS} (%d left): ${C_VAL}%s${C_RST}      " "${spinner[$spin_idx]}" "${#running_pids[@]}" "$running_names"
+                    # Обрезаем строку, если слишком длинная
+                    if [ ${#running_names} -gt 60 ]; then
+                        running_names="${running_names:0:57}..."
+                    fi
+                    
+                    printf "\r${C_LBL}[%s]${C_RST} ${L_WAITING_FOR_BUILDS} (%d left): ${C_VAL}%-60s${C_RST}" "${spinner[$spin_idx]}" "${#running_pids[@]}" "$running_names"
                 fi
                 
                 sleep 0.5
                 spin_idx=$(( (spin_idx+1) % 4 ))
             done
             
-            # Clear the final status line and show the completion message
             printf "\r%120s\r" " "
             echo -e "${C_OK}${L_ALL_BUILDS_DONE}${C_RST}"
             read -p "$L_DONE_MENU"
