@@ -51,8 +51,7 @@ The primary workflow is managed through the interactive menu in `_Builder.bat` o
 
 ### Main Menu Features
 - **`[A] Build All`**:
-    - On Windows, builds all profiles sequentially.
-    - On **Linux/macOS**, launches a **parallel build** of all profiles, with logs for each build saved to `firmware_output/.build_logs/`.
+    - Launches a **parallel build** of all profiles on both Windows (via `START /B`) and Linux/macOS (via `&`), with logs for each build saved to `firmware_output/.build_logs/`.
 - **`[E] Profile Editor`**: A shortcut to open a profile's `.conf` file and its associated resource folders.
 - **`[C] Maintenance`**: A cleanup wizard to selectively delete caches (SDK, IPK, ccache) or perform a full project reset.
 - **`[W] Profile Wizard`**: Launches a script that guides the user through creating a new profile.
