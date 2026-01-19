@@ -1,9 +1,14 @@
-# file: system\src.dockerfile.legacy v1.2
+# file: system\src.dockerfile.legacy v1.4 (Back to Archive)
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
-# FIX: Переключение на old-releases для стабильности apt-get update
-RUN sed -i -r 's/([a-z]{2}\.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && \
-    sed -i -r 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+
+# FIX: Bionic (18.04) еще не перенесен в old-releases полностью.
+# Используем главные зеркала archive.ubuntu.com и security.ubuntu.com.
+# Перезаписываем sources.list с нуля, чтобы удалить мусор.
+RUN echo "deb http://archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse" > /etc/apt/sources.list && \
+    echo "deb http://archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb http://archive.ubuntu.com/ubuntu/ bionic-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb http://security.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse" >> /etc/apt/sources.list
 
 RUN apt-get update && apt-get install -y \
     mc build-essential ccache patch bzip2 flex bison g++ gawk \
@@ -16,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     swig time xsltproc \
     ca-certificates ssl-cert sudo \
     && rm -rf /var/lib/apt/lists/*
+
 RUN useradd -m -u 1000 -s /bin/bash build
 WORKDIR /home/build/openwrt
 RUN mkdir -p dl && chown -R build:build /home/build/openwrt

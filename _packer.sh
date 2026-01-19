@@ -47,14 +47,9 @@ FILES=(
     "scripts/upgrade.sh"
     "scripts/packager.sh"
     "profiles/giga_24105_main_full.conf"
-    "profiles/giga_24105_rep_full.conf"
-    "profiles/nanopi_r5c_full.conf"
-    "profiles/tplink_841n_v9_190710_full.conf"
-    "profiles/zbt_wr8305rt_22037_full.conf"
-    "profiles/xiaomi_4a_gigabit_23056_full.conf"
     "profiles/rax3000m_i_24104_full.conf"
-    "profiles/rax3000m_emmc_test_new.conf"
-    "profiles/giga_24104_immortal_full.conf"
+    "profiles/xiaomi_4a_gigabit_23056_full.conf"
+    "profiles/tplink_841n_v9_190710_full.conf"
     "profiles/friendlyarm_nanopi_r3s_24105_ow_full.conf"
 )
 

@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.11"
+VER_NUM="4.12"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -321,7 +321,7 @@ build_routine() {
 
     # 4. Запуск через 'run --rm'. 
     # Это чище, чем 'up', так как контейнер гарантированно удалится после работы.
-    $C_EXE -f "$comp_file" -p "$proj_name" run --rm --security-opt seccomp=unconfined --quiet-pull "$service"
+    $C_EXE -f "$comp_file" -p "$proj_name" run --quiet-pull "$service"
 }
 
 run_menuconfig() {
@@ -332,19 +332,19 @@ run_menuconfig() {
 
     echo -e "${C_LBL}${L_K_LAUNCH}${C_RST}"
 
-    # 1. Определяем версию (Legacy или New), чтобы выбрать правильный контейнер
+    # 1. Определяем версию (Legacy или New)
     local target_val=$(grep "SRC_BRANCH=" "profiles/$conf_file" | cut -d'"' -f2)
     local is_legacy=0
     [[ "$target_val" =~ /(17|18|19)\. ]] && is_legacy=1
     [ $is_legacy -eq 1 ] && local service="builder-src-oldwrt" || local service="builder-src-openwrt"
 
-    # 2. Экспортируем переменные окружения для docker-compose
+    # 2. Экспорт переменных
     export SELECTED_CONF="$conf_file"
     export HOST_FILES_DIR="./custom_files/$p_id"
     export HOST_OUTPUT_DIR="$out_path"
     export HOST_PKGS_DIR="./src_packages/$p_id"
 
-    # 3. Создаем скрипт-раннер внутри папки вывода
+    # 3. Создаем скрипт-раннер
     cat <<EOF > "$out_path/_menuconfig_runner.sh"
 #!/bin/bash
 set -e
@@ -353,7 +353,6 @@ cd /home/build/openwrt
 
 # --- 1. Load Environment ---
 echo "[INIT] Loading profile vars from: \$CONF_FILE"
-# sed to remove BOM, tr to remove windows newlines
 cat "/profiles/\$CONF_FILE" | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > /tmp/env.sh
 source /tmp/env.sh
 
@@ -371,7 +370,7 @@ if [ ! -f "Makefile" ]; then
 fi
 
 # --- 2.5 Inject Custom Packages ---
-if [ -d "/input_packages" ] && [ -n "$(ls -A /input_packages 2>/dev/null)" ]; then
+if [ -d "/input_packages" ] && [ -n "\$(ls -A /input_packages 2>/dev/null)" ]; then
     echo "[PKG] Injecting custom sources..."
     mkdir -p package/custom-imports
     cp -rf /input_packages/* package/custom-imports/
@@ -401,10 +400,12 @@ else
     done
     [ -n "\$ROOTFS_SIZE" ] && echo "CONFIG_TARGET_ROOTFS_PARTSIZE=\$ROOTFS_SIZE" >> .config
     [ -n "\$KERNEL_SIZE" ] && echo "CONFIG_TARGET_KERNEL_PARTSIZE=\$KERNEL_SIZE" >> .config    
-    # Replicating Batch logic: print -> trim CR -> loop write non-empty lines
-    printf "%b\n" "\$SRC_EXTRA_CONFIG" | tr -d '\r' | while IFS= read -r line; do
-        [ -n "\$line" ] && echo "\$line" >> .config
-    done    
+    
+    if [ -n "\$SRC_EXTRA_CONFIG" ]; then
+        printf "%b\n" "\$SRC_EXTRA_CONFIG" | tr -d '\r' | while IFS= read -r line; do
+            [ -n "\$line" ] && echo "\$line" >> .config
+        done
+    fi
     make defconfig
 fi
 
@@ -440,13 +441,15 @@ if [[ "\$stay" =~ ^[Yy]$ ]]; then
 fi
 EOF
     
-    # 4. ФАКТИЧЕСКИЙ ЗАПУСК КОНТЕЙНЕРА (Интерактивный режим -it)
-    # Добавляем chown для установки правильных прав доступа, как в .bat
-    local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && sudo -E -u build bash /output/_menuconfig_runner.sh"
-    # Добавляем --security-opt seccomp=unconfined для совместимости с новыми ядрами (Ubuntu 24.04+)
-    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it --security-opt seccomp=unconfined "$service" /bin/bash -c "$run_cmd"
+    # Даем права на скрипт (важно для Linux/WSL)
+    chmod 666 "$out_path/_menuconfig_runner.sh"
+
+    # 4. ФАКТИЧЕСКИЙ ЗАПУСК КОНТЕЙНЕРА
+    local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
     
-    # --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ (BASH EDITION) ---
+    $C_EXE -f system/docker-compose-src.yaml -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "$run_cmd"
+    
+    # --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ ---
     if [ -f "$out_path/manual_config" ]; then
         echo -e "\n${C_KEY}----------------------------------------------------------${C_RST}"
         echo -e "Profile: ${C_VAL}${conf_file}${C_RST}"
@@ -458,16 +461,21 @@ EOF
         
         if [[ "$m_apply" =~ ^[Yy]$ ]]; then
             echo -e "[PROCESS] Updating profiles/$conf_file..."
-            # 1. Читаем конфиг, убираем \r
-            # 2. Экранируем одинарные кавычки для Bash-формата: ' меняем на '\''
+            # Читаем конфиг, убираем \r, экранируем одинарные кавычки для Bash (' -> '\'')
             manual_data=$(cat "$out_path/manual_config" | tr -d '\r' | sed "s/'/'\\\\''/g")
-            # Формируем новый блок, используя ОДИНАРНЫЕ кавычки
+            
+            # Формируем новый блок
             new_block="SRC_EXTRA_CONFIG='${manual_data}'"
+            export NEW_BLOCK="$new_block"
 
             if grep -q "^SRC_EXTRA_CONFIG=" "profiles/$conf_file"; then
-                export NEW_BLOCK="$new_block"
-                # Perl Regex для замены содержимого внутри кавычек
-                perl -i -0777 -pe 's/^SRC_EXTRA_CONFIG=([\x22\x27]).*?\1/$ENV{NEW_BLOCK}/ms' "profiles/$conf_file"
+                # Perl Regex: 
+                # 1. Ищем SRC_EXTRA_CONFIG=
+                # 2. (?: ... ) - группа вариантов
+                # 3. (["\x27]).*?\1 - Вариант А: Есть кавычки (двойные или одинарные). Матчим до закрывающей.
+                # 4. |[^\n]* - Вариант Б (Fallback): Кавычек нет или пустая строка. Матчим все до конца строки.
+                # 5. Заменяем на $ENV{NEW_BLOCK}
+                perl -i -0777 -pe 's/^SRC_EXTRA_CONFIG=(?:(["\x27]).*?\1|[^\n]*)/$ENV{NEW_BLOCK}/ms' "profiles/$conf_file"
             else
                 echo -e "\n$new_block" >> "profiles/$conf_file"
             fi
