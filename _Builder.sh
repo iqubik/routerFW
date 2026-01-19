@@ -324,7 +324,16 @@ build_routine() {
 
     # 4. Запуск (Флаг --security-opt удален, так как compose его не поддерживает здесь)
     $C_EXE -f "$comp_file" -p "$proj_name" run --rm --quiet-pull "$service"
+
+    # === ВАЖНО: ЗАПОМИНАЕМ РЕЗУЛЬТАТ СБОРКИ ===
+    local build_status=$?
+
+    # === FIX 3: ВОССТАНОВЛЕНИЕ ПРАВ (ext4/Linux) ===
+    # Выполняем смену прав в любом случае (даже если сборка упала, чтобы можно было читать логи)
     docker run --rm -v "$(pwd)/${HOST_OUTPUT_DIR#./}:/work" alpine chown -R $(id -u):$(id -g) /work
+
+    # === ВОЗВРАЩАЕМ РЕАЛЬНЫЙ СТАТУС ===
+    return $build_status    
 }
 
 run_menuconfig() {
@@ -779,8 +788,9 @@ while true; do
             echo -e "\n${C_VAL}${L_PARALLEL_BUILDS_START}${C_RST} ${C_LBL}$LOG_DIR${C_RST}\n"
             
             pids=()
-            # ВАЖНО: Объявляем ассоциативный массив ДО цикла
+            # ВАЖНО: Объявляем ассоциативные массивы для имен и ВРЕМЕНИ
             declare -A pid_map
+            declare -A start_time_map
             
             printf "    %-65s | %s\n" "${C_GRY}PROFILE" "LOG FILE${C_RST}"
             printf "    %s\n" "${C_GRY}--------------------------------------------------------------------------------------------------------------------${C_RST}"
@@ -795,14 +805,15 @@ while true; do
                 # Запускаем сборку в фоне
                 build_routine "$p" > "$log_file" 2>&1 &
                 
-                # Сразу запоминаем PID и имя
+                # Запоминаем PID
                 pid=$!
                 pids+=($pid)
-                # Сохраняем правильное имя прямо сейчас
+                
+                # Запоминаем Имя и ВРЕМЯ СТАРТА (Unix timestamp)
                 pid_map[$pid]="$p_id"
+                start_time_map[$pid]=$(date +%s)
 
-                # === FIX 2: ЗАДЕРЖКА ЗАПУСКА ===
-                # Даем Docker Desktop 3 секунды, чтобы зарегистрировать Bind-Mounts
+                # Задержка для Docker Desktop
                 sleep 1
             done
             
@@ -818,32 +829,43 @@ while true; do
                 
                 for pid in "${running_pids[@]}"; do
                     if kill -0 "$pid" 2>/dev/null; then
-                        # Process is still alive
+                        # Процесс жив
                         still_running+=("$pid")
                     else
-                        # Process has finished, check its exit code
+                        # Процесс завершился
+                        
+                        # --- РАСЧЕТ ВРЕМЕНИ ---
+                        end_ts=$(date +%s)
+                        start_ts=${start_time_map[$pid]}
+                        duration=$((end_ts - start_ts))
+                        
+                        # Форматируем в красивый вид (Xm Ys)
+                        dm=$((duration / 60))
+                        ds=$((duration % 60))
+                        time_str="${dm}m ${ds}s"
+                        # ----------------------
+
+                        printf "\r%120s\r" " " 
+                        
                         if ! wait "$pid"; then
-                            # Clear the spinner line before printing an error
-                            printf "\r%120s\r" " " 
-                            echo -e "${C_ERR}[ERROR] Build for profile '${pid_map[$pid]}' failed. Check log.${C_RST}"
+                            # ОШИБКА (Показываем время, потраченное впустую)
+                            echo -e "${C_ERR}[ERROR] Build for profile '${pid_map[$pid]}' failed in ${time_str}. Check log.${C_RST}"
                         else
-                            # === ВОТ ЭТОГО НЕ ХВАТАЛО ===
-                            printf "\r%120s\r" " "
-                            echo -e "${C_OK}[DONE]  Build for profile '${pid_map[$pid]}' completed successfully.${C_RST}"
+                            # УСПЕХ (Показываем время выполнения)
+                            echo -e "${C_OK}[DONE]  Build for profile '${pid_map[$pid]}' completed in ${time_str}.${C_RST}"
                         fi
                     fi
                 done
 
-                # Update the list of running PIDs
+                # Обновляем список живых PID
                 running_pids=("${still_running[@]}")
                 
-                # Print the dynamic status line
+                # Рисуем спиннер
                 if [ ${#running_pids[@]} -gt 0 ]; then
                     running_names=""
                     for pid in "${running_pids[@]}"; do
                         running_names+="${pid_map[$pid]} "
                     done
-                    # Обрезаем строку, если слишком длинная
                     if [ ${#running_names} -gt 60 ]; then
                         running_names="${running_names:0:57}..."
                     fi
