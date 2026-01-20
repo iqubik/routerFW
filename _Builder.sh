@@ -387,8 +387,12 @@ build_routine() {
     local target_val=$(grep "$target_var=" "profiles/$conf_file" | cut -d'"' -f2)
     [ -z "$target_val" ] && { echo -e "${C_ERR}[SKIP] $target_var not found${C_RST}"; return; }
 
-    local is_legacy=0    
-    [[ "$target_val" =~ (17|18|19)\. ]] && is_legacy=1
+    # Строгая проверка Legacy, как в BAT файле
+    local is_legacy=0
+    # 1. Проверка URL (ImageBuilder) - ищем паттерн "/XX."
+    if [[ "$target_val" == *"/17."* ]] || [[ "$target_val" == *"/18."* ]] || [[ "$target_val" == *"/19."* ]]; then is_legacy=1; fi
+    # 2. Проверка веток (Source) - конкретные версии
+    if [[ "$target_val" == *"19.07"* ]] || [[ "$target_val" == *"18.06"* ]]; then is_legacy=1; fi
 
     # === FIX 1: ИСПОЛЬЗУЕМ АБСОЛЮТНЫЕ ПУТИ ===
     # Это решает проблемы с монтированием в WSL
@@ -447,8 +451,12 @@ run_menuconfig() {
 
     # 1. Определяем версию (Legacy или New)
     local target_val=$(grep "SRC_BRANCH=" "profiles/$conf_file" | cut -d'"' -f2)
+    # Строгая проверка Legacy, как в BAT файле
     local is_legacy=0    
-    [[ "$target_val" =~ (17|18|19)\. ]] && is_legacy=1
+    # 1. Проверка URL (ImageBuilder) - ищем паттерн "/XX."
+    if [[ "$target_val" == *"/17."* ]] || [[ "$target_val" == *"/18."* ]] || [[ "$target_val" == *"/19."* ]]; then is_legacy=1; fi
+    # 2. Проверка веток (Source) - конкретные версии
+    if [[ "$target_val" == *"19.07"* ]] || [[ "$target_val" == *"18.06"* ]]; then is_legacy=1; fi
     [ $is_legacy -eq 1 ] && local service="builder-src-oldwrt" || local service="builder-src-openwrt"
 
     # 2. Экспорт переменных
@@ -960,12 +968,81 @@ while true; do
             [[ "$BUILD_MODE" == "IMAGE" ]] && BUILD_MODE="SOURCE" || BUILD_MODE="IMAGE" ;;
         [Ee])
             clear
-            # Меню редактирования (упрощенно)
+            # === EDITOR & ANALYSIS DASHBOARD (Ported from .bat) ===
             echo -e "${C_VAL}${L_EDIT_TITLE}${C_RST}"
-            # Тут логика открытия редактора (vi/nano или xdg-open)
-            for ((i=1; i<=count; i++)); do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
-            read -p "ID: " e_id
-            [ -n "${profiles[$e_id]}" ] && "${EDITOR:-nano}" "profiles/${profiles[$e_id]}" ;;
+            echo -e "  ${L_CHOICE}:"
+            echo ""
+            for ((i=1; i<=count; i++)); do
+                # Убираем расширение .conf для отображения
+                p_name_display="${profiles[$i]%.conf}"
+                printf "  ${C_LBL}[${C_KEY}%d${C_LBL}]${C_RST} %s\n" "$i" "$p_name_display"
+            done
+            echo ""
+            echo -e "  ${C_LBL}[${C_KEY}0${C_LBL}]${C_RST} ${L_BACK}"
+            echo ""
+            read -p "  ID: " e_choice
+            
+            if [[ "$e_choice" =~ ^[0-9]+$ ]] && [ "$e_choice" -le "$count" ] && [ "$e_choice" -gt 0 ]; then
+                sel_conf="${profiles[$e_choice]}"
+                sel_id="${sel_conf%.conf}"
+                
+                # --- ANALYZER LOGIC ---
+                clear
+                echo -e "${C_VAL}[PROFILE STATE ANALYSIS]${C_RST} ${C_KEY}${sel_id}${C_RST}"
+                echo -e "${C_GRY}----------------------------------------------------------${C_RST}"
+                
+                # Определяем статусы (как в BAT)
+                # 1. Custom Files
+                if [ -d "custom_files/$sel_id" ] && [ "$(ls -A "custom_files/$sel_id" 2>/dev/null)" ]; then
+                    stat_files="${C_VAL}Found${C_RST} (files/)"
+                else
+                    stat_files="${C_ERR}Missing${C_RST}"
+                fi
+                
+                # 2. Custom Packages (IPK)
+                if [ -d "custom_packages/$sel_id" ] && [ "$(ls -A "custom_packages/$sel_id" 2>/dev/null)" ]; then
+                    stat_pkgs="${C_VAL}Found${C_RST} (ipk/)"
+                else
+                    stat_pkgs="${C_ERR}Missing${C_RST}"
+                fi
+
+                # 3. Source Packages (Src)
+                if [ -d "src_packages/$sel_id" ] && [ "$(ls -A "src_packages/$sel_id" 2>/dev/null)" ]; then
+                    stat_srcs="${C_VAL}Found${C_RST} (make/)"
+                else
+                    stat_srcs="${C_ERR}Missing${C_RST}"
+                fi
+
+                # 4. Outputs
+                if [ -d "firmware_output/sourcebuilder/$sel_id" ] && [ "$(ls -A "firmware_output/sourcebuilder/$sel_id" 2>/dev/null)" ]; then
+                    stat_out_s="${C_VAL}Found${C_RST} (source output/)"
+                else
+                    stat_out_s="${C_GRY}Empty${C_RST}"
+                fi
+                
+                if [ -d "firmware_output/imagebuilder/$sel_id" ] && [ "$(ls -A "firmware_output/imagebuilder/$sel_id" 2>/dev/null)" ]; then
+                    stat_out_i="${C_VAL}Found${C_RST} (image output/)"
+                else
+                    stat_out_i="${C_GRY}Empty${C_RST}"
+                fi
+
+                # Вывод отчета
+                echo -e "  - Configuration:  ${C_VAL}profiles/$sel_conf${C_RST}"
+                echo -e "  - Overlay files:  $stat_files"
+                echo -e "  - Inbound IPKs:   $stat_pkgs"
+                echo -e "  - Source PKGs:    $stat_srcs"
+                echo -e "  - Source Output:  $stat_out_s"
+                echo -e "  - Image Output:   $stat_out_i"
+                echo -e "${C_GRY}----------------------------------------------------------${C_RST}"
+                echo ""
+                
+                echo -e "${C_VAL}[ACTION]${C_RST} Opening file in editor..."
+                echo -e "${C_LBL}[INFO]${C_RST} Press Ctrl+X to exit nano."
+                sleep 1
+                
+                "${EDITOR:-nano}" "profiles/$sel_conf"
+            fi 
+            ;;
         [Aa])
             # Массовая сборка с параллельным выполнением и логированием
             if [ "$BUILD_MODE" == "SOURCE" ]; then

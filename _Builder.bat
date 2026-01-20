@@ -667,6 +667,7 @@ echo === !L_MASS_START! [%BUILD_MODE%] ===
 for /L %%i in (1,1,%count%) do (
     set "CURRENT_CONF=!profile[%%i]!"
     call :BUILD_ROUTINE "!CURRENT_CONF!"
+    timeout /t 1 >nul
 )
 echo !L_BUILD_LAUNCHED!
 pause
@@ -1255,7 +1256,8 @@ echo else >> "%RUNNER_SCRIPT%"
 echo     echo "[CONFIG] No manual_config found. Generating from profile..." >> "%RUNNER_SCRIPT%"
 echo     echo "CONFIG_TARGET_$SRC_TARGET=y" ^> .config >> "%RUNNER_SCRIPT%"
 echo     echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}=y" ^>^> .config >> "%RUNNER_SCRIPT%"
-echo     echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}_DEVICE_$TARGET_PROFILE=y" ^>^> .config >> "%RUNNER_SCRIPT%"
+echo     CLEAN_PROFILE=$(echo "$TARGET_PROFILE" ^| tr '-' '_') >> "%RUNNER_SCRIPT%"
+echo     echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}_DEVICE_$CLEAN_PROFILE=y" ^>^> .config >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     for pkg in $SRC_PACKAGES; do >> "%RUNNER_SCRIPT%"
 echo         if [[ "$pkg" == -* ]]; then >> "%RUNNER_SCRIPT%"

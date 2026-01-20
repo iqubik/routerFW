@@ -3,7 +3,7 @@
     OpenWrt/ImmortalWrt Universal Profile Creator.
     file: system\create_profile.ps1
 .VERSION
-    2.27 (Header Fix + Smart Navigation)
+    2.28 (JSON Fix + Sync)
 .DESCRIPTION
     Скрипт-мастер (Wizard) для создания конфигурационных файлов профилей сборки.
     Поддерживает:
@@ -13,6 +13,9 @@
     - Умный анализ пакетов (Target Default + Device Specific).
     - Навигацию (Назад/Выход) через машину состояний.
     - UX 2.0: Автозаполнение (Luci), системные имена файлов и защита от перезаписи.
+    Fully synchronized with Bash version.
+    - Handles new profiles.json structure (titles array).
+    - Robust State Machine.
 #>
 
 $ErrorActionPreference = "Stop"
@@ -44,7 +47,7 @@ if ($FORCE_LANG -ne "AUTO") {
 # --- СЛОВАРЬ (DICTIONARY) ---
 $L = @{}
 if ($Lang -eq "RU") {
-    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.3 UX++)"
+    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.28 UX++)"
     $L.StructureLabel = "СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:"
     $L.PathLabel      = "ПУТЬ: "
     $L.PromptSelect   = "Выберите номер"
@@ -66,18 +69,12 @@ if ($Lang -eq "RU") {
     $L.Step6_DefPkgs  = "Пакеты по умолчанию:"
     $L.Step6_AddPkgs  = "Дополнительные пакеты [luci] (Z - Назад)"
     $L.Step6_FileName = "Введите имя файла конфига (без .conf)"
-    $L.Step6_ErrName  = "Ошибка: некорректное имя."
-    $L.Step6_AutoCorr = "  -> Автокоррекция:"
     $L.Step6_Exists   = "[!] Файл уже существует!"
     $L.Step6_Overwrite= "Перезаписать? (y/n) [n]"
     $L.Step6_Saved    = "Конфиг успешно сохранен:"
     $L.FinalAction    = "Нажмите Enter для создания нового профиля или 'Q' для выхода..."
-    # Конфиг-комментарии
-    $L.Conf_Default   = "Пакеты по умолчанию (Target Default +/- Device Specific)"
-    $L.Conf_Custom    = "Ваши дополнительные пакеты"
-    $L.Conf_SizeDesc  = "ЭКОНОМИЯ МЕСТА (Для 4MB / 8MB флешек)"
 } else {
-    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.26 UX+)"
+    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.28 UX+)"
     $L.StructureLabel = "TYPICAL FIRMWARE FILENAME STRUCTURE:"
     $L.PathLabel      = "PATH: "
     $L.PromptSelect   = "Select number"
@@ -99,21 +96,14 @@ if ($Lang -eq "RU") {
     $L.Step6_DefPkgs  = "Default packages:"
     $L.Step6_AddPkgs  = "Additional packages [luci] (Z - Back)"
     $L.Step6_FileName = "Enter config filename (without .conf)"
-    $L.Step6_ErrName  = "Error: invalid name."
-    $L.Step6_AutoCorr = "  -> Autocorrected:"
     $L.Step6_Exists   = "[!] File already exists!"
     $L.Step6_Overwrite= "Overwrite? (y/n) [n]"
     $L.Step6_Saved    = "Config successfully saved:"
     $L.FinalAction    = "Press Enter for new profile or 'Q' to exit..."
-    # Config comments
-    $L.Conf_Default   = "Default packages (Target Default +/- Device Specific)"
-    $L.Conf_Custom    = "Your custom packages"
-    $L.Conf_SizeDesc  = "SPACE SAVING (For 4MB / 8MB flash)"
 }
 
-# --- ИНИЦИАЛИЗАЦИЯ ОКРУЖЕНИЯ ---
+# --- INIT ---
 $ProfilesDir = Join-Path (Split-Path -Parent $PSScriptRoot) "profiles"
-
 # Создаем рабочую папку для профилей, если её нет
 if (-not (Test-Path $ProfilesDir)) { New-Item -ItemType Directory -Path $ProfilesDir | Out-Null }
 
@@ -152,29 +142,21 @@ function Show-Header {
     # --- ВИЗУАЛИЗАЦИЯ ИМЕНИ ФАЙЛА ---
     Write-Host "  $($L.StructureLabel)" -ForegroundColor Gray
     Write-Host "  " -NoNewline
-
     # Функция-помощник для покраски сегментов
+    
     function Out-Part {
         param($Value, $Default, $PartStep)
         $display = if ($Value) { $Value.ToLower() } else { $Default }
-        if ($StepNum -eq $PartStep) {
-            Write-Host "[$display]" -NoNewline -ForegroundColor Magenta
-        } elseif ($Value) {
-            Write-Host $display -NoNewline -ForegroundColor Green
-        } else {
-            Write-Host $display -NoNewline -ForegroundColor DarkGray
-        }
+        if ($StepNum -eq $PartStep) { Write-Host "[$display]" -NoNewline -ForegroundColor Magenta }
+        elseif ($Value) { Write-Host $display -NoNewline -ForegroundColor Green }
+        else { Write-Host $display -NoNewline -ForegroundColor DarkGray }
     }
 
     # Собираем структуру: source-target-subtarget-model-suffix
-    Out-Part $GlobalState.Source "source" 1
-    Write-Host "-" -NoNewline -ForegroundColor DarkGray
-    Out-Part $GlobalState.Target "target" 3
-    Write-Host "-" -NoNewline -ForegroundColor DarkGray
-    Out-Part $GlobalState.Subtarget "subtarget" 4
-    Write-Host "-" -NoNewline -ForegroundColor DarkGray
-    Out-Part $GlobalState.ModelID "model" 5
-    Write-Host "-squashfs-sysupgrade.bin" -ForegroundColor DarkGray    
+    Out-Part $GlobalState.Source "source" 1; Write-Host "-" -NoNewline -ForegroundColor DarkGray
+    Out-Part $GlobalState.Target "target" 3; Write-Host "-" -NoNewline -ForegroundColor DarkGray
+    Out-Part $GlobalState.Subtarget "subtarget" 4; Write-Host "-" -NoNewline -ForegroundColor DarkGray
+    Out-Part $GlobalState.ModelID "model" 5; Write-Host "-squashfs-sysupgrade.bin" -ForegroundColor DarkGray    
 
     # --- ХЛЕБНЫЕ КРОШКИ ---
     $crumbs = @()
@@ -219,7 +201,6 @@ function Read-Selection {
         if ([string]::IsNullOrWhiteSpace($inputVal)) { continue }
         $val = $inputVal.Trim().ToLower()
         # Обработка выхода
-        # Обработка возврата (Код -1)
         if ($val -eq 'q') { exit }
         if ($AllowBack -and $val -eq 'z') { return -1 } 
         # Валидация числа
@@ -233,11 +214,9 @@ function Read-Selection {
 
 # Логика скрипта построена на машине состояний.
 # Переменная $Step определяет текущий экран.
-# Это позволяет легко реализовать кнопки "Назад" ($Step--) и повтор шагов.
 # --- ОСНОВНОЙ ЦИКЛ ---
 $Step = 1
-
-while ($true) {
+:MainLoop while ($true) {
     try {
         switch ($Step) {
             # ШАГ 1: ВЫБОР ИСТОЧНИКА
@@ -249,11 +228,11 @@ while ($true) {
                 Write-Host " 2. $($L.Step1_IW)"
                 $sel = Read-Selection -MaxCount 2 -AllowBack $false
                 if ($sel -eq 1) {
-                    $GlobalState.Source  = "OpenWrt"
+                    $GlobalState.Source = "OpenWrt"
                     $GlobalState.BaseUrl = "https://downloads.openwrt.org"
                     $GlobalState.RepoUrl = "https://github.com/openwrt/openwrt.git"
                 } else {
-                    $GlobalState.Source  = "ImmortalWrt"
+                    $GlobalState.Source = "ImmortalWrt"
                     $GlobalState.BaseUrl = "https://downloads.immortalwrt.org"
                     $GlobalState.RepoUrl = "https://github.com/immortalwrt/immortalwrt.git"
                 }
@@ -290,7 +269,7 @@ while ($true) {
                 # Исключаем служебные папки (backups, kmodindex)
                 $targets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
                         ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
-                        Where-Object { $_ -notin @('backups', 'kmodindex') })
+                        Where-Object { $_ -notin @('backups', 'kmodindex', 'parent') })
                 for ($i=0; $i -lt $targets.Count; $i++) { Write-Host (" {0,2}. {1}" -f ($i+1), $targets[$i]) }
                 $idx = Read-Selection -MaxCount $targets.Count
                 if ($idx -eq -1) { $Step--; continue }
@@ -307,7 +286,7 @@ while ($true) {
                 $html = (Invoke-WebRequest -Uri $baseTargetUrl -UseBasicParsing).Content
                 $subtargets = @([regex]::Matches($html, 'href="([^"\./ ]+/)"') | 
                             ForEach-Object { $_.Groups[1].Value.TrimEnd('/') } | 
-                            Where-Object { $_ -notin @('backups', 'kmodindex', 'packages') })
+                            Where-Object { $_ -notin @('backups', 'kmodindex', 'packages', 'parent') })
 
                 # АВТОМАТИЗАЦИЯ: Если папка одна (часто generic), пропускаем выбор
                 if ($subtargets.Count -le 1) {
@@ -341,12 +320,18 @@ while ($true) {
                 $profileIds = @($data.profiles.PSObject.Properties.Name | Sort-Object)
                 $profileList = @()
                 for ($i=0; $i -lt $profileIds.Count; $i++) {
-                    $id = $profileIds[$i]; $title = $data.profiles.$id.title
+                    $id = $profileIds[$i]
+                    $pObj = $data.profiles.$id
+                    # Prioritize 'titles' array, fallback to 'title' string, fallback to ID
+                    $title = if ($pObj.titles) { $pObj.titles[0].title } else { $pObj.title }
+                    if (-not $title) { $title = $id }
+
                     Write-Host (" {0,3}. {1} ({2})" -f ($i+1), $title, $id)
                     $profileList += [PSCustomObject]@{ ID = $id; Title = $title }
                 }
                 $idx = Read-Selection -MaxCount $profileList.Count
                 if ($idx -eq -1) { $GlobalState.LastStep = 5; $Step--; continue }
+                
                 $selectedProfile = $profileList[($idx-1)]
                 $GlobalState.ModelID = $selectedProfile.ID
                 $GlobalState.ModelName = $selectedProfile.Title
@@ -434,7 +419,8 @@ while ($true) {
                     # Навигация
                     Write-Host "`n$($L.Step6_FileName) [$defaultName]: " -NoNewline -ForegroundColor Gray
                     $inputName = Read-Host
-                    if ($inputName.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue 2 }
+                    # continue MainLoop выбрасывает нас из do-while и из switch сразу к началу :MainLoop
+                    if ($inputName.ToLower() -eq 'z') { $GlobalState.LastStep = 6; $Step--; continue MainLoop }
                     # Логика выбора и нормализации
                         # Форматирование: только мелкие буквы, цифры и подчеркивания
                     
@@ -503,12 +489,8 @@ SRC_CORES="safe"
 #    If a package fails to install via SRC_PACKAGES, you can force-enable it here.
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
 
-SRC_EXTRA_CONFIG='
-CONFIG_TARGET_$($GlobalState.Target)=y
-CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)=y
-CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalState.ModelID)=y
-CONFIG_BUILD_LOG=y
-'
+SRC_EXTRA_CONFIG=''
+
 "@
                 [System.IO.File]::WriteAllText($confPath, $content, (New-Object System.Text.UTF8Encoding($false)))
                 Write-Host "`n[OK] $($L.Step6_Saved) $confPath" -ForegroundColor Green
