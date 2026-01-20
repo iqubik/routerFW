@@ -4,17 +4,22 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.12"
+VER_NUM="4.14"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
 
 # Функция восстановления курсора и очистки при прерывании (Ctrl+C)
 cleanup_exit() {
-    rm -rf "$PROJECT_DIR/.docker_tmp" # Удаляем временный конфиг Docker
+    echo -e "\n${C_ERR}[INTERRUPT]${C_RST} Cleaning up running containers..."
+    # Stop all running build containers to prevent orphans
+    release_locks "ALL"
+    # Remove the temporary Docker config
+    rm -rf "$PROJECT_DIR/.docker_tmp" 
+    # Restore cursor visibility
     tput cnorm
     echo -e "${C_RST}"
-    exit 0
+    exit 1 # Exit with an error code to indicate abnormal termination
 }
 trap cleanup_exit SIGINT SIGTERM
 
@@ -33,23 +38,26 @@ FORCE_LANG="AUTO"  # AUTO | RU | EN
 SYS_LANG="EN"
 ru_score=0
 
-echo -e "${C_LBL}[INIT]${C_RST} Language detector (Weighted Detection)..."
+# Предварительные переменные для лога детекции (будут перезаписаны в словаре, но нужны дефолты)
+L_CHK_ENV="Environment LANG"
+L_CHK_LOCALE="System Locale"
+L_CHK_TZ="Timezone Check"
 
 # 1. Проверка переменной окружения LANG (4 балла)
 if [[ "$LANG" == *"ru"* ]]; then
     ((ru_score+=4))
-    echo -e "  ${C_GRY}-${C_RST} Environment LANG      ${C_OK}RU${C_RST} [+4]"
+    L_CHK_ENV_RES="${C_OK}RU${C_RST} [+4]"
 else
-    echo -e "  ${C_GRY}-${C_RST} Environment LANG      ${C_ERR}EN${C_RST}"
+    L_CHK_ENV_RES="${C_ERR}EN${C_RST}"
 fi
 
 # 2. Проверка команды locale (3 балла)
 if command -v locale >/dev/null 2>&1; then
     if locale | grep -qi "ru_RU"; then
         ((ru_score+=3))
-        echo -e "  ${C_GRY}-${C_RST} System Locale         ${C_OK}RU${C_RST} [+3]"
+        L_CHK_LOCALE_RES="${C_OK}RU${C_RST} [+3]"
     else
-        echo -e "  ${C_GRY}-${C_RST} System Locale         ${C_ERR}EN${C_RST}"
+        L_CHK_LOCALE_RES="${C_ERR}EN${C_RST}"
     fi
 fi
 
@@ -57,14 +65,15 @@ fi
 if [ -f /etc/timezone ]; then
     if grep -qi "Moscow\|Europe/Russian" /etc/timezone; then
         ((ru_score+=2))
-        echo -e "  ${C_GRY}-${C_RST} Timezone Check        ${C_OK}RU${C_RST} [+2]"
+        L_CHK_TZ_RES="${C_OK}RU${C_RST} [+2]"
     fi
 elif command -v timedatectl >/dev/null 2>&1; then
     if timedatectl | grep -qi "Moscow"; then
         ((ru_score+=2))
-        echo -e "  ${C_GRY}-${C_RST} Timezone Check        ${C_OK}RU${C_RST} [+2]"
+        L_CHK_TZ_RES="${C_OK}RU${C_RST} [+2]"
     fi
 fi
+[ -z "$L_CHK_TZ_RES" ] && L_CHK_TZ_RES="${C_ERR}EN${C_RST}"
 
 # Логика суждения
 if [ $ru_score -ge 5 ]; then SYS_LANG="RU"; fi
@@ -74,27 +83,34 @@ if [ "$FORCE_LANG" == "RU" ]; then SYS_LANG="RU"; fi
 if [ "$FORCE_LANG" == "EN" ]; then SYS_LANG="EN"; fi
 
 # === СЛОВАРЬ (DICTIONARY) ===
-# Примечание: Переменные очищены от «мусора» и соответствуют только реальным вызовам в коде. v4
+# Примечание: Переменные очищены от «мусора» и соответствуют только реальным вызовам в коде. v5
 if [ "$SYS_LANG" == "RU" ]; then
-    # RUSSIAN DICTIONARY
-    L_K_MENU_HEADER="MENUCONFIG / SHELL / MC"
+    # RUSSIAN DICTIONARY    
     L_CANCEL_0="Введите 0 для отмены"
     L_PRESS_ENTER="Нажмите Enter для возврата..."
     L_K_MOVE_ASK="Обновить текущий профиль данными из Menuconfig? [Y/N]"
-    L_K_MOVE_OK="${C_OK}[DONE]${C_RST} Переменная SRC_EXTRA_CONFIG в профиле обновлена."
+    L_K_MOVE_OK="${C_OK}[ГОТОВО]${C_RST} Переменная SRC_EXTRA_CONFIG в профиле обновлена."
     L_K_MOVE_ARCH="Временный файл переименован в _manual_config."    
     L_LANG_NAME="РУССКИЙ"
     L_VERDICT="Вердикт"
-    L_INIT_ENV="[INIT] Проверка окружения..."
-    L_INIT_NET="[INIT] Очистка неиспользуемых сетей Docker..."
-    L_INIT_UNPACK="[INIT] Проверка распаковщика..."
+    L_INIT_ENV="[СТАРТ] Проверка окружения..."
+    L_INIT_NET="[СТАРТ] Очистка неиспользуемых сетей Docker..."
+    L_INIT_UNPACK="[СТАРТ] Проверка распаковщика..."
+    L_INIT_PULL="[СТАРТ] Загрузка базового образа..."
+    L_INIT_USING="  ${C_GRY}-${C_RST} Используется:"
+    L_INIT_ROOT="  ${C_GRY}-${C_RST} Корень проекта:"
+    L_INIT_MAP="[СТАРТ] Карта архитектур (Advanced Mapping)..."
+    L_INIT_PATCHED="[ПАТЧ] Исправлено"
+    L_CHK_ENV="Переменная LANG      "
+    L_CHK_LOCALE="Системная локаль     "
+    L_CHK_TZ="Часовой пояс         "
     L_DONE_MENU="Готово. Переход в меню..."
     L_CHOICE="Ваш выбор"
     L_BACK="Назад"
     L_ERR_INPUT="Ошибка ввода."    
-    L_ERR_DOCKER="[ERROR] Docker не обнаружен!"
+    L_ERR_DOCKER="[ОШИБКА] Docker не обнаружен!"
     L_ERR_DOCKER_MSG="Убедитесь, что Docker установлен и запущен."
-    L_ERR_COMPOSE="[ERROR] docker-compose не найден!"    
+    L_ERR_COMPOSE="[ОШИБКА] docker-compose не найден!"    
     L_CUR_MODE="Текущий режим"
     L_MODE_IMG="IMAGE BUILDER (Быстрая сборка)"
     L_MODE_SRC="SOURCE BUILDER (Полная компиляция)"
@@ -116,13 +132,16 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_EDIT_TITLE="РЕДАКТОР ПРОФИЛЯ"    
     L_SEL_IMPORT="Выберите профиль для импорта пакетов"    
     L_CLEAN_TITLE="МЕНЮ ОЧИСТКИ"
-    L_CLEAN_SRC_SOFT="SOFT CLEAN (make clean)"
-    L_CLEAN_SRC_HARD="HARD RESET (Удалить src-workdir)"
+    L_CLEAN_SRC_SOFT="Мягкая очистка"
+    L_CLEAN_SRC_HARD="Жесткий сброс (Удалить src-workdir)"
     L_CLEAN_SRC_DL="Очистить кэш исходников (dl)"
     L_CLEAN_SRC_CC="Очистить CCACHE (Кэш компилятора)"
     L_CLEAN_FULL="FULL FACTORY RESET (Сброс проекта)"
+    L_CLEAN_RUN_MSG="Выполняется make clean..."
+    L_LOCK_REL="[БЛОК] Снятие блокировок контейнеров для"
+    L_TARGET_PROMPT="Цель"
     L_CONFIRM_YES="Введите YES для подтверждения"    
-    L_K_LAUNCH="[INFO] Запуск интерактивного Menuconfig..."
+    L_K_LAUNCH="[ИНФО] Запуск интерактивного Menuconfig..."
     L_K_SEL="Выберите профиль для настройки"
     L_K_SAVE="Фиксация конфигурации..."
     L_K_SAVED="Сохранено"
@@ -132,17 +151,23 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_K_STAY="Остаться в контейнере? [y/N]"
     L_K_SHELL_H1="[SHELL] Вход в консоль. Текущая папка"
     L_K_SHELL_H2="Подсказка: введите mc для файлового менеджера."
-    L_K_SHELL_H3="Чтобы выйти, введите exit."    
+    L_K_SHELL_H3="Чтобы выйти, введите exit."
+    L_ARCHIVED_TO="Архивировано в:"
+    L_BUILD_TARGET="Цель сборки:"
     L_WARN_MASS="Массовая компиляция из исходников! Это займет много времени."
     L_PARALLEL_BUILDS_START="Параллельная сборка! Логи сохраняются в:"
     L_MONITOR_HINT="Следите за процессом: 'tail -f <файл_лога>'"
     L_ALL_BUILDS_LAUNCHED="Все сборки запущены в фоновом режиме."
     L_WAITING_FOR_BUILDS="Ожидание завершения"
     L_ALL_BUILDS_DONE="Все сборки завершены."    
-    L_ERR_WIZ="[ERROR] create_profile.sh не найден!"
+    L_LOG_HEAD_PROF="ПРОФИЛЬ"
+    L_LOG_HEAD_FILE="ЛОГ ФАЙЛ"
+    L_LOG_START="-> Запуск:"
+    L_LOG_FAIL_IN="[ОШИБКА] Сборка профиля '%s' упала за %s. См. лог."
+    L_LOG_OK_IN="[ГОТОВО]  Сборка профиля '%s' завершена за %s."
+    L_ERR_WIZ="[ОШИБКА] create_profile.sh не найден!"
 else
-    # ENGLISH DICTIONARY
-    L_K_MENU_HEADER="MENUCONFIG / SHELL / MC"
+    # ENGLISH DICTIONARY    
     L_CANCEL_0="Type 0 to cancel"
     L_PRESS_ENTER="Press Enter to return..."
     L_K_MOVE_ASK="Update current profile with Menuconfig data? [Y/N]"
@@ -153,6 +178,14 @@ else
     L_INIT_ENV="[INIT] Checking environment..."
     L_INIT_NET="[INIT] Pruning unused Docker networks..."
     L_INIT_UNPACK="[INIT] Checking unpacker..."
+    L_INIT_PULL="[INIT] Pulling base image..."
+    L_INIT_USING="  ${C_GRY}-${C_RST} Using:"
+    L_INIT_ROOT="  ${C_GRY}-${C_RST} Root:"
+    L_INIT_MAP="[INIT] Advanced Architecture Mapping..."
+    L_INIT_PATCHED="[PATCHED] Mapped"
+    L_CHK_ENV="Environment LANG      "
+    L_CHK_LOCALE="System Locale         "
+    L_CHK_TZ="Timezone Check        "
     L_DONE_MENU="Done. Returning to menu..."
     L_CHOICE="Your choice"
     L_BACK="Back"
@@ -181,11 +214,14 @@ else
     L_EDIT_TITLE="PROFILE EDITOR"    
     L_SEL_IMPORT="Select profile for package import"
     L_CLEAN_TITLE="CLEANUP AND MAINTENANCE MENU"
-    L_CLEAN_SRC_SOFT="SOFT CLEAN (make clean)"
-    L_CLEAN_SRC_HARD="HARD RESET (Remove src-workdir)"
+    L_CLEAN_SRC_SOFT="SOFT CLEAN"
+    L_CLEAN_SRC_HARD="HARD RESET"
     L_CLEAN_SRC_DL="Clean Source Cache (dl)"
     L_CLEAN_SRC_CC="Clean CCACHE (Compiler cache)"
     L_CLEAN_FULL="FULL FACTORY RESET (Reset project)"
+    L_CLEAN_RUN_MSG="Running make clean..."
+    L_LOCK_REL="[LOCK] Releasing containers for"
+    L_TARGET_PROMPT="Target"
     L_CONFIRM_YES="Type YES to confirm"
     L_K_LAUNCH="[INFO] Launching Interactive Menuconfig..."
     L_K_SEL="Select profile to configure"
@@ -198,14 +234,28 @@ else
     L_K_SHELL_H1="[SHELL] Entering console. Current folder"
     L_K_SHELL_H2="Tip: type mc to launch file manager."
     L_K_SHELL_H3="To exit and continue, type exit."
+    L_ARCHIVED_TO="Archived to:"
+    L_BUILD_TARGET="Build Target:"
     L_WARN_MASS="Massive source compilation! This will take a lot of time."
     L_PARALLEL_BUILDS_START="Parallel builds! Logs are being saved to:"
     L_MONITOR_HINT="You can monitor progress with: 'tail -f <logfile>'"
     L_ALL_BUILDS_LAUNCHED="All build processes have been launched in the background."
     L_WAITING_FOR_BUILDS="Waiting for completion"
     L_ALL_BUILDS_DONE="All builds are complete."
+    L_LOG_HEAD_PROF="PROFILE"
+    L_LOG_HEAD_FILE="LOG FILE"
+    L_LOG_START="-> Starting:"
+    L_LOG_FAIL_IN="[ERROR] Build for profile '%s' failed in %s. Check log."
+    L_LOG_OK_IN="[DONE]  Build for profile '%s' completed in %s."
     L_ERR_WIZ="[ERROR] create_profile.sh not found!"
 fi
+
+echo -e "${C_LBL}[INIT]${C_RST} Language detector (Weighted Detection)..."
+echo -e "  ${C_GRY}-${C_RST} ${L_CHK_ENV}${L_CHK_ENV_RES}"
+if [ -n "$L_CHK_LOCALE_RES" ]; then
+    echo -e "  ${C_GRY}-${C_RST} ${L_CHK_LOCALE}${L_CHK_LOCALE_RES}"
+fi
+echo -e "  ${C_GRY}-${C_RST} ${L_CHK_TZ}${L_CHK_TZ_RES}"
 
 # Финальный вердикт языка
 if [ "$FORCE_LANG" == "AUTO" ]; then
@@ -229,7 +279,7 @@ echo '{"auths": {}}' > "$DOCKER_CONFIG_DIR/config.json"
 export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"
 
 # Предварительный пулл теперь точно сработает
-echo -e "${C_LBL}[INIT]${C_RST} Pulling base image..."
+echo -e "${C_LBL}${L_INIT_PULL}${C_RST}"
 
 # Проверка Docker
 D_VER=$(docker --version 2>/dev/null)
@@ -250,11 +300,11 @@ if ! command -v docker-compose &> /dev/null; then
         read -p "Press enter..." && exit 1
     fi
 fi
-echo -e "  ${C_GRY}-${C_RST} Using: $C_EXE"
+echo -e "${L_INIT_USING} $C_EXE"
 
 # Корень
 PROJECT_DIR=$(pwd)
-echo -e "  ${C_GRY}-${C_RST} Root: ${C_VAL}${PROJECT_DIR}${C_RST}"
+echo -e "${L_INIT_ROOT} ${C_VAL}${PROJECT_DIR}${C_RST}"
 
 echo -e "$L_INIT_NET"
 docker network prune --force >/dev/null 2>&1
@@ -311,7 +361,7 @@ build_routine() {
     # === FIX 2: Безопасное создание папок ===
     [ -d "$HOST_OUTPUT_DIR" ] || mkdir -p "$HOST_OUTPUT_DIR" 2>/dev/null
     
-    echo -e "${C_LBL}[BUILD]${C_RST} Target: ${C_VAL}$p_id${C_RST}"
+    echo -e "${C_LBL}[BUILD]${C_RST} ${L_BUILD_TARGET} ${C_VAL}$p_id${C_RST}"
     
     # 1. Принудительно удаляем контейнер (чистка хвостов)
     docker rm -f "${proj_name}-${service}-1" >/dev/null 2>&1
@@ -464,7 +514,7 @@ EOF
     # --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ ---
     if [ -f "$out_path/manual_config" ]; then
         echo -e "\n${C_KEY}----------------------------------------------------------${C_RST}"
-        echo -e "Profile: ${C_VAL}${conf_file}${C_RST}"
+        echo -e "${H_PROF}: ${C_VAL}${conf_file}${C_RST}"
         
         # Генерация метки времени
         ts=$(date +"%Y%m%d_%H%M%S")
@@ -493,10 +543,10 @@ EOF
             fi
             echo -e "$L_K_MOVE_OK"
             mv "$out_path/manual_config" "$out_path/applied_config_${ts}.bak"
-            echo -e "[INFO] Archived to: applied_config_${ts}.bak"
+            echo -e "[INFO] ${L_ARCHIVED_TO} applied_config_${ts}.bak"
         else            
             mv "$out_path/manual_config" "$out_path/discarded_config_${ts}.bak"
-            echo -e "[INFO] Archived to: discarded_config_${ts}.bak"
+            echo -e "[INFO] ${L_ARCHIVED_TO} discarded_config_${ts}.bak"
         fi
         echo -e "${C_KEY}----------------------------------------------------------${C_RST}"
     fi
@@ -512,14 +562,42 @@ EOF
 # === GRANULAR CLEANUP SYSTEM ===
 release_locks() {
     local p_id="$1"
-    echo -e "  ${C_GRY}[LOCK] Releasing containers for $p_id...${C_RST}"
+    echo -e "  ${C_GRY}${L_LOCK_REL} $p_id...${C_RST}"
     if [ "$p_id" == "ALL" ]; then
-        # Удаляем все контейнеры, связанные с проектом
-        docker ps -aq -f "name=builder-" | xargs -r docker rm -f
-        docker ps -aq -f "name=srcbuild-" | xargs -r docker rm -f
+        # Удаляем все контейнеры, чьи имена начинаются с префиксов build_ или srcbuild_
+        # Это покрывает все возможные контейнеры сборки, созданные docker-compose
+        docker ps -aq --filter "name=^build_" --filter "name=^srcbuild_" | xargs -r docker rm -f
     else
-        # Удаляем только конкретный проект
-        docker ps -aq | xargs -r docker inspect --format '{{.Name}}' | grep -E "build_$p_id|srcbuild_$p_id" | xargs -r -I {} docker rm -f {}
+        # Удаляем контейнеры для конкретного профиля, используя оба возможных префикса
+        docker ps -aq --filter "name=^build_${p_id}" --filter "name=^srcbuild_${p_id}" | xargs -r docker rm -f
+    fi
+}
+
+cleanup_logic() {
+    local type="$1"
+    local p_id="$2"
+
+    echo -e "  ${C_GRY}Cleaning volumes of type '${type}' for profile '${p_id}'...${C_RST}"
+
+    if [ "$p_id" == "ALL" ]; then
+        # Find all volumes that start with 'srcbuild_' and end with the type, e.g., '_src-workdir'
+        # The grep regex will match 'srcbuild_ANYTHING_src-workdir'
+        local volumes_to_delete=$(docker volume ls -q | grep -E "^srcbuild_.*_${type}$")
+        if [ -n "$volumes_to_delete" ]; then
+            echo "$volumes_to_delete" | xargs -r docker volume rm
+            echo -e "  ${C_OK}Done.${C_RST}"
+        else
+            echo -e "  ${C_GRY}No volumes to delete.${C_RST}"
+        fi
+    else
+        # For a specific profile, we can construct the exact volume name
+        local volume_name="srcbuild_${p_id}_${type}"
+        if docker volume inspect "$volume_name" >/dev/null 2>&1; then
+            docker volume rm "$volume_name" >/dev/null 2>&1
+            echo -e "  ${C_OK}Removed volume '$volume_name'.${C_RST}"
+        else
+            echo -e "  ${C_GRY}Volume '$volume_name' not found, skipping.${C_RST}"
+        fi
     fi
 }
 
@@ -527,7 +605,7 @@ cleanup_wizard() {
     clear
     echo -e "${C_VAL}${L_CLEAN_TITLE}${C_RST}\n"
     echo " 1. $L_CLEAN_SRC_SOFT (make clean)"
-    echo " 2. $L_CLEAN_SRC_HARD (Delete Workdir)"
+    echo " 2. $L_CLEAN_SRC_HARD (Remove src-workdir)"
     echo " 3. $L_CLEAN_SRC_DL (Sources)"
     echo " 4. $L_CLEAN_SRC_CC (CCache)"
     echo " 5. $L_CLEAN_FULL"
@@ -537,7 +615,7 @@ cleanup_wizard() {
     [ "$c_choice" == "0" ] && return
 
     echo -e "\nApply to: [1-$count] or [A]ll"
-    read -p "Target: " t_choice
+    read -p "${L_TARGET_PROMPT}: " t_choice
     
     local target_id="ALL"
     if [ "$t_choice" != "A" ] && [ "$t_choice" != "a" ]; then
@@ -554,7 +632,7 @@ cleanup_wizard() {
     
     case $c_choice in
         1) 
-            echo "Running make clean..."
+            echo "$L_CLEAN_RUN_MSG"
             # Для простоты в Bash версии просто выводим уведомление, 
             # так как make clean требует запущенного контейнера
             sleep 1 
@@ -607,7 +685,7 @@ EOF
 
 # === ADVANCED ARCHITECTURE MAPPING (v3.0) ===
 patch_architectures() {
-    echo -e "${C_LBL}[INIT]${C_RST} Advanced Architecture Mapping..."
+    echo -e "${C_LBL}${L_INIT_MAP}${C_RST}"
     for p in profiles/*.conf; do
         [ -e "$p" ] || continue
         if ! grep -q "SRC_ARCH=" "$p"; then
@@ -642,7 +720,7 @@ patch_architectures() {
             
             if [ -n "$arch" ]; then
                 echo "SRC_ARCH=\"$arch\"" >> "$p"
-                echo -e "  ${C_OK}[PATCHED]${C_RST} $(basename "$p") -> $arch"
+                echo -e "  ${C_OK}${L_INIT_PATCHED}${C_RST} $(basename "$p") -> $arch"
             fi
         fi
     done
@@ -769,6 +847,7 @@ while true; do
         [Mm]) 
             [[ "$BUILD_MODE" == "IMAGE" ]] && BUILD_MODE="SOURCE" || BUILD_MODE="IMAGE" ;;
         [Ee])
+            clear
             # Меню редактирования (упрощенно)
             echo -e "${C_VAL}${L_EDIT_TITLE}${C_RST}"
             # Тут логика открытия редактора (vi/nano или xdg-open)
@@ -792,7 +871,7 @@ while true; do
             declare -A pid_map
             declare -A start_time_map
             
-            printf "    %-65s | %s\n" "${C_GRY}PROFILE" "LOG FILE${C_RST}"
+            printf "    %-65s | %s\n" "${C_GRY}${L_LOG_HEAD_PROF}" "${L_LOG_HEAD_FILE}${C_RST}"
             printf "    %s\n" "${C_GRY}--------------------------------------------------------------------------------------------------------------------${C_RST}"
             
             for p in "${profiles[@]}"; do
@@ -800,7 +879,7 @@ while true; do
                 p_id=$(echo "${p%.conf}" | tr -d '\r')
                 log_file="$LOG_DIR/${p_id}.log"
                 
-                printf "    %-65s | %s\n" "${C_KEY}-> Starting: $p_id${C_RST}" "${C_LBL}${log_file}${C_RST}"
+                printf "    %-65s | %s\n" "${C_KEY}${L_LOG_START} $p_id${C_RST}" "${C_LBL}${log_file}${C_RST}"
                 
                 # Запускаем сборку в фоне
                 build_routine "$p" > "$log_file" 2>&1 &
@@ -849,10 +928,10 @@ while true; do
                         
                         if ! wait "$pid"; then
                             # ОШИБКА (Показываем время, потраченное впустую)
-                            echo -e "${C_ERR}[ERROR] Build for profile '${pid_map[$pid]}' failed in ${time_str}. Check log.${C_RST}"
+                            printf "${C_ERR}${L_LOG_FAIL_IN}${C_RST}\n" "${pid_map[$pid]}" "${time_str}"
                         else
                             # УСПЕХ (Показываем время выполнения)
-                            echo -e "${C_OK}[DONE]  Build for profile '${pid_map[$pid]}' completed in ${time_str}.${C_RST}"
+                            printf "${C_OK}${L_LOG_OK_IN}${C_RST}\n" "${pid_map[$pid]}" "${time_str}"
                         fi
                     fi
                 done
@@ -886,7 +965,7 @@ while true; do
                 # Очищаем экран, чтобы список не прилипал к главному меню
                 clear
                 echo -e "${C_GRY}┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐${C_RST}"
-                echo -e "  ${C_VAL}${L_K_MENU_HEADER}${C_RST}"
+                echo -e "  ${C_VAL}MENUCONFIG / SHELL / MC${C_RST}"
                 echo -e "${C_GRY}└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘${C_RST}"
                 echo ""
                 echo -e "  ${L_K_SEL}:"
@@ -907,6 +986,7 @@ while true; do
         [Cc])
             cleanup_wizard ;;
         [Ii])
+            clear
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 echo -e "${L_SEL_IMPORT}:"
                 for ((i=1; i<=count; i++)); do printf "  [%d] %s\n" "$i" "${profiles[$i]}"; done
