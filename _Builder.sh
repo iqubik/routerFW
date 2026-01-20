@@ -85,7 +85,11 @@ if [ "$FORCE_LANG" == "EN" ]; then SYS_LANG="EN"; fi
 # === СЛОВАРЬ (DICTIONARY) ===
 # Примечание: Переменные очищены от «мусора» и соответствуют только реальным вызовам в коде. v5
 if [ "$SYS_LANG" == "RU" ]; then
-    # RUSSIAN DICTIONARY    
+    # RUSSIAN DICTIONARY
+    L_CLEAN_IMG_SDK="Очистить кэш ImageBuilder (SDK)"
+    L_CLEAN_IMG_IPK="Очистить кэш пакетов (IPK)"
+    L_DOCKER_PRUNE="Prune Docker (Глобальная очистка)"
+    L_PRUNE_RUN="[DOCKER] Выполняю system prune..."
     L_CANCEL_0="Введите 0 для отмены"
     L_PRESS_ENTER="Нажмите Enter для возврата..."
     L_K_MOVE_ASK="Обновить текущий профиль данными из Menuconfig? [Y/N]"
@@ -118,8 +122,8 @@ if [ "$SYS_LANG" == "RU" ]; then
     H_PROF="Профиль"
     H_ARCH="Архитектура"
     H_RES="Ресурсы | Сборки"
-    L_LEGEND_IND="Индикаторы показывают состояние ресурсов и результатов сборки."
-    L_LEGEND_TEXT="Легенда: F:Файлы P:Пакеты S:Исх M:manual_config H:hooks.sh | Прошивки: OI:Образ OS:Сборка"
+    L_LEGEND_IND="${C_GRY}Индикаторы справа от профиля показывают состояние папок, файлов и результатов сборки${C_RST}"
+    L_LEGEND_TEXT="Легенда: ${C_GRY}F${C_RST}:Файлы ${C_KEY}P${C_RST}:Пакеты ${C_VAL}S${C_RST}:Исх ${C_ERR}M${C_RST}:manual_config ${C_LBL}H${C_RST}:hooks ${C_GRY}|${C_RST} ${C_GRY}Прошивки:${C_RST} ${C_VAL}OI${C_RST}:Образ ${C_VAL}OS${C_RST}:Сборка"
     L_BTN_ALL="Собрать ВСЕ"
     L_BTN_SWITCH="Режим на"
     L_BTN_EDIT="Редактор"
@@ -167,7 +171,11 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_LOG_OK_IN="[ГОТОВО]  Сборка профиля '%s' завершена за %s."
     L_ERR_WIZ="[ОШИБКА] create_profile.sh не найден!"
 else
-    # ENGLISH DICTIONARY    
+    # ENGLISH DICTIONARY
+    L_CLEAN_IMG_SDK="Clean Builder Cache (SDK)"
+    L_CLEAN_IMG_IPK="Clean Package Cache (IPK)"
+    L_DOCKER_PRUNE="Prune Docker (Global cleanup)"
+    L_PRUNE_RUN="[DOCKER] Running system prune..."
     L_CANCEL_0="Type 0 to cancel"
     L_PRESS_ENTER="Press Enter to return..."
     L_K_MOVE_ASK="Update current profile with Menuconfig data? [Y/N]"
@@ -200,8 +208,8 @@ else
     H_PROF="Profile"
     H_ARCH="Architecture"
     H_RES="Resources | Builds"
-    L_LEGEND_IND="Indicators show the state of resources and build results."
-    L_LEGEND_TEXT="Legend: F:Files P:Packages S:Src M:manual_config H:hooks.sh | Firmwares: OI:Image OS:Build"
+    L_LEGEND_IND="${C_GRY}Indicators to the right of the profile show the state of resources and build results.${C_RST}"
+    L_LEGEND_TEXT="Legend: ${C_GRY}F${C_RST}:Files ${C_KEY}P${C_RST}:Packages ${C_VAL}S${C_RST}:Src ${C_ERR}M${C_RST}:manual_config ${C_LBL}H${C_RST}:hooks ${C_GRY}|${C_RST} ${C_GRY}Firmwares:${C_RST} ${C_VAL}OI${C_RST}:Image ${C_VAL}OS${C_RST}:Build"
     L_BTN_ALL="Build ALL"
     L_BTN_SWITCH="Switch to"
     L_BTN_EDIT="Editor"
@@ -336,8 +344,8 @@ build_routine() {
     local target_val=$(grep "$target_var=" "profiles/$conf_file" | cut -d'"' -f2)
     [ -z "$target_val" ] && { echo -e "${C_ERR}[SKIP] $target_var not found${C_RST}"; return; }
 
-    local is_legacy=0
-    [[ "$target_val" =~ /(17|18|19)\. ]] && is_legacy=1
+    local is_legacy=0    
+    [[ "$target_val" =~ (17|18|19)\. ]] && is_legacy=1
 
     # === FIX 1: ИСПОЛЬЗУЕМ АБСОЛЮТНЫЕ ПУТИ ===
     # Это решает проблемы с монтированием в WSL
@@ -396,8 +404,8 @@ run_menuconfig() {
 
     # 1. Определяем версию (Legacy или New)
     local target_val=$(grep "SRC_BRANCH=" "profiles/$conf_file" | cut -d'"' -f2)
-    local is_legacy=0
-    [[ "$target_val" =~ /(17|18|19)\. ]] && is_legacy=1
+    local is_legacy=0    
+    [[ "$target_val" =~ (17|18|19)\. ]] && is_legacy=1
     [ $is_legacy -eq 1 ] && local service="builder-src-oldwrt" || local service="builder-src-openwrt"
 
     # 2. Экспорт переменных
@@ -580,9 +588,10 @@ cleanup_logic() {
     echo -e "  ${C_GRY}Cleaning volumes of type '${type}' for profile '${p_id}'...${C_RST}"
 
     if [ "$p_id" == "ALL" ]; then
-        # Find all volumes that start with 'srcbuild_' and end with the type, e.g., '_src-workdir'
-        # The grep regex will match 'srcbuild_ANYTHING_src-workdir'
-        local volumes_to_delete=$(docker volume ls -q | grep -E "^srcbuild_.*_${type}$")
+        # FIX: Ищем тома, заканчивающиеся на _type, независимо от префикса (build_ или srcbuild_)
+        local volumes_to_delete=$(docker volume ls -q | grep -E "_(srcbuild|build)_.*_${type}$")
+        # Альтернатива, если grep сложный: grep -E ".*_${type}$" (но это опаснее)
+        
         if [ -n "$volumes_to_delete" ]; then
             echo "$volumes_to_delete" | xargs -r docker volume rm
             echo -e "  ${C_OK}Done.${C_RST}"
@@ -590,30 +599,56 @@ cleanup_logic() {
             echo -e "  ${C_GRY}No volumes to delete.${C_RST}"
         fi
     else
-        # For a specific profile, we can construct the exact volume name
-        local volume_name="srcbuild_${p_id}_${type}"
-        if docker volume inspect "$volume_name" >/dev/null 2>&1; then
-            docker volume rm "$volume_name" >/dev/null 2>&1
-            echo -e "  ${C_OK}Removed volume '$volume_name'.${C_RST}"
-        else
-            echo -e "  ${C_GRY}Volume '$volume_name' not found, skipping.${C_RST}"
+        # FIX: Пробуем удалить оба варианта имени (для Source и Image режимов)
+        local vol_src="srcbuild_${p_id}_${type}"
+        local vol_img="build_${p_id}_${type}"
+        
+        # Удаляем srcbuild вариант
+        if docker volume inspect "$vol_src" >/dev/null 2>&1; then
+            docker volume rm "$vol_src" >/dev/null 2>&1
+            echo -e "  ${C_OK}Removed volume '$vol_src'.${C_RST}"
+        fi
+        
+        # Удаляем build вариант
+        if docker volume inspect "$vol_img" >/dev/null 2>&1; then
+            docker volume rm "$vol_img" >/dev/null 2>&1
+            echo -e "  ${C_OK}Removed volume '$vol_img'.${C_RST}"
         fi
     fi
 }
 
 cleanup_wizard() {
     clear
-    echo -e "${C_VAL}${L_CLEAN_TITLE}${C_RST}\n"
-    echo " 1. $L_CLEAN_SRC_SOFT (make clean)"
-    echo " 2. $L_CLEAN_SRC_HARD (Remove src-workdir)"
-    echo " 3. $L_CLEAN_SRC_DL (Sources)"
-    echo " 4. $L_CLEAN_SRC_CC (CCache)"
-    echo " 5. $L_CLEAN_FULL"
-    echo " 0. $L_BACK"
-    read -p "$L_CHOICE: " c_choice
-    
-    [ "$c_choice" == "0" ] && return
+    echo -e "${C_VAL}${L_CLEAN_TITLE} [${C_LBL}${BUILD_MODE}${C_VAL}]${C_RST}\n"
 
+    # Разделение меню в зависимости от режима
+    if [ "$BUILD_MODE" == "SOURCE" ]; then
+        echo " 1. $L_CLEAN_SRC_SOFT (make clean)"
+        echo " 2. $L_CLEAN_SRC_HARD (Remove src-workdir)"
+        echo " 3. $L_CLEAN_SRC_DL (Sources)"
+        echo " 4. $L_CLEAN_SRC_CC (CCache)"
+        echo " 5. $L_CLEAN_FULL"
+    else
+        # Меню для IMAGE BUILDER
+        echo " 1. $L_CLEAN_IMG_SDK"   # <-- Исправлено
+        echo " 2. $L_CLEAN_IMG_IPK"   # <-- Исправлено
+        echo " 3. $L_CLEAN_FULL"
+    fi
+    echo -e "\n 9. $L_DOCKER_PRUNE" # <--- Добавлено (было пропущено)
+    echo " 0. $L_BACK"
+    
+    read -p "$L_CHOICE: " c_choice
+    [ "$c_choice" == "0" ] && return
+    
+    # Обработка глобального Prune (пункт 9)
+    if [ "$c_choice" == "9" ]; then
+        echo -e "\n$L_PRUNE_RUN"
+        docker system prune -f
+        read -p "Done. Press Enter..."
+        return
+    fi
+
+    # Выбор цели (Профиль или ALL)
     echo -e "\nApply to: [1-$count] or [A]ll"
     read -p "${L_TARGET_PROMPT}: " t_choice
     
@@ -621,42 +656,74 @@ cleanup_wizard() {
     if [ "$t_choice" != "A" ] && [ "$t_choice" != "a" ]; then
         if [ -n "${profiles[$t_choice]}" ]; then
             target_id="${profiles[$t_choice]%.conf}"
+            target_id=$(echo "$target_id" | tr -d '\r')
         else
             echo -e "${C_ERR}Invalid profile index${C_RST}"
             sleep 1; return
         fi
     fi
 
-    # Сначала снимаем блокировки (гасим контейнеры)
+    # Сначала снимаем блокировки
     release_locks "$target_id"
     
-    case $c_choice in
-        1) 
-            echo "$L_CLEAN_RUN_MSG"
-            # Для простоты в Bash версии просто выводим уведомление, 
-            # так как make clean требует запущенного контейнера
-            sleep 1 
-            ;;
-        2) 
-            cleanup_logic "src-workdir" "$target_id" 
-            ;;
-        3) 
-            cleanup_logic "src-dl-cache" "$target_id" 
-            ;;
-        4) 
-            cleanup_logic "src-ccache" "$target_id" 
-            ;;
-        5) 
-            echo -ne "$L_CONFIRM_YES: "
-            read -r confirm
-            if [ "$confirm" == "YES" ]; then
-                docker system prune -f --volumes
-            fi
-            ;;
-        *) 
-            return 
-            ;;
-    esac
+    if [ "$BUILD_MODE" == "SOURCE" ]; then
+        # === ЛОГИКА SOURCE BUILDER ===
+        case $c_choice in
+            1) 
+                # SOFT CLEAN (Make Clean) - Реализация как в BAT
+                if [ "$target_id" == "ALL" ]; then
+                    echo -e "${C_ERR}Soft Clean not supported for ALL mode.${C_RST}"
+                else
+                    echo "$L_CLEAN_START_CONTAINER"
+                    # Важно: используем абсолютные пути, как в build_routine
+                    export HOST_FILES_DIR="$(pwd)/custom_files/$target_id"
+                    export HOST_OUTPUT_DIR="$(pwd)/firmware_output/sourcebuilder/$target_id"
+                    export HOST_PKGS_DIR="$(pwd)/src_packages/$target_id"
+                    
+                    # Запуск команды make clean внутри контейнера
+                    docker-compose -f system/docker-compose-src.yaml -p "srcbuild_$target_id" \
+                        run --rm builder-src-openwrt /bin/bash -c \
+                        "cd /home/build/openwrt && if [ -f Makefile ]; then echo '[CMD] make clean'; make clean; echo '[DONE] Clean Completed'; else echo '[WARN] Makefile not found'; fi"
+                fi
+                ;;
+            2) cleanup_logic "src-workdir" "$target_id" ;;
+            3) cleanup_logic "src-dl-cache" "$target_id" ;;
+            4) cleanup_logic "src-ccache" "$target_id" ;;
+            5) 
+                # FULL RESET (Source)
+                cleanup_logic "src-workdir" "$target_id"
+                cleanup_logic "src-dl-cache" "$target_id"
+                cleanup_logic "src-ccache" "$target_id"
+                # Дополнительно удаляем папку вывода
+                if [ "$target_id" == "ALL" ]; then
+                    rm -rf firmware_output/sourcebuilder/* 2>/dev/null
+                else
+                    rm -rf "firmware_output/sourcebuilder/$target_id" 2>/dev/null
+                fi
+                echo -e "${C_OK}Full reset completed.${C_RST}"
+                ;;
+            *) return ;;
+        esac
+    else
+        # === ЛОГИКА IMAGE BUILDER ===
+        case $c_choice in
+            1) cleanup_logic "imagebuilder-cache" "$target_id" ;; # SDK Cache
+            2) cleanup_logic "ipk-cache" "$target_id" ;;          # IPK Cache
+            3)
+                # FULL RESET (Image)
+                cleanup_logic "imagebuilder-cache" "$target_id"
+                cleanup_logic "ipk-cache" "$target_id"
+                if [ "$target_id" == "ALL" ]; then
+                    rm -rf firmware_output/imagebuilder/* 2>/dev/null
+                else
+                    rm -rf "firmware_output/imagebuilder/$target_id" 2>/dev/null
+                fi
+                echo -e "${C_OK}Full reset completed.${C_RST}"
+                ;;
+            *) return ;;
+        esac
+    fi
+    echo ""
     read -p "Done. Press Enter..."
 }
 
@@ -678,6 +745,8 @@ create_perms_script() {
 [ -d /etc/dropbear ] && chmod 700 /etc/dropbear
 [ -f /etc/dropbear/authorized_keys ] && chmod 600 /etc/dropbear/authorized_keys
 [ -f /etc/shadow ] && chmod 600 /etc/shadow
+[ -f /root/.ssh ] && chmod 700 /root/.ssh
+[ -f /root/.ssh/id_rsa ] && chmod 600 /root/.ssh/id_rsa
 exit 0
 EOF
     chmod +x "$target" 2>/dev/null
@@ -799,15 +868,15 @@ while true; do
         this_arch=$(grep "SRC_ARCH=" "$f" | cut -d'"' -f2 | tr -d '\r')
         [ -z "$this_arch" ] && this_arch="--------"
 
-        # Статусы ресурсов (F P S M H)
-        st_f="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_files/$p_id" 2>/dev/null)" ] && st_f="${C_LBL}F${C_RST}"
+        # Статусы ресурсов (F P S M H)        
+        st_f="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_files/$p_id" 2>/dev/null)" ] && st_f="${C_GRY}F${C_RST}"
         st_p="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_packages/$p_id" 2>/dev/null)" ] && st_p="${C_KEY}P${C_RST}"
         st_s="${C_GRY}·${C_RST}"; [ "$(ls -A "src_packages/$p_id" 2>/dev/null)" ] && st_s="${C_VAL}S${C_RST}"
-        st_m="${C_GRY}·${C_RST}"; [ -f "firmware_output/sourcebuilder/$p_id/manual_config" ] && st_m="${C_OK}M${C_RST}"
+        st_m="${C_GRY}·${C_RST}"; [ -f "firmware_output/sourcebuilder/$p_id/manual_config" ] && st_m="${C_ERR}M${C_RST}"
         
         # Индикатор Хуков (H) - Исправленный путь
         st_h="${C_GRY}·${C_RST}"
-        [ -f "custom_files/$p_id/hooks.sh" ] && st_h="${C_KEY}H${C_RST}"
+        [ -f "custom_files/$p_id/hooks.sh" ] && st_h="${C_LBL}H${C_RST}"        
 
         # Статусы билдов (OI OS) - Реагируют на ЛЮБЫЕ файлы в любых подпапках
         st_oi="${C_GRY}··${C_RST}"; [ -n "$(find "firmware_output/imagebuilder/$p_id" -type f 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
@@ -993,7 +1062,8 @@ while true; do
                 read -p "ID: " i_id
                 if [ -n "${profiles[$i_id]}" ]; then
                     p_id="${profiles[$i_id]%.conf}"
-                    p_arch=$(grep "SRC_ARCH=" "profiles/${profiles[$i_id]}" | cut -d'"' -f2)
+                    # FIX: Добавили tr -d '\r' для защиты от Windows-символов
+                    p_arch=$(grep "SRC_ARCH=" "profiles/${profiles[$i_id]}" | cut -d'"' -f2 | tr -d '\r')
                     bash system/import_ipk.sh "$p_id" "$p_arch"
                 fi
             fi ;;
