@@ -1,29 +1,53 @@
-### RU
-
-**Версия 4.12**
-
-Ключевое обновление, направленное на повышение надежности, безопасности и воспроизводимости сборок в режиме "из исходников". Механизм сохранения конфигураций был полностью переработан, а окружение сборки — стабилизировано.
-
-**Основные изменения:**
-
-*   **Переработанный механизм `menuconfig`:** Логика обработки и сохранения конфигураций из `make menuconfig` (`SRC_EXTRA_CONFIG`) была полностью переписана в `_Builder.bat` и `_Builder.sh`. Новые скрипты стали значительно надежнее и корректно обрабатывают сложные конфигурации, включая спецсимволы и разные типы кавычек.
-*   **Повышенная воспроизводимость сборок:** Переменная `SRC_EXTRA_CONFIG` во всех основных профилях была заполнена полным списком флагов конфигурации. Это эффективно "замораживает" проверенную конфигурацию для каждого профиля, кардинально улучшая консистентность сборок и снижая зависимость от ручных сессий `menuconfig`.
-*   **Улучшенная безопасность:** Флаг `--security-opt seccomp=unconfined` был удален из команд `docker-compose`. Система сборки теперь работает без необходимости в понижении настроек безопасности.
-*   **Исправление для Legacy-окружения:** Dockerfile для старых сборок (`system/src.dockerfile.legacy`) был исправлен и теперь указывает на официальные репозитории Ubuntu 18.04, что решает ошибки `apt-get` и восстанавливает возможность сборки старых версий прошивок.
-*   **Оптимизация:** Скрипты-упаковщики (`_packer.sh`, `_packer.bat`) были обновлены и теперь включают более релевантный набор профилей по умолчанию.
+Вот вариант текста релиза, переработанный для конечных пользователей. Он сохраняет суть технических изменений, но подает их через призму пользы, удобства и надежности.
 
 ---
 
-### EN
+# 🇷🇺 Release Notes 4.20
 
-**Version 4.12**
+**Версия 4.20** — это знаковое обновление. Мы перешли на новую нумерацию версий (с 4.12 сразу на 4.20), чтобы подчеркнуть масштаб проделанной работы. Главная цель этого релиза — **стабильность** и **комфорт**. Мы устранили старые "болячки", сделали интерфейс дружелюбнее и полностью уравняли возможности скриптов для Windows и Linux.
 
-A major update focused on improving the reliability, security, and reproducibility of Source-mode builds. The configuration saving mechanism has been completely redesigned, and the build environment has been stabilized.
+### 🚀 Главные изменения
 
-**Key Changes:**
+#### 💎 Железобетонная стабильность
+Больше никаких ошибок "volume is in use" или странных блокировок.
+*   **Умная очистка:** Мы полностью переписали механизм завершения работы. Скрипт теперь корректно останавливает все процессы Docker перед очисткой.
+*   **Чистый выход:** Даже если вы прервете сборку через `Ctrl+C`, система аккуратно "приберет" за собой, не оставляя зависших контейнеров.
+*   **Linux/WSL без боли:** Пользователям Linux больше не нужно использовать `sudo` для удаления или перемещения файлов прошивки. Скрипт автоматически возвращает вам права на созданные файлы.
 
-*   **Redesigned `menuconfig` Handling:** The logic for processing and saving configurations from `make menuconfig` (`SRC_EXTRA_CONFIG`) has been completely overhauled in `_Builder.bat` and `_Builder.sh`. The new scripts are significantly more robust and correctly handle complex configurations, including those with special characters and different quoting styles.
-*   **Enhanced Build Reproducibility:** The `SRC_EXTRA_CONFIG` variable in all major profiles has been populated with a full list of configuration flags. This effectively "locks in" a known-good configuration for each profile, dramatically improving build consistency and reducing reliance on manual `menuconfig` sessions.
-*   **Improved Security:** The `--security-opt seccomp=unconfined` flag has been removed from `docker-compose` commands. The build system now operates without requiring this lowered security setting.
-*   **Legacy Environment Fix:** The Dockerfile for legacy builds (`system/src.dockerfile.legacy`) has been corrected to point to the official Ubuntu 18.04 repositories, resolving `apt-get` errors and restoring the ability to build older firmware versions.
-*   **Cleanup:** The packer scripts (`_packer.sh`, `_packer.bat`) have been updated to include a more streamlined set of default profiles.
+#### 🎨 Новый уровень интерфейса (UI/UX)
+Консоль стала не только красивее, но и полезнее.
+*   **Цвет и ясность:** Мы переработали цветовую схему. Важная информация теперь сразу бросается в глаза, а сообщения стали понятнее.
+*   **Тайм-менеджмент:** При массовой сборке (`[A]`) вы теперь видите **точное время**, затраченное на создание каждой прошивки, и четкий статус результата.
+*   **Умный редактор:** Перед настройкой конфига (`[E]`) система подскажет, какие папки с ресурсами у вас уже есть, а какие еще предстоит создать.
+
+#### 🛠 Технические улучшения и исправления
+*   **Windows = Linux:** Функционал `_Builder.bat` и `_Builder.sh` теперь идентичен. Все фишки доступны на обеих платформах.
+*   **Исправление для Xiaomi и других:** Исправлена ошибка в Windows-версии, из-за которой устройства с дефисом в названии (например, `xiaomi-4a-gigabit`) могли не собираться.
+*   **Импорт пакетов:** Улучшена совместимость со старыми пакетами (`.ipk`). Зависимости вроде `libopenssl1.1` теперь автоматически адаптируются под новые версии OpenWrt.
+*   **Чистые профили:** Мастер создания профилей обновлен под новый формат — меньше лишнего кода в конфигах, больше порядка.
+
+---
+
+# 🇺🇸 Release Notes 4.20
+
+**Version 4.20** is a major milestone. Jumping from 4.12 to 4.20 signifies a massive shift in focus towards **stability** and **User Experience (UX)**. We have resolved long-standing issues, polished the interface, and achieved complete feature parity between Windows and Linux scripts.
+
+### 🚀 Key Highlights
+
+#### 💎 Rock-Solid Stability
+Say goodbye to "volume is in use" errors and stuck processes.
+*   **Smart Cleanup:** The cleanup engine has been completely rewritten. The script now aggressively but safely releases all Docker locks before attempting to remove volumes.
+*   **Graceful Exit:** Even if you interrupt the build with `Ctrl+C`, the system will perform a clean shutdown, ensuring no "zombie" containers are left behind.
+*   **Linux/WSL Permissions:** Linux users no longer need `sudo` to manage output files. The builder now automatically restores file ownership to the user after every build.
+
+#### 🎨 Refined UI/UX
+The console output is now cleaner, smarter, and more professional.
+*   **Visual Clarity:** A completely new color coding system makes logs easier to read. Critical information stands out immediately.
+*   **Better Monitoring:** During bulk builds (`[A]`), you can now see the **exact duration** of each task and a clear success/failure status.
+*   **Smarter Editor:** Before editing a config (`[E]`), the system creates a summary dashboard showing which resource folders exist and which ones are missing.
+
+#### 🛠 Improvements & Fixes
+*   **Windows = Linux:** `_Builder.bat` and `_Builder.sh` are now fully synchronized. You get the same robust features regardless of your OS.
+*   **Device Name Fix:** Fixed a bug in the Windows version where device names containing hyphens (e.g., `xiaomi-4a-gigabit`) caused build failures.
+*   **Legacy Support:** The `.ipk` importer is now smarter. It automatically adjusts dependencies (like `libopenssl1.1`) to work with modern OpenWrt versions.
+*   **Cleaner Profiles:** The profile creation wizard has been updated to the new format, producing cleaner and more forward-compatible configuration files.

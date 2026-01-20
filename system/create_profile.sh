@@ -3,7 +3,7 @@
 # file: system/create_profile.sh
 # =========================================================
 #  OpenWrt/ImmortalWrt Universal Profile Creator
-#  Bash Version 2.27 (FIX PROFILE)
+#  Bash Version 2.28 (JSON Fix + Sync)
 # =========================================================
 
 # --- ЦВЕТА ---
@@ -18,7 +18,7 @@ C_RST='\033[0m'
 # --- ПРОВЕРКА ЗАВИСИМОСТЕЙ ---
 for cmd in curl jq; do
     if ! command -v $cmd &> /dev/null; then
-        echo -e "${C_RED}Ошибка: утилита '$cmd' не найдена. Установите её (sudo apt install $cmd)${C_RST}"
+        echo -e "${C_RED}Error: '$cmd' not found. Install it (sudo apt install $cmd)${C_RST}"
         exit 1
     fi
 done
@@ -36,7 +36,7 @@ else Lang="$DetectedLang"; fi
 # --- СЛОВАРЬ ---
 declare -A L
 if [ "$Lang" == "RU" ]; then
-    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.3 UX++)"
+    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.28 UX++)"
     L[StructureLabel]="СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:"
     L[PathLabel]="ПУТЬ: "
     L[PromptSelect]="Выберите номер"
@@ -58,16 +58,12 @@ if [ "$Lang" == "RU" ]; then
     L[Step6_DefPkgs]="Пакеты по умолчанию:"
     L[Step6_AddPkgs]="Дополнительные пакеты [luci] (Z - Назад)"
     L[Step6_FileName]="Введите имя файла конфига (без .conf)"
-    L[Step6_ErrName]="Ошибка: некорректное имя."
-    L[Step6_AutoCorr]="  -> Автокоррекция:"
     L[Step6_Exists]="[!] Файл уже существует!"
     L[Step6_Overwrite]="Перезаписать? (y/n) [n]"
     L[Step6_Saved]="Конфиг успешно сохранен:"
     L[FinalAction]="Нажмите Enter для создания нового профиля или 'Q' для выхода..."
-    L[Conf_Default]="Пакеты по умолчанию (Target Default +/- Device Specific)"
-    L[Conf_Custom]="Ваши дополнительные пакеты"
 else
-    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.27 UX+)"
+    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.28 UX+)"
     L[StructureLabel]="TYPICAL FIRMWARE FILENAME STRUCTURE:"
     L[PathLabel]="PATH: "
     L[PromptSelect]="Select number"
@@ -89,14 +85,10 @@ else
     L[Step6_DefPkgs]="Default packages:"
     L[Step6_AddPkgs]="Additional packages [luci] (Z - Back)"
     L[Step6_FileName]="Enter config filename (without .conf)"
-    L[Step6_ErrName]="Error: invalid name."
-    L[Step6_AutoCorr]="  -> Autocorrected:"
     L[Step6_Exists]="[!] File already exists!"
     L[Step6_Overwrite]="Overwrite? (y/n) [n]"
     L[Step6_Saved]="Config successfully saved:"
     L[FinalAction]="Press Enter for new profile or 'Q' to exit..."
-    L[Conf_Default]="Default packages (Target Default +/- Device Specific)"
-    L[Conf_Custom]="Your custom packages"
 fi
 
 # --- ИНИЦИАЛИЗАЦИЯ ---
@@ -238,17 +230,12 @@ while true; do
             
             # Получаем ID профилей
             profile_ids=($(echo "$p_json" | jq -r '.profiles | keys[]' | sort))
-            
             for i in "${!profile_ids[@]}"; do
                 id="${profile_ids[$i]}"
-                
-                # ИСПРАВЛЕНИЕ ТУТ: Пытаемся взять из .titles[0].title (новый формат), 
-                # если там пусто - берем из .title (старый формат)
+                # Handle old 'title' vs new 'titles' array
                 title=$(echo "$p_json" | jq -r ".profiles[\"$id\"] | if .titles then .titles[0].title else .title end")
-                
                 # Если всё еще null (бывает в битых JSON) - пишем ID
                 [ "$title" == "null" ] || [ -z "$title" ] && title="$id"
-                
                 printf " %3d. %s (%s)\n" "$((i+1))" "$title" "$id"
             done
             
@@ -286,7 +273,7 @@ while true; do
             echo -e "${C_GRY}${L[Step6_DefPkgs]}\n$DEF_PKGS\n${C_RST}"
             echo -ne "${C_YEL}${L[Step6_AddPkgs]}: ${C_RST}"
             read -r input_pkgs
-            [ "$(echo "$input_pkgs" | tr '[:upper:]' '[:lower:]')" == "z" ] && { ((STEP--)); continue; }
+            [ "$(echo "$input_pkgs" | tr '[:upper:]' '[:lower:]')" == "z" ] && { STEP=6; ((STEP--)); continue; }
             
             # Объединяем всё в одну строку COMMON_LIST (как в образце)
             [ -z "$input_pkgs" ] && extra="luci" || extra="$input_pkgs"
@@ -322,7 +309,7 @@ while true; do
             def_name="${mod_clean}_${ver_clean}_${src_short}_full"
 
             while true; do
-                echo -ne "${C_GRY}${L[Step6_FileName]} [$def_name] (Z - ${L[PromptBack]}): ${C_RST}"
+                echo -ne "\n${C_GRY}${L[Step6_FileName]} [$def_name]: ${C_RST}"
                 read -r input_name
                 [ "$(echo "$input_name" | tr '[:upper:]' '[:lower:]')" == "z" ] && { STEP=6; ((STEP--)); continue 2; }
                 [ -z "$input_name" ] && profile_name="$def_name" || profile_name=$(echo "$input_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[[:space:]\-\.]+/_/g;s/[^a-z0-9_]//g')
@@ -387,12 +374,8 @@ SRC_CORES="safe"
 #    If a package fails to install via SRC_PACKAGES, you can force-enable it here.
 # CONFIG_PACKAGE_kmod-usb-net-rndis=y
 
-SRC_EXTRA_CONFIG='
-CONFIG_TARGET_${TARGET}=y
-CONFIG_TARGET_${TARGET}_${SUBTARGET}=y
-CONFIG_TARGET_${TARGET}_${SUBTARGET}_DEVICE_${MODEL_ID}=y
-CONFIG_BUILD_LOG=y
-'
+SRC_EXTRA_CONFIG=''
+
 EOF
             echo -e "\n${C_GRN}[OK] ${L[Step6_Saved]} $conf_path${C_RST}"
             echo -e "\n${L[FinalAction]}"

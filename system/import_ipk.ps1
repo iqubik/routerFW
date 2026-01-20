@@ -82,6 +82,7 @@ foreach ($ipk in $ipkFiles) {
                 $depsList = $depsList | ForEach-Object {
                     if ($_ -eq "libnetfilter-queue1") { "libnetfilter-queue" }
                     elseif ($_ -eq "libnfnetlink0") { "libnfnetlink" }
+                    elseif ($_ -eq "libopenssl1.1") { "libopenssl" }
                     else { $_ }
                 }
                 if ($depsList) { $pkgDeps = "+" + ($depsList -join " +") }
