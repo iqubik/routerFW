@@ -42,6 +42,7 @@ FILES=(
     "docs/04-adv-source-build.en.md"
     "docs/index.en.md"
     "scripts/etc/uci-defaults/99-permissions.sh"
+    "custom_files/rax3000m_emmc_test_new/hooks.sh"
     "scripts/diag.sh"
     "scripts/hooks.sh"
     "scripts/upgrade.sh"

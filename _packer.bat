@@ -58,6 +58,7 @@ call :ADD_FILE "profiles\rax3000m_i_24104_full.conf"
 call :ADD_FILE "profiles\xiaomi_4a_gigabit_23056_full.conf"
 call :ADD_FILE "profiles\tplink_841n_v9_190710_full.conf"
 call :ADD_FILE "profiles\friendlyarm_nanopi_r3s_24105_ow_full.conf"
+call :ADD_FILE "custom_files\rax3000m_emmc_test_new\hooks.sh"
 
 :: Настройки путей (Используем абсолютные пути во избежание ошибок)
 set "NEW_UNPACKER_FILE=_unpacker.bat.new"

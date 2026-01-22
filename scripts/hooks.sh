@@ -1,6 +1,6 @@
 #!/bin/bash
 # ======================================================================================
-#  Универсальный скрипт-хук для Source Builder v1.5.1 // Universal hook script for Source Builder
+#  Универсальный скрипт-хук для Source Builder v1.6 // Universal hook script for Source Builder
 # ======================================================================================
 #
 #  ИЗМЕНЕНИЕ: Комментарии внутри скрипта были улучшены для максимальной ясности.
@@ -142,6 +142,50 @@ fi
 #         echo -e "${GREEN}       SUCCESS: Build limits updated.${NC}" # УСПЕХ: Лимиты сборщика обновлены.
 #     fi
 # fi
+
+# ======================================================================================
+#  БЛОК 1.3: ИСПРАВЛЕНИЕ СБОРКИ RUST (LLVM CI 404 FIX) // BLOCK 1.3: RUST BUILD FIX
+# ======================================================================================
+# Назначение: Решение проблемы с ошибкой 404 при скачивании LLVM. // Purpose: Fix 404 error on LLVM download.
+# Действие: Принудительное включение локальной сборки LLVM. // Action: Force local LLVM build.
+# ======================================================================================
+RUST_MK="feeds/packages/lang/rust/Makefile"
+
+if [ -f "$RUST_MK" ]; then
+    log ">>> Checking Rust configuration (LLVM CI Fix)..." # Проверка конфигурации Rust...
+
+    # 1. Проверяем, применено ли уже исправление (идемпотентность). // Check if fix is already applied.
+    if grep -q "llvm.download-ci-llvm=false" "$RUST_MK"; then
+        log "Rust LLVM download is already disabled. Skipping." # Загрузка LLVM уже отключена. Пропуск.
+    else
+        # 2. Ищем, включена ли загрузка (значение true). // Check if download is enabled (true).
+        if grep -q "llvm.download-ci-llvm=true" "$RUST_MK"; then
+            log "Patching Rust Makefile to disable CI LLVM download..." # Патчим Makefile, отключаем загрузку...
+            
+            # Создаем бэкап, если его нет // Create backup if missing
+            [ ! -f "${RUST_MK}.bak" ] && cp "$RUST_MK" "${RUST_MK}.bak"
+
+            # Заменяем true на false // Replace true with false
+            sed -i 's/llvm.download-ci-llvm=true/llvm.download-ci-llvm=false/g' "$RUST_MK"
+
+            # 3. Валидация изменений // Validation
+            if grep -q "llvm.download-ci-llvm=false" "$RUST_MK"; then
+                echo -e "${GREEN}       SUCCESS: Makefile modified. LLVM will be built locally.${NC}" # УСПЕХ: Makefile изменен.
+                
+                # ВАЖНО: Очистка пакета, чтобы сбросить старую конфигурацию // IMPORTANT: Clean package to reset config
+                log "Cleaning Rust package to apply changes..." 
+                make package/feeds/packages/rust/clean >/dev/null 2>&1
+            else
+                err "Failed to modify Rust Makefile!" # Не удалось изменить Makefile!
+            fi
+        else
+            warn "Flag 'download-ci-llvm=true' not found in Makefile. Manual check required." # Флаг не найден. Требуется ручная проверка.
+        fi
+    fi
+else
+    # Если файла нет, возможно, фиды еще не установлены // If file missing, feeds might not be installed
+    warn "Rust Makefile not found at $RUST_MK. Skipping fix." # Файл Rust Makefile не найден. Пропуск.
+fi
 
 # ======================================================================================
 #  БЛОК 2: SMART FEED MANAGER
