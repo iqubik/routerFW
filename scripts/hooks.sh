@@ -239,6 +239,17 @@ VERMAGIC_MARKER=".last_vermagic"
 TARGET_MK="include/kernel-defaults.mk"
 BACKUP_MK="include/kernel-defaults.mk.bak"
 
+# --- FIX: MAPPING FOR PADAVANONLY BRANCHES ---
+# Ветка Padavanonly называется "openwrt-24.10-6.6", но официальный релиз лежит в папке "24.10.0".
+# Делаем маппинг, чтобы скачать правильный манифест.
+if [[ "$CLEAN_VER" == "openwrt-24.10-6.6" ]]; then
+    # Принудительно выставляем версию официального релиза ImmortalWrt
+    OVERRIDE_VER="24.10.0"
+    warn "Custom branch '$CLEAN_VER' detected. Mapping to official release '$OVERRIDE_VER' for Vermagic."
+    CLEAN_VER="$OVERRIDE_VER"
+fi
+# ---------------------------------------------
+
 # 1. Определяем дистрибутив (OpenWrt/ImmortalWrt). // Determine distro type.
 if grep -riq "immortalwrt" include/version.mk package/base-files/files/etc/openwrt_release 2>/dev/null; then
     DISTRO_NAME="immortalwrt"
@@ -262,9 +273,19 @@ else
     MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
 
     # 3. Скачиваем манифест. // Download manifest.
+    log "Downloading manifest from: $MANIFEST_URL"
     MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+    
+    # Если релиз не найден (404), пробуем fallback на SNAPSHOTS (но это рискованно для kmod)
+    if [ -z "$MANIFEST_DATA" ]; then
+        warn "Release manifest not found. Trying snapshots..."
+        MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+        MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+    fi
+
     if [ -z "$MANIFEST_DATA" ]; then
         warn "Manifest not found ($MANIFEST_URL)." # Манифест не найден.
+        err "Manifest still not found! Vermagic Hack skipped." # Манифест не найден.
     else
         # 4. Извлекаем хэш ядра (vermagic). // Extract kernel hash.
         KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)

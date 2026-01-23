@@ -143,9 +143,17 @@ if [ -f "/output/manual_config" ]; then
     cp "/output/manual_config" .config
 else
     echo "CONFIG_CCACHE=y" >> .config
-    echo "CONFIG_TARGET_${SRC_TARGET}=y" >> .config
+echo "CONFIG_TARGET_${SRC_TARGET}=y" >> .config
     echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}=y" >> .config
-    echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}_DEVICE_${TARGET_PROFILE}=y" >> .config
+    
+    # FIX: Priority to SRC_EXTRA_CONFIG for Device Selection
+    if echo "$SRC_EXTRA_CONFIG" | grep -q "CONFIG_TARGET_.*_DEVICE_"; then
+        echo "[CONFIG] Device selection delegated to SRC_EXTRA_CONFIG."
+    else
+        # Fallback to standard logic (ensure underscores)
+        CLEAN_PROFILE=$(echo "$TARGET_PROFILE" | tr '-' '_')
+        echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}_DEVICE_${CLEAN_PROFILE}=y" >> .config
+    fi
     for pkg in $SRC_PACKAGES; do
         [[ "$pkg" == -* ]] && echo "# CONFIG_PACKAGE_${pkg#-} is not set" >> .config || echo "CONFIG_PACKAGE_$pkg=y" >> .config
     done
