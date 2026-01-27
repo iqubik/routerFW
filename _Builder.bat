@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.2"
+set "VER_NUM=4.21"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -881,17 +881,17 @@ set "FOUND_ANY="
 
 if "%P_ID%"=="ALL" (
     echo   !L_VOL_SEARCH_ALL! !C_VAL!%V_TAG%!C_RST!
-    :: Ищем по регулярному выражению в конце имени
+    rem Ищем по регулярному выражению в конце имени
     for /f "tokens=*" %%v in ('docker volume ls -q ^| findstr /R /C:"_%V_TAG%$"') do (
         call :DO_DELETE_VOL "%%v"
         set "FOUND_ANY=1"
     )
 ) else (
     echo   !L_VOL_SEARCH_PROF! !C_VAL!%P_ID%!C_RST! ... %V_TAG%
-    :: Формируем список потенциальных имен
+    rem Формируем список потенциальных имен
     set "patterns=build_%P_ID%_%V_TAG% srcbuild_%P_ID%_%V_TAG%"
     for %%v in (!patterns!) do (
-        :: Проверяем, существует ли том, перед попыткой удаления (чтобы не спамить ошибками)
+        rem Проверяем, существует ли том, перед попыткой удаления (чтобы не спамить ошибками)
         docker volume inspect %%v >nul 2>&1
         if not errorlevel 1 (
             call :DO_DELETE_VOL "%%v"
@@ -1023,9 +1023,9 @@ if not "%TARGET_PROFILE_ID%"=="ALL" (
     set "SELECTED_CONF=dummy"
     set "HOST_FILES_DIR=./custom_files"
     set "HOST_OUTPUT_DIR=./firmware_output"
-    
+
     echo   !L_SRV_DOWN! (Full)...
-    :: Показываем процесс удаления сетей и томов
+    rem Показываем процесс удаления сетей и томов
     docker-compose -f system/docker-compose-src.yaml -p !PROJ_NAME! down -v
 ) else (
     call :HELPER_RELEASE_LOCKS "ALL"
@@ -1278,9 +1278,8 @@ echo     if [ -n "$ROOTFS_SIZE" ]; then echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROO
 echo     if [ -n "$KERNEL_SIZE" ]; then echo "CONFIG_TARGET_KERNEL_PARTSIZE=$KERNEL_SIZE" ^>^> .config; fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo     if [ -n "$SRC_EXTRA_CONFIG" ]; then >> "%RUNNER_SCRIPT%"
-echo         printf "%%b\n" "$SRC_EXTRA_CONFIG" ^| tr -d '\r' ^| while IFS= read -r line; do [ -n "$line" ] ^&^& echo "$line" ^>^> .config; done >> "%RUNNER_SCRIPT%"
+echo         printf "%%s\n" "$SRC_EXTRA_CONFIG" ^| sed 's/\r$//' ^>^> .config >> "%RUNNER_SCRIPT%"
 echo     fi >> "%RUNNER_SCRIPT%"
-echo. >> "%RUNNER_SCRIPT%"
 echo     make defconfig >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
@@ -1308,7 +1307,7 @@ echo fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 
 echo # Права доступа >> "%RUNNER_SCRIPT%"
-echo chmod 666 /output/manual_config >> "%RUNNER_SCRIPT%"
+rem echo chmod 666 /output/manual_config >> "%RUNNER_SCRIPT%"
 echo touch /output/manual_config >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo # --- 6. Interactive Shell Option --- >> "%RUNNER_SCRIPT%"
