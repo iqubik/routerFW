@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh
+# file: system/ib_builder.sh v1.0
 set -e
 
 # Цвета для логов

@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh
+# file: system/src_builder.sh v1.1
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -172,7 +172,7 @@ make defconfig
 # 4. OVERLAY И ПАКЕТЫ
 [ -d "/input_packages" ] && [ "$(ls -A /input_packages)" ] && cp -rf /input_packages/* package/
 if [ -d "/overlay_files" ] && [ "$(ls -A /overlay_files)" ]; then
-    mkdir -p files && cp -r /overlay_files/* files/ && rm -f files/hooks.sh
+    mkdir -p files && cp -rf /overlay_files/* files/ && rm -f files/hooks.sh
 fi
 
 # 5. СБОРКА
@@ -184,8 +184,11 @@ BUILD_JOBS=$SYS_CORES
 [[ "$SRC_CORES" =~ ^[0-9]+$ ]] && BUILD_JOBS=$SRC_CORES
 [[ "$SRC_CORES" == "safe" ]] && BUILD_JOBS=$((SYS_CORES - 1))
 
-echo "[BUILD] Using -j$BUILD_JOBS"
-make -j$BUILD_JOBS || make -j1 V=s
+echo "[BUILD] Attempt 1: Building with -j$BUILD_JOBS..."
+if ! make -j$BUILD_JOBS; then
+    echo -e "\n${RED}[BUILD ERROR] Parallel build failed! Starting Attempt 2: -j1 V=s (Debug mode)...${NC}\n"
+    make -j1 V=s
+fi
 
 # 6. СОХРАНЕНИЕ
 TARGET_DIR="/output/$TIMESTAMP"
