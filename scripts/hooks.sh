@@ -239,17 +239,6 @@ VERMAGIC_MARKER=".last_vermagic"
 TARGET_MK="include/kernel-defaults.mk"
 BACKUP_MK="include/kernel-defaults.mk.bak"
 
-# --- FIX: MAPPING FOR PADAVANONLY BRANCHES ---
-# Ветка Padavanonly называется "openwrt-24.10-6.6", но официальный релиз лежит в папке "24.10.0".
-# Делаем маппинг, чтобы скачать правильный манифест.
-if [[ "$CLEAN_VER" == "openwrt-24.10-6.6" ]]; then
-    # Принудительно выставляем версию официального релиза ImmortalWrt
-    OVERRIDE_VER="24.10.0"
-    warn "Custom branch '$CLEAN_VER' detected. Mapping to official release '$OVERRIDE_VER' for Vermagic."
-    CLEAN_VER="$OVERRIDE_VER"
-fi
-# ---------------------------------------------
-
 # 1. Определяем дистрибутив (OpenWrt/ImmortalWrt). // Determine distro type.
 if grep -riq "immortalwrt" include/version.mk package/base-files/files/etc/openwrt_release 2>/dev/null; then
     DISTRO_NAME="immortalwrt"
@@ -269,92 +258,107 @@ if [[ "$CLEAN_VER" == *"SNAPSHOT"* ]] || [[ "$CLEAN_VER" == *"master"* ]]; then
         cp -f "$BACKUP_MK" "$TARGET_MK"
     fi
 else
-    log "Target version: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)" # Целевая версия...
-    MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+    # Для релизных сборок пытаемся получить хэш. // For release builds, try to get the hash.
+    KERNEL_HASH=""
 
-    # 3. Скачиваем манифест. // Download manifest.
-    log "Downloading manifest from: $MANIFEST_URL"
-    MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
-    
-    # Если релиз не найден (404), пробуем fallback на SNAPSHOTS (но это рискованно для kmod)
-    if [ -z "$MANIFEST_DATA" ]; then
-        warn "Release manifest not found. Trying snapshots..."
-        MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
-        MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+    # 3. СПЕЦИАЛЬНЫЙ СЛУЧАЙ: Ручное получение хэша для определенных веток.
+    if [[ "$CLEAN_VER" == "openwrt-24.10-6.6" ]]; then
+        warn "Special branch '$CLEAN_VER' detected. Using kyarucloud mirror to get Vermagic."
+        # Адаптированная команда пользователя с curl. // User's command adapted for curl.
+        HASH_CMD='curl -s "https://immortalwrt.kyarucloud.moe/releases/24.10-SNAPSHOT/targets/mediatek/filogic/kmods/" | grep -oE "6\.6\.95-1-[0-9a-f]{32}" | head -n 1 | cut -d"-" -f3'
+        KERNEL_HASH=$(eval "$HASH_CMD")
+        log "Hash obtained from mirror: $KERNEL_HASH"
     fi
 
-    if [ -z "$MANIFEST_DATA" ]; then
-        warn "Manifest not found ($MANIFEST_URL)." # Манифест не найден.
-        err "Manifest still not found! Vermagic Hack skipped." # Манифест не найден.
-    else
-        # 4. Извлекаем хэш ядра (vermagic). // Extract kernel hash.
-        KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)
+    # 4. СТАНДАРТНЫЙ СЛУЧАЙ: Если хэш не был получен ранее, скачиваем манифест.
+    if [ -z "$KERNEL_HASH" ]; then
+        log "Target version: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)" # Целевая версия...
+        MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+        
+        log "Downloading manifest from: $MANIFEST_URL"
+        MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+        
+        # Если релиз не найден (404), пробуем fallback на SNAPSHOTS
+        if [ -z "$MANIFEST_DATA" ]; then
+            warn "Release manifest not found. Trying snapshots..."
+            MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+            MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+        fi
 
-        if [[ ! "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
-            err "Invalid kernel hash from manifest." # Некорректный хэш ядра.
+        if [ -n "$MANIFEST_DATA" ]; then
+            # Извлекаем хэш ядра (vermagic). // Extract kernel hash.
+            KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)
         else
-            echo -e "${GREEN}       Official Vermagic Hash: $KERNEL_HASH${NC}" # Официальный хэш...
-            OLD_HASH=""
-            [ -f "$VERMAGIC_MARKER" ] && OLD_HASH=$(cat "$VERMAGIC_MARKER")
+            warn "Manifest not found ($MANIFEST_URL)." # Манифест не найден.
+            err "Manifest still not found! Vermagic Hack will be skipped." # Манифест не найден.
+        fi
+    fi
 
-            # 5. УМНАЯ ОЧИСТКА КЭША. // SMART CACHE CLEANING.
-            if [ "$OLD_HASH" != "$KERNEL_HASH" ]; then
-                warn "Hash changed. Deep cache cleaning..." # Хеш изменился. Глубокая очистка...
-                make target/linux/clean > /dev/null 2>&1
-                rm -rf tmp/.packageinfo tmp/.targetinfo tmp/.config-target.in
-                find build_dir/target-* -maxdepth 1 -type d -name "linux-*" -exec rm -rf {} + 2>/dev/null
-                rm -rf staging_dir/target-*/pkginfo/kernel.default.install 2>/dev/null
-                if [[ "$CLEAN_VER" == "19.07"* ]]; then rm -rf staging_dir/target-*/root-* 2>/dev/null; fi
-                echo "$KERNEL_HASH" > "$VERMAGIC_MARKER"
-                log "Caches fully reset." # Кэши полностью сброшены.
-            else
-                log "Kernel hash unchanged. Cache will be used." # Хеш не изменился. Кэш используется.
+    # 5. ПРОВЕРКА ХЭША И ОСНОВНАЯ ЛОГИКА
+    if [[ ! "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
+        err "Invalid or empty kernel hash obtained. Vermagic Hack skipped." # Некорректный хэш.
+    else
+        echo -e "${GREEN}       Official Vermagic Hash: $KERNEL_HASH${NC}" # Официальный хэш...
+        OLD_HASH=""
+        [ -f "$VERMAGIC_MARKER" ] && OLD_HASH=$(cat "$VERMAGIC_MARKER")
+
+        # 5.1. УМНАЯ ОЧИСТКА КЭША. // SMART CACHE CLEANING.
+        if [ "$OLD_HASH" != "$KERNEL_HASH" ]; then
+            warn "Hash changed. Deep cache cleaning..." # Хеш изменился. Глубокая очистка...
+            make target/linux/clean > /dev/null 2>&1
+            rm -rf tmp/.packageinfo tmp/.targetinfo tmp/.config-target.in
+            find build_dir/target-* -maxdepth 1 -type d -name "linux-*" -exec rm -rf {} + 2>/dev/null
+            rm -rf staging_dir/target-*/pkginfo/kernel.default.install 2>/dev/null
+            if [[ "$CLEAN_VER" == "19.07"* ]]; then rm -rf staging_dir/target-*/root-* 2>/dev/null; fi
+            echo "$KERNEL_HASH" > "$VERMAGIC_MARKER"
+            log "Caches fully reset." # Кэши полностью сброшены.
+        else
+            log "Kernel hash unchanged. Cache will be used." # Хеш не изменился. Кэш используется.
+        fi
+
+        # 5.2. Патчинг Makefile // Patching Makefile
+        if [ -f "$TARGET_MK" ]; then
+            PATCH_STRATEGY=""
+            SEARCH_PATTERN=""
+            # Определение типа синтаксиса // Detect syntax type
+            if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
+                PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'
+            elif grep -Fq 'mkhash md5' "$TARGET_MK"; then
+                PATCH_STRATEGY="legacy_mkhash"; SEARCH_PATTERN='mkhash md5'
+            elif grep -Fq 'md5sum' "$TARGET_MK" && grep -Fq '.vermagic' "$TARGET_MK"; then
+                PATCH_STRATEGY="legacy_md5sum"; SEARCH_PATTERN='md5sum | cut -d . .'
             fi
 
-            # 6. Патчинг Makefile // Patching Makefile
-            if [ -f "$TARGET_MK" ]; then
-                PATCH_STRATEGY=""
-                SEARCH_PATTERN=""
-                # Определение типа синтаксиса // Detect syntax type
-                if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
-                    PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'
-                elif grep -Fq 'mkhash md5' "$TARGET_MK"; then
-                    PATCH_STRATEGY="legacy_mkhash"; SEARCH_PATTERN='mkhash md5'
-                elif grep -Fq 'md5sum' "$TARGET_MK" && grep -Fq '.vermagic' "$TARGET_MK"; then
-                    PATCH_STRATEGY="legacy_md5sum"; SEARCH_PATTERN='md5sum | cut -d . .'
-                fi
+            if [ -z "$PATCH_STRATEGY" ] && [ -f "$BACKUP_MK" ]; then
+                cp -f "$BACKUP_MK" "$TARGET_MK"
+                # Re-detect...
+                if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'; fi
+            fi
 
-                if [ -z "$PATCH_STRATEGY" ] && [ -f "$BACKUP_MK" ]; then
-                    cp -f "$BACKUP_MK" "$TARGET_MK"
-                    # Re-detect...
-                    if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'; fi
-                fi
-
-                if [ -n "$PATCH_STRATEGY" ]; then
-                    if [ ! -f "$BACKUP_MK" ]; then
-                        warn "First patch. Cleaning CCACHE..." # Первый патч. Очистка CCACHE.
-                        [ -d "/ccache" ] && rm -rf /ccache/* 2>/dev/null
-                        cp "$TARGET_MK" "$BACKUP_MK"
-                    else
-                        cp -f "$BACKUP_MK" "$TARGET_MK"
-                    fi
-                    log "Applying Vermagic patch ($PATCH_STRATEGY)..." # Применяем патч...
-                    if [ "$PATCH_STRATEGY" == "legacy_md5sum" ]; then
-                        sed -i "s/md5sum | cut -d ' ' -f1/echo $KERNEL_HASH/g" "$TARGET_MK"
-                    else
-                        sed -i "s/$SEARCH_PATTERN/echo $KERNEL_HASH/g" "$TARGET_MK"
-                    fi
-                    if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
-                        echo -e "${GREEN}       SUCCESS: Makefile modified.${NC}" # УСПЕХ: Makefile модифицирован.
-                    else
-                        err "Patching error!"; exit 1
-                    fi
+            if [ -n "$PATCH_STRATEGY" ]; then
+                if [ ! -f "$BACKUP_MK" ]; then
+                    warn "First patch. Cleaning CCACHE..." # Первый патч. Очистка CCACHE.
+                    [ -d "/ccache" ] && rm -rf /ccache/* 2>/dev/null
+                    cp "$TARGET_MK" "$BACKUP_MK"
                 else
-                    warn "Could not detect hashing method." # Не удалось определить метод хэширования.
+                    cp -f "$BACKUP_MK" "$TARGET_MK"
+                fi
+                log "Applying Vermagic patch ($PATCH_STRATEGY)..." # Применяем патч...
+                if [ "$PATCH_STRATEGY" == "legacy_md5sum" ]; then
+                    sed -i "s/md5sum | cut -d ' ' -f1/echo $KERNEL_HASH/g" "$TARGET_MK"
+                else
+                    sed -i "s/$SEARCH_PATTERN/echo $KERNEL_HASH/g" "$TARGET_MK"
+                fi
+                if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
+                    echo -e "${GREEN}       SUCCESS: Makefile modified.${NC}" # УСПЕХ: Makefile модифицирован.
+                else
+                    err "Patching error!"; exit 1
                 fi
             else
-                err "File $TARGET_MK not found."; exit 1 # Файл не найден.
+                warn "Could not detect hashing method." # Не удалось определить метод хэширования.
             fi
+        else
+            err "File $TARGET_MK not found."; exit 1 # Файл не найден.
         fi
     fi
 fi
