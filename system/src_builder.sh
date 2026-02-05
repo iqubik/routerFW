@@ -1,10 +1,16 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.3
+# file: system/src_builder.sh v1.4
 set -e
 
 # 1. Исправление прав (выполняется под root)
 echo '[INIT] Checking volume permissions...'
-chown -R build:build /home/build/openwrt /ccache 2>/dev/null || true
+#  OPTIMIZED PERMISSION FIX
+if [ ! -d "/home/build/openwrt/.git" ] || [ "$(stat -c %U /ccache)" != "build" ]; then
+    echo '[INIT] Setting volume permissions (this might take a while on the first run)...'
+    chown -R build:build /home/build/openwrt /ccache 2>/dev/null || true
+else
+    echo '[INIT] Volume permissions appear correct. Skipping slow chown.'
+fi
 
 # 2. Основная логика от пользователя build
 sudo -E -u build bash << 'EOF'
