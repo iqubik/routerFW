@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.4
+# file: system/src_builder.sh v1.5
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -63,14 +63,29 @@ git config --global advice.detachedHead false
 git checkout -f "FETCH_HEAD"
 git reset --hard "FETCH_HEAD"
 
-# Зеркалирование фидов
+# Зеркалирование фидов (должно выполняться всегда)
 if [ -f feeds.conf.default ] && ! grep -q "immortalwrt" feeds.conf.default; then
     sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
     sed -i 's|https://git.openwrt.org/project/|https://github.com/openwrt/|g' feeds.conf.default
 fi
 
-echo "[FEEDS] Updating..."
-./scripts/feeds update -a && ./scripts/feeds install -a
+#  FEEDS UPDATE OPTIMIZATION
+CURRENT_COMMIT=$(git rev-parse FETCH_HEAD)
+LAST_COMMIT_FILE="/ccache/.last_build_commit" # Используем /ccache, так как это постоянное хранилище
+
+# Сравниваем текущий коммит с последним сохраненным.
+if [ -f "$LAST_COMMIT_FILE" ] && [ "$CURRENT_COMMIT" == "$(cat $LAST_COMMIT_FILE)" ]; then
+    echo "[FEEDS] Main repo commit unchanged. Skipping slow update/install."
+else
+    echo "[FEEDS] Main repo commit changed or first run. Updating feeds..."
+    
+    # Основная команда обновления и установки
+    ./scripts/feeds update -a && ./scripts/feeds install -a
+
+    # Сохраняем новый хэш после успешного обновления
+    echo "$CURRENT_COMMIT" > "$LAST_COMMIT_FILE"
+    echo "[FEEDS] Feeds updated and commit hash saved."
+fi
 
 # === ХУКИ И ПРОВЕРКА СОСТОЯНИЯ (ROLLBACK) ===
 TARGET_MK="include/kernel-defaults.mk"

@@ -1,9 +1,9 @@
-﻿<#
+<#
 .SYNOPSIS
     OpenWrt/ImmortalWrt Universal Profile Creator.
     file: system\create_profile.ps1
 .VERSION
-    2.28 (JSON Fix + Sync)
+    2.3 (arch fix)
 .DESCRIPTION
     Скрипт-мастер (Wizard) для создания конфигурационных файлов профилей сборки.
     Поддерживает:
@@ -386,7 +386,7 @@ $Step = 1
                     'realtek'  { 'mips_24kc' }
                     'x86'      { if ($GlobalState.Subtarget -eq '64') { 'x86_64' } else { 'i386_pentium4' } }
                     'mediatek' { 
-                        if ($GlobalState.Subtarget -match 'mt798|mt7622') { 'aarch64_cortex-a53' } 
+                        if ($GlobalState.Subtarget -match 'mt798|mt7622|filogic') { 'aarch64_cortex-a53' } 
                         elseif ($GlobalState.Subtarget -eq 'mt7623') { 'arm_cortex-a7_neon-vfpv4' } 
                         else { 'mipsel_24kc' } 
                     }
@@ -405,7 +405,7 @@ $Step = 1
                     'sunxi'    { 'arm_cortex-a7_neon-vfpv4' }
                     'layerscape' { if ($GlobalState.Subtarget -eq '64b') { 'aarch64_generic' } else { 'arm_cortex-a7_neon-vfpv4' } }
                     '*64*'     { 'aarch64_generic' }
-                    default    { 'mipsel_24kc' }
+                    default    { '' }
                 }
 
                 # 4. Формирование имени файла (Полное, как вы просили)

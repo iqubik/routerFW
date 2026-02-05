@@ -47,7 +47,7 @@ call :ADD_FILE "docs\03-source-build.en.md"
 call :ADD_FILE "docs\04-adv-source-build.en.md"
 call :ADD_FILE "docs\index.en.md"
 
-:: --- ЗАЩИЩЕННЫЕ ПАПКИ ---
+:: --- ЗАЩИЩЕННЫЕ ОБЪЕКТЫ ---
 call :ADD_FILE "scripts\etc\uci-defaults\99-permissions.sh"
 call :ADD_FILE "scripts\diag.sh"
 call :ADD_FILE "scripts\hooks.sh"
