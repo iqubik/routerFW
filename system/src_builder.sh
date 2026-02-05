@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.2
+# file: system/src_builder.sh v1.3
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -27,6 +27,8 @@ NC='\033[0m'
 cat "/profiles/$CONF_FILE" | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > /tmp/clean_config.env
 source /tmp/clean_config.env
 
+echo "[CACHE] Enabling ccache wrapper for Rust compilation..."
+export RUSTC_WRAPPER="ccache"
 export SRC_REPO SRC_BRANCH SRC_TARGET SRC_SUBTARGET SRC_DEVICE PROFILE_NAME SRC_PACKAGES
 
 echo "=================================================="
