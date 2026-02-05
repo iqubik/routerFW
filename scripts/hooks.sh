@@ -150,6 +150,7 @@ fi
 # Он активируется только если в .conf выбран профиль "tplink_tl-mr3020-v3-16mb".
 if [[ "$TARGET_PROFILE" == "tplink_tl-mr3020-v3-16mb" ]]; then
     log ">>> Applying patches for TP-Link 16MB Mod (tplink_tl-mr3020-v3-16mb)..."
+
     # --- 1. Патчинг утилиты сборки прошивки ---
     FW_UTIL_FILE="tools/firmware-utils/src/mktplinkfw2.c"
     log "Patching firmware utility: $FW_UTIL_FILE"
