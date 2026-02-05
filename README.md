@@ -296,9 +296,9 @@ SRC_CORES="safe"
 <img width="287" height="359" alt="image" src="https://github.com/user-attachments/assets/352a7aa7-5f3e-4b65-83a4-6cb4fe372f0b" />
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ТВОЙ_НИК/ТВОЙ_РЕПО/output/github-contribution-grid-snake-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/ТВОЙ_НИК/ТВОЙ_РЕПО/output/github-contribution-grid-snake.svg">
-  <img alt="github contribution grid snake animation" src="https://raw.githubusercontent.com/ТВОЙ_НИК/ТВОЙ_РЕПО/output/github-contribution-grid-snake.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
+  <img alt="github contribution grid snake animation" src="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
 </picture>
 
 ---
