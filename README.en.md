@@ -283,7 +283,7 @@ This feature turns closed-source software integration from a complex engineering
 *   `show_pkgs.sh` — Alternative way to get a package list from the lessons.
 *   `99-permissions.sh` — Auto-fix permissions for files (Dropbear/SSH).
 
-<img width="902" height="538" alt="{3AF20F0A-DDC7-4F91-8BA7-EE179F804C6E}" src="https://github.com/user-attachments/assets/532d72d5-cfe5-46b7-9321-2022f364de88" />
+<img width="287" height="359" alt="image" src="https://github.com/user-attachments/assets/7f26ad05-7e21-4be0-8a88-6cbb8bb7684b" />
 
 ---
 
