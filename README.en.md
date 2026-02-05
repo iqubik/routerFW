@@ -283,7 +283,11 @@ This feature turns closed-source software integration from a complex engineering
 *   `show_pkgs.sh` — Alternative way to get a package list from the lessons.
 *   `99-permissions.sh` — Auto-fix permissions for files (Dropbear/SSH).
 
-<img width="287" height="359" alt="image" src="https://github.com/user-attachments/assets/7f26ad05-7e21-4be0-8a88-6cbb8bb7684b" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
+  <img alt="github contribution grid snake animation" src="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
+</picture>
 
 ---
 

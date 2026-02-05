@@ -293,8 +293,6 @@ SRC_CORES="safe"
 *   `show_pkgs.sh` - Альтернативный вариант получить список пакетов из уроков.
 *   `99-permissions.sh` — Авто-фикс прав доступа для файлов (Dropbear/SSH).
 
-<img width="287" height="359" alt="image" src="https://github.com/user-attachments/assets/352a7aa7-5f3e-4b65-83a4-6cb4fe372f0b" />
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
