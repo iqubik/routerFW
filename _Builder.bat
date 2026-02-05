@@ -1,13 +1,13 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.21"
+set "VER_NUM=4.22"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
 mode con: cols=120 lines=40
 :: Отключаем мигающий курсор (через PowerShell, так как в Batch нет нативного способа)
-powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
+rem powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
 cls
 chcp 65001 >nul
 :: Настройка ANSI цветов
@@ -1420,7 +1420,8 @@ echo !L_INFO!   !L_P_TARGET!: !TARGET_VAL!
 echo !L_INFO!   !L_P_SERVICE!: %SERVICE_NAME%
 
 :: 4. ЗАПУСК (Используем уже вычисленные переменные путей)
-START "%WINDOW_TITLE%" cmd /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo !L_BUILD_FATAL!) ^&^& echo. ^&^& echo !L_FINISHED! ^&^& pause ^"
+:: Запуск в отдельном окне (с поддержкой интерактивного входа для SOURCE режима)
+START "%WINDOW_TITLE%" cmd /v:on /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo !L_BUILD_FATAL!) ^&^& echo. ^&^& echo !L_FINISHED! ^&^& (if "%BUILD_MODE%"=="SOURCE" (set /p "stay=!L_K_STAY! " ^& if /i "^!stay^!"=="y" (echo. ^& echo !L_K_SHELL_H1! ^& echo !L_K_SHELL_H2! ^& echo !L_K_SHELL_H3! ^& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% run --rm -it %SERVICE_NAME% /bin/bash))) ^&^& pause ^"
 exit /b
 
 :: =========================================================
