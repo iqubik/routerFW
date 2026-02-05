@@ -142,249 +142,6 @@ fi
 #         echo -e "${GREEN}       SUCCESS: Build limits updated.${NC}" # УСПЕХ: Лимиты сборщика обновлены.
 #     fi
 # fi
-# ======================================================================================
-#  БЛОК 1.2.1: ПАТЧ ДЛЯ 16MB TP-LINK FLASH (ISSUE #21)
-# ======================================================================================
-# Этот блок применяет полный набор патчей для поддержки устройств TP-Link
-# с модифицированной 16MB flash-памятью, как описано в issue #21.
-# Он активируется только если в .conf выбран профиль "tplink_tl-mr3020-v3-16mb".
-if [[ "$TARGET_PROFILE" == "tplink_tl-mr3020-v3-16mb" ]]; then
-    log ">>> Applying patches for TP-Link 16MB Mod (tplink_tl-mr3020-v3-16mb)..."
-    # --- 1. Патчинг утилиты сборки прошивки ---
-    FW_UTIL_FILE="tools/firmware-utils/src/mktplinkfw2.c"
-    log "Patching firmware utility: $FW_UTIL_FILE"
-
-    if [ -f "$FW_UTIL_FILE" ]; then
-        if ! grep -q "16Mmtk" "$FW_UTIL_FILE"; then
-            # Идемпотентность: применяем патч, только если он еще не применен.
-            sed -i '/.id             = "8MSUmtk"/i\
-            }, {\
-                    .id             = "16Mmtk",\
-                    .fw_max_len     = 0xfa0000,\
-                    .kernel_la      = 0x80000000,\
-                    .kernel_ep      = 0x80000000,\
-                    .rootfs_ofs     = 0x140000,\
-' "$FW_UTIL_FILE"
-            
-            # Проверка и пересборка утилиты
-            if grep -q "16Mmtk" "$FW_UTIL_FILE"; then
-                echo -e "${GREEN}       SUCCESS: $FW_UTIL_FILE patched.${NC}"
-                log "Recompiling firmware utility..."
-                # Пересобираем утилиту, чтобы изменения вступили в силу
-                make tools/firmware-utils/compile -j1 V=s
-                echo -e "${GREEN}       SUCCESS: Firmware utility recompiled.${NC}"
-            else
-                err "Failed to patch $FW_UTIL_FILE!"
-            fi
-        else
-            log "Firmware utility already patched. Skipping."
-        fi
-    else
-        warn "Firmware utility C-file not found at $FW_UTIL_FILE. Skipping patch."
-    fi
-
-    # --- 2. Создание DTS файла для нового устройства ---
-    DTS_FILE="target/linux/ramips/dts/mt7628an_tplink_tl-mr3020-v3-16mb.dts"
-    if [ -f "$DTS_FILE" ]; then
-        log "DTS file '$DTS_FILE' already exists. Skipping creation."
-    else
-        log "Creating DTS file: $DTS_FILE"
-        mkdir -p "$(dirname "$DTS_FILE")"
-        cat <<'EOF' > "$DTS_FILE"
-#include "mt7628an.dtsi"
-
-#include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/input/input.h>
-
-/ {
-	compatible = "tplink,tl-mr3020-v3-16mb", "mediatek,mt7628an-soc";
-	model = "TP-Link TL-MR3020 v3 (16Mb flash)";
-
-	aliases {
-		led-boot = &led_power;
-		led-failsafe = &led_power;
-		led-running = &led_power;
-		led-upgrade = &led_power;
-		label-mac-device = &ethernet;
-	};
-
-	chosen {
-		bootargs = "console=ttyS0,115200";
-	};
-
-	keys {
-		compatible = "gpio-keys";
-
-		wps {
-			label = "wps";
-			gpios = <&gpio 38 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_WPS_BUTTON>;
-		};
-
-		modec1 {
-			label = "sw1";
-			gpios = <&gpio 41 GPIO_ACTIVE_LOW>;
-			linux,code = <BTN_0>;
-			linux,input-type = <EV_SW>;
-		};
-
-		modec2 {
-			label = "sw2";
-			gpios = <&gpio 42 GPIO_ACTIVE_LOW>;
-			linux,code = <BTN_1>;
-			linux,input-type = <EV_SW>;
-		};
-	};
-
-	leds {
-		compatible = "gpio-leds";
-
-		led_power: power {
-			label = "green:power";
-			gpios = <&gpio 37 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		wan {
-			label = "green:3g";
-			gpios = <&gpio 43 GPIO_ACTIVE_LOW>;
-			trigger-sources = <&ehci_port1>, <&ohci_port1>;
-			linux,default-trigger = "usbport";
-		};
-
-		wlan {
-			label = "green:wlan";
-			gpios = <&gpio 44 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "phy0tpt";
-		};
-
-		wps {
-			label = "green:wps";
-			gpios = <&gpio 2 GPIO_ACTIVE_LOW>;
-		};
-
-		lan {
-			label = "green:lan";
-			gpios = <&gpio 3 GPIO_ACTIVE_LOW>;
-		};
-	};
-
-	gpio_export {
-		compatible = "gpio-export";
-		#size-cells = <0>;
-
-		usbpower {
-			gpio-export,name = "usbpower";
-			gpio-export,output = <1>;
-			gpios = <&gpio 39 GPIO_ACTIVE_HIGH>;
-		};
-	};
-};
-
-&spi0 {
-	status = "okay";
-
-	flash@0 {
-		compatible = "jedec,spi-nor";
-		reg = <0>;
-		spi-max-frequency = <50000000>;
-		m25p,fast-read;
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			partition@0 {
-				label = "boot";
-				reg = <0x0 0x20000>;
-				read-only;
-			};
-
-			partition@20000 {
-				compatible = "tplink,firmware";
-				label = "firmware";
-				reg = <0x20000 0xfa0000>;
-			};
-
-			partition@fc0000 {
-				label = "config";
-				reg = <0xfc0000 0x10000>;
-				read-only;
-			};
-
-			factory: partition@fd0000 {
-				label = "factory";
-				reg = <0xfd0000 0x30000>;
-				read-only;
-			};
-		};
-	};
-};
-
-&state_default {
-	gpio {
-		groups = "i2s", "refclk", "wdt", "p4led_an", "p2led_an",
-			 "p1led_an", "p0led_an", "wled_an";
-		function = "gpio";
-	};
-};
-
-&wmac {
-	status = "okay";
-	mediatek,mtd-eeprom = <&factory 0x20000>;
-	nvmem-cells = <&macaddr_factory_f100>;
-	nvmem-cell-names = "mac-address";
-};
-
-&ethernet {
-	nvmem-cells = <&macaddr_factory_f100>;
-	nvmem-cell-names = "mac-address";
-};
-
-&factory {
-	compatible = "nvmem-cells";
-	#address-cells = <1>;
-	#size-cells = <1>;
-
-	macaddr_factory_f100: macaddr@f100 {
-		reg = <0xf100 0x6>;
-	};
-};
-EOF
-        echo -e "${GREEN}       SUCCESS: DTS file created.${NC}"
-    fi
-    
-    # --- 3. Патчинг Makefile для добавления устройства ---
-    MK_FILE="target/linux/ramips/image/mt76x8.mk"
-    log "Patching Makefile: $MK_FILE"
-    if [ -f "$MK_FILE" ]; then
-        if ! grep -q "tplink_tl-mr3020-v3-16mb" "$MK_FILE"; then
-            sed -i '/tplink_tl-mr3020-v3$/a\
-\
-define Device/tplink_tl-mr3020-v3-16mb\
-  $(Device/tplink-v2)\
-  IMAGE_SIZE := 16000k\
-  DEVICE_MODEL := TL-MR3020\
-  DEVICE_VARIANT := v3 (16Mb)\
-  TPLINK_FLASHLAYOUT := 16Mmtk\
-  TPLINK_HWID := 0x30200003\
-  TPLINK_HWREV := 0x3\
-  TPLINK_HWREVADD := 0x3\
-  DEVICE_PACKAGES := kmod-usb2 kmod-usb-ohci kmod-usb-ledtrig-usbport\
-  IMAGES := sysupgrade.bin tftp-recovery.bin\
-  IMAGE/tftp-recovery.bin := pad-extra 128k | $$(IMAGE/factory.bin)\
-endef\
-TARGET_DEVICES += tplink_tl-mr3020-v3-16mb\
-' "$MK_FILE"
-            echo -e "${GREEN}       SUCCESS: Makefile patched.${NC}"
-        else
-            log "Device definition already in Makefile. Skipping."
-        fi
-    else
-        warn "Makefile not found at $MK_FILE. Skipping patch."
-    fi
-fi
 
 # ======================================================================================
 #  БЛОК 1.3: ИСПРАВЛЕНИЕ СБОРКИ RUST (LLVM CI 404 FIX) // BLOCK 1.3: RUST BUILD FIX
@@ -476,135 +233,131 @@ add_feed() {
 # Назначение: Обеспечить совместимость с официальными kmod. // Purpose: Ensure kmod compatibility.
 # Решение: Подмена vermagic в процессе сборки. // Solution: Patch vermagic during build.
 # ======================================================================================
-log ">>> Checking if Vermagic Hack is needed..." # Проверка необходимости Vermagic Hack...
-CLEAN_VER=$(echo "$SRC_BRANCH" | sed 's/^v//')
-VERMAGIC_MARKER=".last_vermagic"
-TARGET_MK="include/kernel-defaults.mk"
-BACKUP_MK="include/kernel-defaults.mk.bak"
+# log ">>> Checking if Vermagic Hack is needed..." # Проверка необходимости Vermagic Hack...
+# CLEAN_VER=$(echo "$SRC_BRANCH" | sed 's/^v//')
+# VERMAGIC_MARKER=".last_vermagic"
+# TARGET_MK="include/kernel-defaults.mk"
+# BACKUP_MK="include/kernel-defaults.mk.bak"
 
-# 1. Определяем дистрибутив (OpenWrt/ImmortalWrt). // Determine distro type.
-if grep -riq "immortalwrt" include/version.mk package/base-files/files/etc/openwrt_release 2>/dev/null; then
-    DISTRO_NAME="immortalwrt"
-    DOWNLOAD_DOMAIN="downloads.immortalwrt.org"
-    log "Detected distro: IMMORTALWRT" # Обнаружен дистрибутив: IMMORTALWRT
-else
-    DISTRO_NAME="openwrt"
-    DOWNLOAD_DOMAIN="downloads.openwrt.org"
-    log "Detected distro: OPENWRT" # Обнаружен дистрибутив: OPENWRT
-fi
+# # --- FIX: MAPPING FOR PADAVANONLY BRANCHES ---
+# # Ветка Padavanonly называется "openwrt-24.10-6.6", но официальный релиз лежит в папке "24.10.0".
+# # Делаем маппинг, чтобы скачать правильный манифест.
+# if [[ "$CLEAN_VER" == "openwrt-24.10-6.6" ]]; then
+#     # Принудительно выставляем версию официального релиза ImmortalWrt
+#     OVERRIDE_VER="24.10.0"
+#     warn "Custom branch '$CLEAN_VER' detected. Mapping to official release '$OVERRIDE_VER' for Vermagic."
+#     CLEAN_VER="$OVERRIDE_VER"
+# fi
+# # ---------------------------------------------
 
-# 2. Пропускаем SNAPSHOT/master сборки. // Skip SNAPSHOT/master builds.
-if [[ "$CLEAN_VER" == *"SNAPSHOT"* ]] || [[ "$CLEAN_VER" == *"master"* ]]; then
-    warn "SNAPSHOT/Master build. Vermagic Hack is not applied." # Сборка SNAPSHOT. Hack не применяется.
-    if [ -f "$BACKUP_MK" ]; then
-        log "Restoring original Makefile..." # Восстанавливаем оригинальный Makefile...
-        cp -f "$BACKUP_MK" "$TARGET_MK"
-    fi
-else
-    # Для релизных сборок пытаемся получить хэш. // For release builds, try to get the hash.
-    KERNEL_HASH=""
+# # 1. Определяем дистрибутив (OpenWrt/ImmortalWrt). // Determine distro type.
+# if grep -riq "immortalwrt" include/version.mk package/base-files/files/etc/openwrt_release 2>/dev/null; then
+#     DISTRO_NAME="immortalwrt"
+#     DOWNLOAD_DOMAIN="immortalwrt.kyarucloud.moe"
+#     log "Detected distro: IMMORTALWRT" # Обнаружен дистрибутив: IMMORTALWRT
+# else
+#     DISTRO_NAME="openwrt"
+#     DOWNLOAD_DOMAIN="downloads.openwrt.org"
+#     log "Detected distro: OPENWRT" # Обнаружен дистрибутив: OPENWRT
+# fi
 
-    # 3. СПЕЦИАЛЬНЫЙ СЛУЧАЙ: Ручное получение хэша для определенных веток.
-    if [[ "$CLEAN_VER" == "openwrt-24.10-6.6" ]]; then
-        warn "Special branch '$CLEAN_VER' detected. Using kyarucloud mirror to get Vermagic."
-        # Адаптированная команда пользователя с curl. // User's command adapted for curl.
-        HASH_CMD='curl -s "https://immortalwrt.kyarucloud.moe/releases/24.10-SNAPSHOT/targets/mediatek/filogic/kmods/" | grep -oE "6\.6\.95-1-[0-9a-f]{32}" | head -n 1 | cut -d"-" -f3'
-        KERNEL_HASH=$(eval "$HASH_CMD")
-        log "Hash obtained from mirror: $KERNEL_HASH"
-    fi
+# # 2. Пропускаем SNAPSHOT/master сборки. // Skip SNAPSHOT/master builds.
+# if [[ "$CLEAN_VER" == *"SNAPSHOT"* ]] || [[ "$CLEAN_VER" == *"master"* ]]; then
+#     warn "SNAPSHOT/Master build. Vermagic Hack is not applied." # Сборка SNAPSHOT. Hack не применяется.
+#     if [ -f "$BACKUP_MK" ]; then
+#         log "Restoring original Makefile..." # Восстанавливаем оригинальный Makefile...
+#         cp -f "$BACKUP_MK" "$TARGET_MK"
+#     fi
+# else
+#     log "Target version: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)" # Целевая версия...
+#     MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
 
-    # 4. СТАНДАРТНЫЙ СЛУЧАЙ: Если хэш не был получен ранее, скачиваем манифест.
-    if [ -z "$KERNEL_HASH" ]; then
-        log "Target version: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)" # Целевая версия...
-        MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
-        
-        log "Downloading manifest from: $MANIFEST_URL"
-        MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
-        
-        # Если релиз не найден (404), пробуем fallback на SNAPSHOTS
-        if [ -z "$MANIFEST_DATA" ]; then
-            warn "Release manifest not found. Trying snapshots..."
-            MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
-            MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
-        fi
+#     # 3. Скачиваем манифест. // Download manifest.
+#     log "Downloading manifest from: $MANIFEST_URL"
+#     MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+    
+#     # Если релиз не найден (404), пробуем fallback на SNAPSHOTS (но это рискованно для kmod)
+#     if [ -z "$MANIFEST_DATA" ]; then
+#         warn "Release manifest not found. Trying snapshots..."
+#         MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+#         MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+#     fi
 
-        if [ -n "$MANIFEST_DATA" ]; then
-            # Извлекаем хэш ядра (vermagic). // Extract kernel hash.
-            KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)
-        else
-            warn "Manifest not found ($MANIFEST_URL)." # Манифест не найден.
-            err "Manifest still not found! Vermagic Hack will be skipped." # Манифест не найден.
-        fi
-    fi
+#     if [ -z "$MANIFEST_DATA" ]; then
+#         warn "Manifest not found ($MANIFEST_URL)." # Манифест не найден.
+#         err "Manifest still not found! Vermagic Hack skipped." # Манифест не найден.
+#     else
+#         # 4. Извлекаем хэш ядра (vermagic). // Extract kernel hash.
+#         KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)
 
-    # 5. ПРОВЕРКА ХЭША И ОСНОВНАЯ ЛОГИКА
-    if [[ ! "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
-        err "Invalid or empty kernel hash obtained. Vermagic Hack skipped." # Некорректный хэш.
-    else
-        echo -e "${GREEN}       Official Vermagic Hash: $KERNEL_HASH${NC}" # Официальный хэш...
-        OLD_HASH=""
-        [ -f "$VERMAGIC_MARKER" ] && OLD_HASH=$(cat "$VERMAGIC_MARKER")
+#         if [[ ! "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
+#             err "Invalid kernel hash from manifest." # Некорректный хэш ядра.
+#         else
+#             echo -e "${GREEN}       Official Vermagic Hash: $KERNEL_HASH${NC}" # Официальный хэш...
+#             OLD_HASH=""
+#             [ -f "$VERMAGIC_MARKER" ] && OLD_HASH=$(cat "$VERMAGIC_MARKER")
 
-        # 5.1. УМНАЯ ОЧИСТКА КЭША. // SMART CACHE CLEANING.
-        if [ "$OLD_HASH" != "$KERNEL_HASH" ]; then
-            warn "Hash changed. Deep cache cleaning..." # Хеш изменился. Глубокая очистка...
-            make target/linux/clean > /dev/null 2>&1
-            rm -rf tmp/.packageinfo tmp/.targetinfo tmp/.config-target.in
-            find build_dir/target-* -maxdepth 1 -type d -name "linux-*" -exec rm -rf {} + 2>/dev/null
-            rm -rf staging_dir/target-*/pkginfo/kernel.default.install 2>/dev/null
-            if [[ "$CLEAN_VER" == "19.07"* ]]; then rm -rf staging_dir/target-*/root-* 2>/dev/null; fi
-            echo "$KERNEL_HASH" > "$VERMAGIC_MARKER"
-            log "Caches fully reset." # Кэши полностью сброшены.
-        else
-            log "Kernel hash unchanged. Cache will be used." # Хеш не изменился. Кэш используется.
-        fi
+#             # 5. УМНАЯ ОЧИСТКА КЭША. // SMART CACHE CLEANING.
+#             if [ "$OLD_HASH" != "$KERNEL_HASH" ]; then
+#                 warn "Hash changed. Deep cache cleaning..." # Хеш изменился. Глубокая очистка...
+#                 make target/linux/clean > /dev/null 2>&1
+#                 rm -rf tmp/.packageinfo tmp/.targetinfo tmp/.config-target.in
+#                 find build_dir/target-* -maxdepth 1 -type d -name "linux-*" -exec rm -rf {} + 2>/dev/null
+#                 rm -rf staging_dir/target-*/pkginfo/kernel.default.install 2>/dev/null
+#                 if [[ "$CLEAN_VER" == "19.07"* ]]; then rm -rf staging_dir/target-*/root-* 2>/dev/null; fi
+#                 echo "$KERNEL_HASH" > "$VERMAGIC_MARKER"
+#                 log "Caches fully reset." # Кэши полностью сброшены.
+#             else
+#                 log "Kernel hash unchanged. Cache will be used." # Хеш не изменился. Кэш используется.
+#             fi
 
-        # 5.2. Патчинг Makefile // Patching Makefile
-        if [ -f "$TARGET_MK" ]; then
-            PATCH_STRATEGY=""
-            SEARCH_PATTERN=""
-            # Определение типа синтаксиса // Detect syntax type
-            if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
-                PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'
-            elif grep -Fq 'mkhash md5' "$TARGET_MK"; then
-                PATCH_STRATEGY="legacy_mkhash"; SEARCH_PATTERN='mkhash md5'
-            elif grep -Fq 'md5sum' "$TARGET_MK" && grep -Fq '.vermagic' "$TARGET_MK"; then
-                PATCH_STRATEGY="legacy_md5sum"; SEARCH_PATTERN='md5sum | cut -d . .'
-            fi
+#             # 6. Патчинг Makefile // Patching Makefile
+#             if [ -f "$TARGET_MK" ]; then
+#                 PATCH_STRATEGY=""
+#                 SEARCH_PATTERN=""
+#                 # Определение типа синтаксиса // Detect syntax type
+#                 if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then
+#                     PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'
+#                 elif grep -Fq 'mkhash md5' "$TARGET_MK"; then
+#                     PATCH_STRATEGY="legacy_mkhash"; SEARCH_PATTERN='mkhash md5'
+#                 elif grep -Fq 'md5sum' "$TARGET_MK" && grep -Fq '.vermagic' "$TARGET_MK"; then
+#                     PATCH_STRATEGY="legacy_md5sum"; SEARCH_PATTERN='md5sum | cut -d . .'
+#                 fi
 
-            if [ -z "$PATCH_STRATEGY" ] && [ -f "$BACKUP_MK" ]; then
-                cp -f "$BACKUP_MK" "$TARGET_MK"
-                # Re-detect...
-                if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'; fi
-            fi
+#                 if [ -z "$PATCH_STRATEGY" ] && [ -f "$BACKUP_MK" ]; then
+#                     cp -f "$BACKUP_MK" "$TARGET_MK"
+#                     # Re-detect...
+#                     if grep -Fq '$(MKHASH) md5' "$TARGET_MK"; then PATCH_STRATEGY="modern"; SEARCH_PATTERN='\$(MKHASH) md5'; fi
+#                 fi
 
-            if [ -n "$PATCH_STRATEGY" ]; then
-                if [ ! -f "$BACKUP_MK" ]; then
-                    warn "First patch. Cleaning CCACHE..." # Первый патч. Очистка CCACHE.
-                    [ -d "/ccache" ] && rm -rf /ccache/* 2>/dev/null
-                    cp "$TARGET_MK" "$BACKUP_MK"
-                else
-                    cp -f "$BACKUP_MK" "$TARGET_MK"
-                fi
-                log "Applying Vermagic patch ($PATCH_STRATEGY)..." # Применяем патч...
-                if [ "$PATCH_STRATEGY" == "legacy_md5sum" ]; then
-                    sed -i "s/md5sum | cut -d ' ' -f1/echo $KERNEL_HASH/g" "$TARGET_MK"
-                else
-                    sed -i "s/$SEARCH_PATTERN/echo $KERNEL_HASH/g" "$TARGET_MK"
-                fi
-                if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
-                    echo -e "${GREEN}       SUCCESS: Makefile modified.${NC}" # УСПЕХ: Makefile модифицирован.
-                else
-                    err "Patching error!"; exit 1
-                fi
-            else
-                warn "Could not detect hashing method." # Не удалось определить метод хэширования.
-            fi
-        else
-            err "File $TARGET_MK not found."; exit 1 # Файл не найден.
-        fi
-    fi
-fi
+#                 if [ -n "$PATCH_STRATEGY" ]; then
+#                     if [ ! -f "$BACKUP_MK" ]; then
+#                         warn "First patch. Cleaning CCACHE..." # Первый патч. Очистка CCACHE.
+#                         [ -d "/ccache" ] && rm -rf /ccache/* 2>/dev/null
+#                         cp "$TARGET_MK" "$BACKUP_MK"
+#                     else
+#                         cp -f "$BACKUP_MK" "$TARGET_MK"
+#                     fi
+#                     log "Applying Vermagic patch ($PATCH_STRATEGY)..." # Применяем патч...
+#                     if [ "$PATCH_STRATEGY" == "legacy_md5sum" ]; then
+#                         sed -i "s/md5sum | cut -d ' ' -f1/echo $KERNEL_HASH/g" "$TARGET_MK"
+#                     else
+#                         sed -i "s/$SEARCH_PATTERN/echo $KERNEL_HASH/g" "$TARGET_MK"
+#                     fi
+#                     if grep -q "$KERNEL_HASH" "$TARGET_MK"; then
+#                         echo -e "${GREEN}       SUCCESS: Makefile modified.${NC}" # УСПЕХ: Makefile модифицирован.
+#                     else
+#                         err "Patching error!"; exit 1
+#                     fi
+#                 else
+#                     warn "Could not detect hashing method." # Не удалось определить метод хэширования.
+#                 fi
+#             else
+#                 err "File $TARGET_MK not found."; exit 1 # Файл не найден.
+#             fi
+#         fi
+#     fi
+# fi
 # ======================================================================================
 #  ФИНАЛ // FINAL
 # ======================================================================================

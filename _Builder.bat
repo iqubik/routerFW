@@ -7,7 +7,7 @@ setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
 mode con: cols=120 lines=40
 :: Отключаем мигающий курсор (через PowerShell, так как в Batch нет нативного способа)
-powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
+rem powershell -command "$ind = [System.Console]::CursorVisible; if($ind){[System.Console]::CursorVisible=$false}" 2>nul
 cls
 chcp 65001 >nul
 :: Настройка ANSI цветов
