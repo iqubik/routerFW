@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.1
+# file: system/src_builder.sh v1.2
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -171,8 +171,12 @@ make defconfig
 
 # 4. OVERLAY И ПАКЕТЫ
 [ -d "/input_packages" ] && [ "$(ls -A /input_packages)" ] && cp -rf /input_packages/* package/
-if [ -d "/overlay_files" ] && [ "$(ls -A /overlay_files)" ]; then
-    mkdir -p files && cp -rf /overlay_files/* files/ && rm -f files/hooks.sh
+if [ -d "/overlay_files" ] && [ -n "$(ls -A /overlay_files)" ]; then
+    echo "[SYNC] Syncing overlay files..."
+    mkdir -p files/
+    rsync -a --delete /overlay_files/ files/
+    # По-прежнему удаляем hooks.sh, т.к. он не должен попасть в прошивку
+    rm -f files/hooks.sh
 fi
 
 # 5. СБОРКА
@@ -193,7 +197,7 @@ fi
 # 6. СОХРАНЕНИЕ
 TARGET_DIR="/output/$TIMESTAMP"
 mkdir -p "$TARGET_DIR"
-find bin/targets/$SRC_TARGET -type f -not -path "*/packages/*" -exec cp {} "$TARGET_DIR/" \;
+find bin/targets/$SRC_TARGET -type f -not -path "*/packages/*" -exec mv {} "$TARGET_DIR/" \;
 cp .config "$TARGET_DIR/build.config"
 
 ELAPSED=$(($(date +%s) - START_TIME))
