@@ -44,7 +44,7 @@
 *   **F (Files)** — Наличие файлового оверлея (`custom_files`).
 *   **P (Packages)** — Наличие сторонних `.ipk` пакетов.
 *   **S (Source)** — Наличие исходного кода пакетов (`src_packages`).
-*   **Pt (Patches)** — **[NEW]** Обнаружены патчи исходного кода (`custom_patches`).
+*   **X (Patches)** — **[NEW]** Обнаружены патчи исходного кода (`custom_patches`).
 *   **M (Manual Config)** — **[NEW]** Обнаружен активный файл ручной настройки Menuconfig.
 *   **H (Hooks)** — **[NEW]** Обнаружен скрипт автоматизации `hooks.sh`.
 *   **OI / OS** — Наличие готовых прошивок (Image / Source Builder).

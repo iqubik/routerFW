@@ -91,7 +91,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CUR_MODE=Текущий режим"
     set "L_PROFILES=Профили сборки"
     set "L_LEGEND_IND=%C_GRY%Индикаторы справа от профиля показывают состояние папок, файлов и результатов сборки%C_RST%"
-    set "L_LEGEND_TEXT=Легенда: %C_GRY%F%C_RST%:Файлы %C_KEY%P%C_RST%:Пакеты %C_VAL%S%C_RST%:Исх %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks %C_GRY%Pt%C_RST%:Патчи %C_GRY%|%C_RST% %C_GRY%Прошивки:%C_RST% %C_VAL%OI%C_RST%:Образ %C_VAL%OS%C_RST%:Сборка"
+    set "L_LEGEND_TEXT=Легенда: %C_GRY%F%C_RST%:Файлы %C_KEY%P%C_RST%:Пакеты %C_VAL%S%C_RST%:Исх %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks %C_GRY%X%C_RST%:Патчи %C_GRY%|%C_RST% %C_GRY%Прошивки:%C_RST% %C_VAL%OI%C_RST%:Образ %C_VAL%OS%C_RST%:Сборка"
     set "L_BTN_ALL=Собрать ВСЕ"
     set "L_BTN_SWITCH=Режим на "
     set "L_BTN_EDIT=Редактор"
@@ -233,7 +233,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CUR_MODE=Current Mode"
     set "L_PROFILES=Build Profiles"
     set "L_LEGEND_IND=Indicators show the state of resources and build results."
-    set "L_LEGEND_TEXT=Legend: %C_GRY%F%C_RST%:Files %C_KEY%P%C_RST%:Packages %C_VAL%S%C_RST%:Src %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks.sh %C_GRY%Pt%C_RST%:Patches | Firmwares: %C_VAL%OI%C_RST%:Image %C_VAL%OS%C_RST%:Build"
+    set "L_LEGEND_TEXT=Legend: %C_GRY%F%C_RST%:Files %C_KEY%P%C_RST%:Packages %C_VAL%S%C_RST%:Src %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks.sh %C_GRY%X%C_RST%:Patches | Firmwares: %C_VAL%OI%C_RST%:Image %C_VAL%OS%C_RST%:Build"
     set "L_BTN_ALL=Build ALL"
     set "L_BTN_SWITCH=Switch to"
     set "L_BTN_EDIT=Editor"
@@ -491,6 +491,7 @@ for %%f in (profiles\*.conf) do (
     
     :: Авто-создание структуры
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!" >nul
+    if not exist "custom_patches\!p_id!" mkdir "custom_patches\!p_id!" >nul
     if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!" >nul
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!" >nul
     call :CREATE_PERMS_SCRIPT "!p_id!"    
@@ -511,7 +512,7 @@ for %%f in (profiles\*.conf) do (
     set "st_s=!C_GRY!·!C_RST!" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=!C_VAL!S!C_RST!"
     set "st_m=!C_GRY!·!C_RST!" & if exist "firmware_output\sourcebuilder\!p_id!\manual_config" set "st_m=!C_ERR!M!C_RST!"        
     set "st_h=!C_GRY!·!C_RST!" & if exist "custom_files\!p_id!\hooks.sh" set "st_h=!C_LBL!H!C_RST!"
-    set "st_pt=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_patches\!p_id!" 2>nul | findstr "^" >nul && set "st_pt=!C_GRY!Pt!C_RST!"
+    set "st_pt=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_patches\!p_id!" 2>nul | findstr "^" >nul && set "st_pt=!C_GRY!X!C_RST!"
 
     :: Состояние вывода (OI OS) - Реагирует на ЛЮБЫЕ файлы в любых подпапках
     set "st_oi=!C_GRY!··!C_RST!"

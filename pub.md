@@ -12,10 +12,10 @@
 -   **Кросс-платформенная надежность:** Встроенная утилита `dos2unix` автоматически исправляет окончания строк Windows (CRLF), что предотвращает ошибки сборки при редактировании файлов в Windows.
 
 ### 🖥️ Улучшения интерфейса
--   В главном меню добавлен новый индикатор **`Pt`** (Patches), который сигнализирует о наличии патчей для профиля, делая управление сборками более наглядным.
+-   В главном меню добавлен новый индикатор **`X`** (Patches), который сигнализирует о наличии патчей для профиля, делая управление сборками более наглядным.
 
 ### 📚 Обновление документации
--   **Добавлен "Урок 5"**: Создано новое подробное руководство по использованию системы патчей, доступное на русском (`docs/05-patch-sys copy.md`) и английском (`docs/05-patch-sys.en.md`) языках.
+-   **Добавлен "Урок 5"**: Создано новое подробное руководство по использованию системы патчей, доступное на русском (`docs/05-patch-sys.md`) и английском (`docs/05-patch-sys.en.md`) языках.
 -   **Обновлены README**: Главные файлы `README.md` и `README.en.md` были дополнены информацией о новой функции.
 -   **Обновлены индексы**: Файлы `docs/index.md` и `docs/index.en.md` теперь включают ссылки на новое руководство.
 
@@ -32,9 +32,9 @@ This update introduces a powerful and flexible mechanism for modifying OpenWrt s
 -   **Cross-Platform Reliability:** The built-in `dos2unix` utility automatically fixes Windows line endings (CRLF), preventing build errors when files are edited on Windows.
 
 ### 🖥️ UI Enhancements
--   A new **`Pt`** (Patches) indicator has been added to the main menu, signaling the presence of patches for a profile and making build management more intuitive.
+-   A new **`X`** (Patches) indicator has been added to the main menu, signaling the presence of patches for a profile and making build management more intuitive.
 
 ### 📚 Documentation Update
--   **Added "Lesson 5"**: A new detailed guide on using the patching system has been created, available in both Russian (`docs/05-patch-sys copy.md`) and English (`docs/05-patch-sys.en.md`).
+-   **Added "Lesson 5"**: A new detailed guide on using the patching system has been created, available in both Russian (`docs/05-patch-sys.md`) and English (`docs/05-patch-sys.en.md`).
 -   **Updated READMEs**: The main `README.md` and `README.en.md` files have been updated with information about the new feature.
 -   **Updated Indexes**: The `docs/index.md` and `docs/index.en.md` files now include links to the new guide.

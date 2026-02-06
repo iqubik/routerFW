@@ -40,7 +40,7 @@ The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for
 *   **F (Files)** — File overlay detected (`custom_files`).
 *   **P (Packages)** — External `.ipk` packages present.
 *   **S (Source)** — Package source code found (`src_packages`).
-*   **Pt (Patches)** — **[NEW]** Source code patches detected (`custom_patches`).
+*   **X (Patches)** — **[NEW]** Source code patches detected (`custom_patches`).
 *   **M (Manual Config)** — **[NEW]** Active Menuconfig diff file detected.
 *   **H (Hooks)** — **[NEW]** Automation script `hooks.sh` detected.
 

@@ -30,7 +30,7 @@ Before applying patches, a special utility, `dos2unix`, recursively processes al
 ## 3. How It Works (Lifecycle)
 
 1.  **Preparation:** You create a folder structure inside `custom_patches/<PROFILE_ID>/` that mirrors the path to the target file.
-2.  **Detection:** When `_Builder.bat` starts, it checks for patches. If they exist, the **Pt** (Patches) indicator lights up next to the profile in the menu.
+2.  **Detection:** When `_Builder.bat` starts, it checks for patches. If they exist, the **X** (Patches) indicator lights up next to the profile in the menu.
 3.  **Isolation:** The folder with your patches is mounted into the Docker container in a safe location (`/patches`).
 4.  **Application:**
     *   The script converts files to Unix format.
