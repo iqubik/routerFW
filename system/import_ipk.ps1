@@ -1,5 +1,5 @@
-﻿# file : system/import_ipk.ps1
-# Скрипт импорта IPK v2.5 (Strict Architecture Validation & Mapping)
+# file : system/import_ipk.ps1
+# Скрипт импорта IPK v2.6 (version ipk fix)
 param (
     [Parameter(Mandatory=$false)]
     [string]$ProfileID = "",
@@ -68,11 +68,12 @@ foreach ($ipk in $ipkFiles) {
     }
 
     # 4. Глубокий парсинг файла Control
-    $pkgName = ""; $pkgDeps = ""; $pkgArch = ""; $postinst = ""
+    $pkgName = ""; $pkgVersion = ""; $pkgDeps = ""; $pkgArch = ""; $postinst = ""
     if (Test-Path "$tempDir\control_data\control") {
         $controlContent = Get-Content "$tempDir\control_data\control"
         foreach($line in $controlContent) {
             if ($line -match "^Package: (.*)") { $pkgName = $matches[1].Trim() }
+            if ($line -match "^Version: (.*)") { $pkgVersion = $matches[1].Trim() }
             if ($line -match "^Architecture: (.*)") { $pkgArch = $matches[1].Trim() }
             if ($line -match "^Depends: (.*)") { 
                 $depsRaw = ($line -split ":")[1].Trim() -replace ",", " "
@@ -91,6 +92,7 @@ foreach ($ipk in $ipkFiles) {
     }
 
     if (-not $pkgName) { Write-Host "    [!] Error: Could not parse package name. Skipping." -ForegroundColor Red; continue }
+    if (-not $pkgVersion) { $pkgVersion = "binary" }
 
     # --- 5. УМНАЯ ВАЛИДАЦИЯ АРХИТЕКТУРЫ ---
     if ($pkgArch -eq "all") {
@@ -149,7 +151,7 @@ foreach ($ipk in $ipkFiles) {
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:={0}
-PKG_VERSION:=binary
+PKG_VERSION:={3}
 PKG_RELEASE:=1
 
 include $(INCLUDE_DIR)/package.mk
@@ -199,7 +201,7 @@ $(eval $(call BuildPackage,$(PKG_NAME)))
 
     # Сохраняем файл с принудительными Unix-окончаниями строк (LF)
     # Это критично для сборки в Docker/Linux
-    $makefileContent = $template -f $pkgName, $pkgDeps, $postinst
+    $makefileContent = $template -f $pkgName, $pkgDeps, $postinst, $pkgVersion
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     $finalContent = $makefileContent -replace "`r`n", "`n"
     [System.IO.File]::WriteAllText("$targetPkgDir\Makefile", $finalContent, $utf8NoBom)    
