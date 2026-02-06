@@ -1,4 +1,4 @@
-#file: system/src.dockerfile v1.3
+#file: system/src.dockerfile v1.4
 # Обновляем базу до 24.04 (GCC 13 внутри)
 FROM ubuntu:24.04
 

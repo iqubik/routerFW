@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.5
+# file: system/src_builder.sh v1.6
 set -e
 
 # 1. Исправление прав (выполняется под root)
