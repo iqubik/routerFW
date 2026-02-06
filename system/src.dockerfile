@@ -13,7 +13,7 @@ RUN touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu && userdel -r ubuntu
 # Добавлен python3-venv, так как новые системы часто требуют venv.
 RUN apt-get update && apt-get install -y \    
     mc build-essential ccache clang flex bison g++ gawk gcc-multilib g++-multilib \
-    gettext git patch swig time rsync unzip file wget curl \    
+    gettext git patch swig time rsync unzip file wget curl dos2unix \
     libncurses-dev libssl-dev zlib1g-dev libelf-dev libzstd-dev \    
     python3-dev python3-setuptools python3-pyelftools python3-venv \    
     xsltproc zstd ca-certificates ssl-cert sudo \

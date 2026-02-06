@@ -91,7 +91,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CUR_MODE=Текущий режим"
     set "L_PROFILES=Профили сборки"
     set "L_LEGEND_IND=%C_GRY%Индикаторы справа от профиля показывают состояние папок, файлов и результатов сборки%C_RST%"
-    set "L_LEGEND_TEXT=Легенда: %C_GRY%F%C_RST%:Файлы %C_KEY%P%C_RST%:Пакеты %C_VAL%S%C_RST%:Исх %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks %C_GRY%|%C_RST% %C_GRY%Прошивки:%C_RST% %C_VAL%OI%C_RST%:Образ %C_VAL%OS%C_RST%:Сборка"
+    set "L_LEGEND_TEXT=Легенда: %C_GRY%F%C_RST%:Файлы %C_KEY%P%C_RST%:Пакеты %C_VAL%S%C_RST%:Исх %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks %C_GRY%Pt%C_RST%:Патчи %C_GRY%|%C_RST% %C_GRY%Прошивки:%C_RST% %C_VAL%OI%C_RST%:Образ %C_VAL%OS%C_RST%:Сборка"
     set "L_BTN_ALL=Собрать ВСЕ"
     set "L_BTN_SWITCH=Режим на "
     set "L_BTN_EDIT=Редактор"
@@ -233,7 +233,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CUR_MODE=Current Mode"
     set "L_PROFILES=Build Profiles"
     set "L_LEGEND_IND=Indicators show the state of resources and build results."
-    set "L_LEGEND_TEXT=Legend: %C_GRY%F%C_RST%:Files %C_KEY%P%C_RST%:Packages %C_VAL%S%C_RST%:Src %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks.sh | Firmwares: %C_VAL%OI%C_RST%:Image %C_VAL%OS%C_RST%:Build"
+    set "L_LEGEND_TEXT=Legend: %C_GRY%F%C_RST%:Files %C_KEY%P%C_RST%:Packages %C_VAL%S%C_RST%:Src %C_ERR%M%C_RST%:manual_config %C_LBL%H%C_RST%:hooks.sh %C_GRY%Pt%C_RST%:Patches | Firmwares: %C_VAL%OI%C_RST%:Image %C_VAL%OS%C_RST%:Build"
     set "L_BTN_ALL=Build ALL"
     set "L_BTN_SWITCH=Switch to"
     set "L_BTN_EDIT=Editor"
@@ -392,6 +392,7 @@ for %%I in (.) do set "DIR_NAME=%%~nxI"
 :: === 1. ИНИЦИАЛИЗАЦИЯ ПАПОК ===
 call :CHECK_DIR "profiles"
 call :CHECK_DIR "custom_files"
+call :CHECK_DIR "custom_patches"
 call :CHECK_DIR "firmware_output"
 call :CHECK_DIR "custom_packages"
 call :CHECK_DIR "src_packages"
@@ -510,6 +511,7 @@ for %%f in (profiles\*.conf) do (
     set "st_s=!C_GRY!·!C_RST!" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=!C_VAL!S!C_RST!"
     set "st_m=!C_GRY!·!C_RST!" & if exist "firmware_output\sourcebuilder\!p_id!\manual_config" set "st_m=!C_ERR!M!C_RST!"        
     set "st_h=!C_GRY!·!C_RST!" & if exist "custom_files\!p_id!\hooks.sh" set "st_h=!C_LBL!H!C_RST!"
+    set "st_pt=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_patches\!p_id!" 2>nul | findstr "^" >nul && set "st_pt=!C_GRY!Pt!C_RST!"
 
     :: Состояние вывода (OI OS) - Реагирует на ЛЮБЫЕ файлы в любых подпапках
     set "st_oi=!C_GRY!··!C_RST!"
@@ -527,7 +529,7 @@ for %%f in (profiles\*.conf) do (
     set "n_arch=!tmp_arch:~0,20!"
 
     :: ВЫВОД СТРОКИ
-    echo    !C_GRY![!C_KEY!!id_pad!!C_GRY!]!C_RST! !n_name! !C_LBL!!n_arch!!C_RST! !C_GRY![!st_f!!st_p!!st_s!!st_m!!st_h! !C_RST!^|!C_GRY! !st_oi! !st_os!]!C_RST!
+    echo    !C_GRY![!C_KEY!!id_pad!!C_GRY!]!C_RST! !n_name! !C_LBL!!n_arch!!C_RST! !C_GRY![!st_f!!st_p!!st_s!!st_m!!st_h!!st_pt! !C_RST!^|!C_GRY! !st_oi! !st_os!]!C_RST!
 )
 
 :: 4. ПОДВАЛ
@@ -1432,6 +1434,8 @@ if "%BUILD_MODE%"=="IMAGE" (
     :: --- ПУТИ ДЛЯ SOURCE BUILDER ---
     set "REL_OUT_PATH=./firmware_output/sourcebuilder/%PROFILE_ID%"
     set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%"
+    if not exist "custom_patches\%PROFILE_ID%" mkdir "custom_patches\%PROFILE_ID%"
+    set "HOST_PATCHES_DIR=./custom_patches/%PROFILE_ID%"
     set "PROJ_NAME=srcbuild_%PROFILE_ID%"
     set "COMPOSE_ARG=-f system/docker-compose-src.yaml"
     set "WINDOW_TITLE=S: %PROFILE_ID%"
@@ -1446,7 +1450,7 @@ echo !L_INFO!   !L_P_SERVICE!: %SERVICE_NAME%
 
 :: 4. ЗАПУСК (Используем уже вычисленные переменные путей)
 :: Запуск в отдельном окне (с поддержкой интерактивного входа для SOURCE режима)
-START "%WINDOW_TITLE%" cmd /v:on /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo !L_BUILD_FATAL!) ^&^& echo. ^&^& echo !L_FINISHED! ^&^& (if "%BUILD_MODE%"=="SOURCE" (set /p "stay=!L_K_STAY! " ^& if /i "^!stay^!"=="y" (echo. ^& echo !L_K_SHELL_H1! ^& echo !L_K_SHELL_H2! ^& echo !L_K_SHELL_H3! ^& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% run --rm -it %SERVICE_NAME% /bin/bash))) ^&^& pause ^"
+START "%WINDOW_TITLE%" cmd /v:on /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_PATCHES_DIR=%HOST_PATCHES_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo !L_BUILD_FATAL!) ^&^& echo. ^&^& echo !L_FINISHED! ^&^& (if "%BUILD_MODE%"=="SOURCE" (set /p "stay=!L_K_STAY! " ^& if /i "^!stay^!"=="y" (echo. ^& echo !L_K_SHELL_H1! ^& echo !L_K_SHELL_H2! ^& echo !L_K_SHELL_H3! ^& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% run --rm -it %SERVICE_NAME% /bin/bash))) ^&^& pause ^"
 exit /b
 
 :: =========================================================
