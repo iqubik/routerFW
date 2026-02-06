@@ -122,7 +122,7 @@ Forgot your router's architecture or afraid of syntax errors? Use the **[W] Prof
 
 ## ⚙️ Source Code Patching System (v4.3+)
 
-This feature allows you to directly modify the OpenWrt source code before compilation. It works on a **"mirror overlay"** principle: any file you place in the `custom_patches/<PROFILE_ID>/` directory will overwrite the original file in the source tree, preserving the path structure.
+This feature allows you to directly modify the OpenWrt source code before compilation. It works on a **"mirror overlay"** principle: any file you place in the `custom_patches/<PROFILE_ID>/` directory will overwrite the original file in the source tree, preserving the path structure. This is perfect for replacing `Makefiles` or adding new device files, as well as for delivering `.patch` files into the build environment for `hooks.sh` to apply.
 
 The system **automatically converts Windows line endings (CRLF)** to Unix (LF), so you can edit files in any text editor without worrying about breaking the build.
 
