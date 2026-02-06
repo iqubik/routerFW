@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.5
+# file: system/src_builder.sh v1.6
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -85,6 +85,22 @@ else
     # Сохраняем новый хэш после успешного обновления
     echo "$CURRENT_COMMIT" > "$LAST_COMMIT_FILE"
     echo "[FEEDS] Feeds updated and commit hash saved."
+fi
+
+# === PATCHING LOGIC (v1.0) ===
+if [ -d "/patches" ] && [ -n "$(ls -A /patches)" ]; then
+    echo -e "${CYAN}[PATCH] Found custom patches. Applying...${NC}"
+    # Создаем временную директорию для безопасной конвертации
+    mkdir -p /tmp_patches
+    # Копируем патчи во временную директорию
+    cp -r /patches/* /tmp_patches/
+    # Конвертируем CRLF в LF для всех файлов
+    find /tmp_patches -type f -exec dos2unix {} +
+    # Накладываем очищенные патчи на дерево исходников
+    rsync -a /tmp_patches/ .
+    # Очистка
+    rm -rf /tmp_patches
+    echo -e "${GREEN}[PATCH] Patches applied successfully.${NC}"
 fi
 
 # === ХУКИ И ПРОВЕРКА СОСТОЯНИЯ (ROLLBACK) ===
