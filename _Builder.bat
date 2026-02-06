@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.22"
+set "VER_NUM=4.23"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -133,6 +133,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CLEAN_SRC_HARD=%C_ERR%HARD RESET%C_RST% (Удалить src-workdir) (%C_GRY%Сброс кода и тулчейна%C_RST%)"
     set "L_CLEAN_SRC_DL=Очистить кэш %C_VAL%исходников (dl)%C_RST% (Удалить архивы кода)"
     set "L_CLEAN_SRC_CC=Очистить %C_VAL%CCACHE%C_RST% (Кэш компилятора)"
+    set "L_CLEAN_SRC_TMP=Очистить кэш %C_VAL%индекса (tmp)%C_RST% (%C_GRY%Исправить 'залипшие' версии%C_RST%)"
     set "L_DOCKER_PRUNE=%C_LBL%Prune Docker%C_RST% (%C_GRY%Глобальная очистка мусора%C_RST%)"
     set "L_PRUNE_RUN=%C_LBL%[DOCKER]%C_RST% Выполняю system prune..."
     set "L_CLEAN_PROF_SEL=Для какого профиля выполнить очистку?"
@@ -274,6 +275,7 @@ if "%SYS_LANG%"=="RU" (
     set "L_CLEAN_SRC_HARD=%C_ERR%HARD RESET%C_RST% (Remove src-workdir) (%C_GRY%Reset code/toolchain%C_RST%)"
     set "L_CLEAN_SRC_DL=Clean %C_VAL%Source Cache (dl)%C_RST% (Remove source archives)"
     set "L_CLEAN_SRC_CC=Clean %C_VAL%CCACHE%C_RST% (Compiler cache)"
+    set "L_CLEAN_SRC_TMP=Clean %C_VAL%Package Index Cache (tmp)%C_RST% (%C_GRY%Fixes 'stuck' versions%C_RST%)"
     set "L_DOCKER_PRUNE=%C_LBL%Prune Docker%C_RST% (%C_GRY%Global Docker cleanup%C_RST%)"
     set "L_PRUNE_RUN=%C_LBL%[DOCKER]%C_RST% Running system prune..."
     set "L_CLEAN_PROF_SEL=Which profile to clean?"
@@ -758,7 +760,9 @@ echo    [3] %L_CLEAN_SRC_DL%
 echo.
 echo    [4] %L_CLEAN_SRC_CC%
 echo.
-echo    [5] %L_CLEAN_FULL%
+echo    [5] %L_CLEAN_SRC_TMP%
+echo.
+echo    [6] %L_CLEAN_FULL%
 
 :VIEW_COMMON
 echo.
@@ -794,7 +798,8 @@ if "%BUILD_MODE%"=="SOURCE" (
     if "%clean_choice%"=="2" set "CLEAN_TYPE=SRC_WORK" & set "CLEAN_DESC=Workdir (Toolchain)"
     if "%clean_choice%"=="3" set "CLEAN_TYPE=SRC_DL"   & set "CLEAN_DESC=DL Cache"
     if "%clean_choice%"=="4" set "CLEAN_TYPE=SRC_CCACHE" & set "CLEAN_DESC=CCache"
-    if "%clean_choice%"=="5" set "CLEAN_TYPE=SRC_ALL"  & set "CLEAN_DESC=FULL RESET (Source)"
+    if "%clean_choice%"=="5" set "CLEAN_TYPE=SRC_TMP"    & set "CLEAN_DESC=Package Index (tmp)"
+    if "%clean_choice%"=="6" set "CLEAN_TYPE=SRC_ALL"    & set "CLEAN_DESC=FULL RESET (Source)"
 )
 
 if "%CLEAN_TYPE%"=="" goto INVALID
@@ -861,6 +866,7 @@ if "%CLEAN_TYPE%"=="SRC_SOFT" goto EXEC_SRC_SOFT
 if "%CLEAN_TYPE%"=="SRC_WORK" goto EXEC_SRC_WORK
 if "%CLEAN_TYPE%"=="SRC_DL"   goto EXEC_SRC_DL
 if "%CLEAN_TYPE%"=="SRC_CCACHE" goto EXEC_SRC_CCACHE
+if "%CLEAN_TYPE%"=="SRC_TMP"    goto EXEC_SRC_TMP
 if "%CLEAN_TYPE%"=="SRC_ALL"  goto EXEC_SRC_ALL
 if "%CLEAN_TYPE%"=="IMG_SDK"  goto EXEC_IMG_SDK
 if "%CLEAN_TYPE%"=="IMG_IPK"  goto EXEC_IMG_IPK
@@ -1013,6 +1019,25 @@ goto CLEAN_MENU
 call :HELPER_RELEASE_LOCKS "%TARGET_PROFILE_ID%"
 call :HELPER_DEL_VOLUME "src-ccache" "%TARGET_PROFILE_ID%"
 echo !L_CLEAN_DONE_CC!
+pause
+goto CLEAN_MENU
+
+:EXEC_SRC_TMP
+if "%TARGET_PROFILE_ID%"=="ALL" (
+    echo !C_ERR!!L_CLEAN_SOFT_ALL_ERR!!C_RST!
+    echo !L_CLEAN_SOFT_ALL_HINT!
+    pause
+    goto CLEAN_MENU
+)
+echo !L_CLEAN_START_CONTAINER!
+set "SELECTED_CONF=%TARGET_PROFILE_NAME%"
+set "HOST_FILES_DIR=./custom_files/%TARGET_PROFILE_ID%"
+set "HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/%TARGET_PROFILE_ID%"
+set "PROJ_NAME=srcbuild_%TARGET_PROFILE_ID%"
+
+:: Запускаем удаление tmp внутри контейнера
+docker-compose -f system/docker-compose-src.yaml -p %PROJ_NAME% run --rm builder-src-openwrt /bin/bash -c "cd /home/build/openwrt && echo '[CMD] rm -rf tmp/' && rm -rf tmp/ && echo '[DONE] Index/Tmp cleaned'"
+echo.
 pause
 goto CLEAN_MENU
 
