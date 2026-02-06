@@ -40,6 +40,7 @@ The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for
 *   **F (Files)** — File overlay detected (`custom_files`).
 *   **P (Packages)** — External `.ipk` packages present.
 *   **S (Source)** — Package source code found (`src_packages`).
+*   **Pt (Patches)** — **[NEW]** Source code patches detected (`custom_patches`).
 *   **M (Manual Config)** — **[NEW]** Active Menuconfig diff file detected.
 *   **H (Hooks)** — **[NEW]** Automation script `hooks.sh` detected.
 
@@ -116,6 +117,16 @@ Forgot your router's architecture or afraid of syntax errors? Use the **[W] Prof
 *   `src_packages/profile_name/` — For source code. Used for third-party packages from GitHub and as the **output folder** for `.ipk` files processed by the importer.
 *   `firmware_output/` — Ready firmwares and build logs.
 *   `system/` — Folder with Dockerfiles, scripts, and the builder core.
+
+---
+
+## ⚙️ Source Code Patching System (v4.3+)
+
+This feature allows you to directly modify the OpenWrt source code before compilation. It works on a **"mirror overlay"** principle: any file you place in the `custom_patches/<PROFILE_ID>/` directory will overwrite the original file in the source tree, preserving the path structure.
+
+The system **automatically converts Windows line endings (CRLF)** to Unix (LF), so you can edit files in any text editor without worrying about breaking the build.
+
+👉 Learn more in the [Advanced Guide to Source Patching](docs/05-patch-sys.en.md).
 
 ---
 
