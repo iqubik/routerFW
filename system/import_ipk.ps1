@@ -1,5 +1,5 @@
 ﻿# file : system/import_ipk.ps1
-# Скрипт импорта IPK v2.6 (version ipk fix)
+# Скрипт импорта IPK v2.61 (version ipk fix)
 param (
     [Parameter(Mandatory=$false)]
     [string]$ProfileID = "",
