@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.0
+# file: system/ib_builder.sh v1.1
 set -e
 
 # Цвета для логов
@@ -29,7 +29,9 @@ START_TIME=$(date +%s)
 TIMESTAMP=$(TZ='UTC-3' date +%d%m%y-%H%M%S)
 
 # --- 2. СКАЧИВАНИЕ SDK (БЕЗ ОЖИДАНИЯ, С ПЕРЕЗАПУСКОМ) ---
-ARCHIVE_NAME=$(basename "$IMAGEBUILDER_URL")
+# Очищаем URL от параметров после ? (например ?download=)
+CLEAN_URL=$(echo "$IMAGEBUILDER_URL" | sed 's/[?&].*//')
+ARCHIVE_NAME=$(basename "$CLEAN_URL")
 CACHE_FILE="/cache/$ARCHIVE_NAME"
 TEMP_CACHE_FILE="/cache/$ARCHIVE_NAME.tmp"
 
@@ -46,11 +48,16 @@ fi
 
 # Распаковка
 log "Extracting SDK..."
-if echo "$IMAGEBUILDER_URL" | grep -q '.zst$'; then
-    tar -I zstd -xf "$CACHE_FILE" --strip-components=1 2>/dev/null || true
+# Проверяем расширение по имени файла, а не по ссылке
+if [[ "$ARCHIVE_NAME" == *".zst" ]]; then
+    # Убираем подавление ошибок! Если архив битый - надо падать.
+    tar -I zstd -xf "$CACHE_FILE" --strip-components=1 || error "Failed to extract ZST archive"
 else
-    tar -xJf "$CACHE_FILE" --strip-components=1 2>/dev/null || true
+    tar -xJf "$CACHE_FILE" --strip-components=1 || error "Failed to extract XZ archive"
 fi
+
+# Проверка, что распаковка прошла успешно (есть ключевой файл)
+[ -f "repositories.conf" ] || error "Extraction failed: repositories.conf not found!"
 
 # --- 3. ПОДГОТОВКА ОКРУЖЕНИЯ ---
 if [ -f /openssl.cnf ]; then
@@ -107,13 +114,13 @@ MAKE_ARGS="PROFILE=\"$TARGET_PROFILE\" FILES=\"/overlay_files\" PACKAGES=\"$PKGS
 [ -n "$DISABLED_SERVICES" ] && MAKE_ARGS="$MAKE_ARGS DISABLED_SERVICES=\"$DISABLED_SERVICES\""
 
 SUCCESS=0
-for i in {1..3}; do
-    log "Attempt $i of 3..."
+for i in {1..2}; do
+    log "Attempt $i of 2..."
     if eval make image $MAKE_ARGS; then SUCCESS=1; break;
     else warn "Build failed! Retrying in 5s..."; sleep 5; fi
 done
 
-[ $SUCCESS -eq 0 ] && error "Build failed after 3 attempts."
+[ $SUCCESS -eq 0 ] && error "Build failed after 2 attempts."
 
 # --- 7. СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ---
 log "Saving artifacts..."
