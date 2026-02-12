@@ -188,6 +188,43 @@ else
 fi
 
 # ======================================================================================
+#  БЛОК 1.4: ИСПРАВЛЕНИЕ СБОРКИ LIBCRYPT (GCC 13+) // BLOCK 1.4: LIBCRYPT BUILD FIX
+# ======================================================================================
+# Назначение: Решение проблемы с ошибкой "-Werror=format-nonliteral".
+# Purpose: Fix "-Werror=format-nonliteral" build error with modern compilers.
+# ======================================================================================
+LIBCRYPT_MK="feeds/packages/libs/libxcrypt/Makefile"
+
+if [ -f "$LIBCRYPT_MK" ]; then
+    log ">>> Checking libxcrypt configuration (GCC 13+ format-nonliteral fix)..."
+
+    # Проверяем, не был ли патч применен ранее.
+    if ! grep -q "Wno-error=format-nonliteral" "$LIBCRYPT_MK"; then
+        log "Patching libxcrypt Makefile to add -Wno-error=format-nonliteral..."
+        
+        # Создаем бэкап, если его нет
+        [ ! -f "${LIBCRYPT_MK}.bak" ] && cp "$LIBCRYPT_MK" "${LIBCRYPT_MK}.bak"
+
+        # Добавляем флаг компилятора после строки с определением пакета
+        sed -i "/PKG_NAME:=libxcrypt/a TARGET_CFLAGS += -Wno-error=format-nonliteral" "$LIBCRYPT_MK"
+
+        # Валидация
+        if grep -q "Wno-error=format-nonliteral" "$LIBCRYPT_MK"; then
+            echo -e "${GREEN}       SUCCESS: libxcrypt Makefile patched.${NC}"
+            # Очистка пакета, чтобы изменения применились
+            log "Cleaning libxcrypt package to apply changes..." 
+            make package/feeds/packages/libxcrypt/clean >/dev/null 2>&1
+        else
+            err "Failed to patch libxcrypt Makefile!"
+        fi
+    else
+        log "libxcrypt Makefile already patched. Skipping."
+    fi
+else
+    warn "libxcrypt Makefile not found at $LIBCRYPT_MK. Skipping fix."
+fi
+
+# ======================================================================================
 #  БЛОК 2: SMART FEED MANAGER
 # ======================================================================================
 # Назначение: Управление внешними репозиториями пакетов. // Purpose: Manage external package feeds.
