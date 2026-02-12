@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.6
+# file: system/src_builder.sh v1.7
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -90,16 +90,24 @@ fi
 # === PATCHING LOGIC (v1.0) ===
 if [ -d "/patches" ] && [ -n "$(ls -A /patches)" ]; then
     echo -e "${CYAN}[PATCH] Found custom patches. Applying...${NC}"
-    # Создаем временную директорию для безопасной конвертации
-    mkdir -p /tmp_patches
-    # Копируем патчи во временную директорию
-    cp -r /patches/* /tmp_patches/
-    # Конвертируем CRLF в LF для всех файлов
-    find /tmp_patches -type f -exec dos2unix {} +
-    # Накладываем очищенные патчи на дерево исходников
-    rsync -a /tmp_patches/ .
-    # Очистка
-    rm -rf /tmp_patches
+    
+    # FIX: Create temp dir in /tmp (writable by user 'build') instead of root /
+    TEMP_PATCH_DIR="/tmp/tmp_patches"
+    
+    # Create temp directory
+    mkdir -p "$TEMP_PATCH_DIR"
+    
+    # Copy patches to temp directory
+    cp -r /patches/* "$TEMP_PATCH_DIR/"
+    
+    # Convert CRLF to LF for all files
+    find "$TEMP_PATCH_DIR" -type f -exec dos2unix {} +
+    
+    # Apply patches to source tree
+    rsync -a "$TEMP_PATCH_DIR/" .
+    
+    # Cleanup
+    rm -rf "$TEMP_PATCH_DIR"
     echo -e "${GREEN}[PATCH] Patches applied successfully.${NC}"
 fi
 
