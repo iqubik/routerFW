@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.1
+# file: system/ib_builder.sh v1.2
 set -e
 
 # Цвета для логов
@@ -98,7 +98,13 @@ fi
 if [ -n "$CUSTOM_REPOS" ]; then
     log "Adding custom repositories..."
     sed -i '/fantastic_/d' repositories.conf
-    echo -e "$(echo "$CUSTOM_REPOS" | sed 's# src/gz#\nsrc/gz#g')" >> repositories.conf
+    # Разбираем переменную: поддерживаем и переносы строк, и пробелы
+    echo "$CUSTOM_REPOS" | sed 's# src/gz#\nsrc/gz#g' | while read -r line; do
+        # Пропускаем пустые строки и комментарии
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        # Убираем слеш в конце URL (fix //Packages.gz)
+        echo "${line%/}" >> repositories.conf
+    done
 fi
 
 # === ПОДГОТОВКА OVERLAY ===
