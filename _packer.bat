@@ -45,6 +45,8 @@ call :ADD_FILE "docs\01-introduction.en.md"
 call :ADD_FILE "docs\02-digital-twin.en.md"
 call :ADD_FILE "docs\03-source-build.en.md"
 call :ADD_FILE "docs\04-adv-source-build.en.md"
+call :ADD_FILE "docs\05-patch-sys.md"
+call :ADD_FILE "docs\05-patch-sys.en.md"
 call :ADD_FILE "docs\index.en.md"
 
 :: --- ЗАЩИЩЕННЫЕ ОБЪЕКТЫ ---

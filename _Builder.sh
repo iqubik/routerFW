@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.20"
+VER_NUM="4.3"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -374,6 +374,7 @@ check_dir "custom_files"
 check_dir "firmware_output"
 check_dir "custom_packages"
 check_dir "src_packages"
+check_dir "custom_patches"
 
 # === 2. ФУНКЦИИ СБОРКИ (CORE) ===
 
@@ -396,8 +397,12 @@ build_routine() {
 
     # === FIX 1: ИСПОЛЬЗУЕМ АБСОЛЮТНЫЕ ПУТИ ===
     # Это решает проблемы с монтированием в WSL
+    # Export Paths
     export SELECTED_CONF="$conf_file"
     export HOST_FILES_DIR="./custom_files/$p_id"
+    # [NEW] Поддержка патчей (Sync v4.32)
+    check_dir "custom_patches/$p_id"
+    export HOST_PATCHES_DIR="./custom_patches/$p_id"
     
     if [ "$BUILD_MODE" == "IMAGE" ]; then
         export HOST_OUTPUT_DIR="./firmware_output/imagebuilder/$p_id"
@@ -414,28 +419,45 @@ build_routine() {
     fi
 
     # === FIX 2: Безопасное создание папок ===
-    [ -d "$HOST_OUTPUT_DIR" ] || mkdir -p "$HOST_OUTPUT_DIR" 2>/dev/null
+    check_dir "$HOST_OUTPUT_DIR"
     
     echo -e "${C_LBL}[BUILD]${C_RST} ${L_BUILD_TARGET} ${C_VAL}$p_id${C_RST}"
     
     # 1. Принудительно удаляем контейнер (чистка хвостов)
     docker rm -f "${proj_name}-${service}-1" >/dev/null 2>&1
-    
     # 2. Полный down с удалением анонимных томов (-v)
     $C_EXE -f "$comp_file" -p "$proj_name" down --remove-orphans >/dev/null 2>&1
-    
     # 3. Пауза (важно для Windows/WSL)
     sleep 2
 
     # 4. Запуск (Флаг --security-opt удален, так как compose его не поддерживает здесь)
     $C_EXE -f "$comp_file" -p "$proj_name" run --rm --quiet-pull "$service"
-
     # === ВАЖНО: ЗАПОМИНАЕМ РЕЗУЛЬТАТ СБОРКИ ===
     local build_status=$?
 
     # === FIX 3: ВОССТАНОВЛЕНИЕ ПРАВ (ext4/Linux) ===
-    # Выполняем смену прав в любом случае (даже если сборка упала, чтобы можно было читать логи)
-    docker run --rm -v "$(pwd)/${HOST_OUTPUT_DIR#./}:/work" alpine chown -R $(id -u):$(id -g) /work
+    if [ -d "$HOST_OUTPUT_DIR" ]; then
+        # Используем docker для смены прав, чтобы не требовать sudo от пользователя скрипта
+        docker run --rm -v "$(pwd)/${HOST_OUTPUT_DIR#./}:/work" alpine chown -R $(id -u):$(id -g) /work
+    fi
+
+    # 4. [NEW] "Stay in Container" logic (Only for Source Mode)
+    if [ "$BUILD_MODE" == "SOURCE" ]; then
+        if [ $build_status -eq 0 ]; then
+            echo -e "\n${C_VAL}Build Finished Successfully.${C_RST}"
+        else
+            echo -e "\n${C_ERR}Build Failed.${C_RST}"
+        fi
+        
+        echo -e "${C_LBL}[SHELL]${C_RST} ${L_K_STAY}" 
+        read -r stay_choice
+        if [[ "$stay_choice" =~ ^[Yy]$ ]]; then
+            echo -e "${C_LBL}[INFO]${C_RST} Entering interactive shell..."
+            echo -e "Type ${C_KEY}exit${C_RST} to return to menu."
+            # Запускаем новый интерактивный контейнер
+            $C_EXE -f "$comp_file" -p "$proj_name" run --rm -it "$service" /bin/bash
+        fi
+    fi
 
     # === ВОЗВРАЩАЕМ РЕАЛЬНЫЙ СТАТУС ===
     return $build_status    
@@ -510,7 +532,16 @@ else
     echo "[CONFIG] Generating from profile..."
     echo "CONFIG_TARGET_\${SRC_TARGET}=y" > .config
     echo "CONFIG_TARGET_\${SRC_TARGET}_\${SRC_SUBTARGET}=y" >> .config
-    echo "CONFIG_TARGET_\${SRC_TARGET}_\${SRC_SUBTARGET}_DEVICE_\${TARGET_PROFILE}=y" >> .config
+    
+    # [NEW] Smart Device Detection (Sync with Bat v4.32)
+    # Check if DEVICE is already set in SRC_EXTRA_CONFIG to avoid conflict
+    if echo "\$SRC_EXTRA_CONFIG" | grep -q "CONFIG_TARGET_.*_DEVICE_"; then
+        echo "[CONFIG] Device explicitly set in EXTRA_CONFIG. Skipping auto-detection."
+    else
+        # Заменяем дефисы на подчеркивания, как делает OpenWrt build system
+        CLEAN_PROFILE=\$(echo "\$TARGET_PROFILE" | tr '-' '_')
+        echo "CONFIG_TARGET_\${SRC_TARGET}_\${SRC_SUBTARGET}_DEVICE_\$CLEAN_PROFILE=y" >> .config
+    fi
     for pkg in \$SRC_PACKAGES; do
         if [[ "\$pkg" == -* ]]; then
             clean_pkg="\${pkg#-}"
@@ -678,7 +709,8 @@ cleanup_wizard() {
         echo " 2. $L_CLEAN_SRC_HARD (Remove src-workdir)"
         echo " 3. $L_CLEAN_SRC_DL (Sources)"
         echo " 4. $L_CLEAN_SRC_CC (CCache)"
-        echo " 5. $L_CLEAN_FULL"
+        echo " 5. Clean Package Index (tmp)"
+        echo " 6. $L_CLEAN_FULL"
     else
         # Меню для IMAGE BUILDER
         echo " 1. $L_CLEAN_IMG_SDK"   # <-- Исправлено
@@ -740,8 +772,22 @@ cleanup_wizard() {
             2) cleanup_logic "src-workdir" "$target_id" ;;
             3) cleanup_logic "src-dl-cache" "$target_id" ;;
             4) cleanup_logic "src-ccache" "$target_id" ;;
-            5) 
-                # FULL RESET (Source)
+            5)
+                # [NEW] TMP CLEANUP (Sync with Bat v4.32)
+                if [ "$target_id" == "ALL" ]; then
+                    echo -e "${C_ERR}Not supported for ALL.${C_RST}"
+                else
+                    echo "$L_CLEAN_START_CONTAINER"
+                    export HOST_FILES_DIR="$(pwd)/custom_files/$target_id"
+                    export HOST_OUTPUT_DIR="$(pwd)/firmware_output/sourcebuilder/$target_id"
+                    export HOST_PKGS_DIR="$(pwd)/src_packages/$target_id"
+                    docker-compose -f system/docker-compose-src.yaml -p "srcbuild_$target_id" \
+                        run --rm builder-src-openwrt /bin/bash -c \
+                        "cd /home/build/openwrt && rm -rf tmp/ && echo '[DONE] Index/Tmp cleaned'"
+                fi
+                ;;
+            6) 
+                # FULL RESET (Moved to 6)
                 cleanup_logic "src-workdir" "$target_id"
                 cleanup_logic "src-dl-cache" "$target_id"
                 cleanup_logic "src-ccache" "$target_id"
@@ -925,17 +971,21 @@ while true; do
         st_s="${C_GRY}·${C_RST}"; [ "$(ls -A "src_packages/$p_id" 2>/dev/null)" ] && st_s="${C_VAL}S${C_RST}"
         st_m="${C_GRY}·${C_RST}"; [ -f "firmware_output/sourcebuilder/$p_id/manual_config" ] && st_m="${C_ERR}M${C_RST}"
         
-        # Индикатор Хуков (H) - Исправленный путь
+        # Индикатор Хуков (H)
         st_h="${C_GRY}·${C_RST}"
-        [ -f "custom_files/$p_id/hooks.sh" ] && st_h="${C_LBL}H${C_RST}"        
+        [ -f "custom_files/$p_id/hooks.sh" ] && st_h="${C_LBL}H${C_RST}"
+
+        # [NEW] Индикатор Патчей (X)
+        st_pt="${C_GRY}·${C_RST}"
+        [ -d "custom_patches/$p_id" ] && [ "$(ls -A "custom_patches/$p_id" 2>/dev/null)" ] && st_pt="${C_GRY}X${C_RST}"        
 
         # Статусы билдов (OI OS) - Реагируют на ЛЮБЫЕ файлы в любых подпапках
         st_oi="${C_GRY}··${C_RST}"; [ -n "$(find "firmware_output/imagebuilder/$p_id" -type f 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
         st_os="${C_GRY}··${C_RST}"; [ -n "$(find "firmware_output/sourcebuilder/$p_id" -type f 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
 
         # Вывод
-        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s%s | %s %s]${C_RST}\n" \
-               $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_m" "$st_h" "$st_oi" "$st_os"
+        printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s%s%s | %s %s]${C_RST}\n" \
+               $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_m" "$st_h" "$st_pt" "$st_oi" "$st_os"
     done
 
     echo -e "    ${C_GRY}────────────────────────────────────────────────────────────────────────────────────────────────────────────${C_RST}"
