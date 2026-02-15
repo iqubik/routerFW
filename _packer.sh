@@ -1,6 +1,9 @@
 #!/bin/bash
 # file: _packer.sh
-# Multi-threaded Base64 Resource Storage
+# Multi-threaded Base64 Resource Storage (Parity v2.1)
+
+# Гарантируем работу в папке скрипта
+cd "$(dirname "$0")"
 
 # Настройка цветов
 C_LBL='\033[36m'
@@ -10,11 +13,12 @@ C_RST='\033[0m'
 
 clear
 echo -e "${C_LBL}========================================${C_RST}"
-echo -e "  OpenWrt Пакер (v2.1 MT SH)"
+echo -e "  OpenWrt Packer (v2.1 MT Linux)"
 echo -e "${C_LBL}========================================${C_RST}"
 echo ""
 
 # --- 1. Список файлов для упаковки ---
+# Синхронизировано с .bat версией
 FILES=(
     "system/openssl.cnf"
     "system/docker-compose.yaml"
@@ -41,7 +45,7 @@ FILES=(
     "docs/03-source-build.en.md"
     "docs/04-adv-source-build.en.md"
     "docs/05-patch-sys.md"
-    "docs/05-patch-sys.en.md"    
+    "docs/05-patch-sys.en.md"
     "docs/index.en.md"
     "scripts/etc/uci-defaults/99-permissions.sh"
     "scripts/diag.sh"
@@ -57,7 +61,7 @@ FILES=(
 )
 
 TEMP_DIR="temp_packer_sh"
-NEW_UNPACKER="_unpacker.sh.new"
+NEW_UNPACKER="_unpacker.sh"
 
 # Очистка
 rm -f "$NEW_UNPACKER"
@@ -73,6 +77,9 @@ cat << 'EOF' > "$NEW_UNPACKER"
 #  Unpacker (Smart Edition v2.1 SH)
 # =========================================================
 
+# Переходим в директорию скрипта
+cd "$(dirname "$0")"
+
 echo "[UNPACKER] Resource check..."
 
 SKIP_DEFAULTS=0
@@ -83,15 +90,19 @@ fi
 
 decode_file() {
     local target="$1"
+    # Если файл существует - пропускаем
     if [ -f "$target" ]; then return; fi
     
+    # Создаем папку
     mkdir -p "$(dirname "$target")"
     echo "[UNPACK] Recover: $target"
     
-    # Используем переменную AWK для безопасного поиска путей со слешами
+    # Извлекаем Base64 блок между маркерами
+    # Используем awk для точного парсинга текущего файла ($0)
     awk -v t="$target" '$0 ~ "# BEGIN_B64_ " t, $0 ~ "# END_B64_ " t' "$0" | \
     grep -v "BEGIN_B64_" | grep -v "END_B64_" | base64 -d > "$target"
     
+    # Если это скрипт - даем права на исполнение
     if [[ "$target" == *.sh ]]; then
         chmod +x "$target"
     fi
@@ -99,7 +110,7 @@ decode_file() {
 
 EOF
 
-# Добавляем вызовы функций в распаковщик
+# Добавляем вызовы функций в распаковщик (Определяем защищенные файлы)
 for f in "${FILES[@]}"; do
     IS_PROTECTED=0
     [[ "$f" == profiles/* ]] && IS_PROTECTED=1
@@ -113,7 +124,7 @@ for f in "${FILES[@]}"; do
     fi
 done
 
-# Завершение логики
+# Завершение логики распаковщика
 cat << 'EOF' >> "$NEW_UNPACKER"
 
 mkdir -p profiles
@@ -129,17 +140,20 @@ echo "==================================="
 exit 0
 
 # =========================================================
-# BASE64
+# BASE64 DATA
 # =========================================================
 EOF
 
 # --- 3. Многопоточное кодирование ---
 echo -e "[PACKER] Запуск потоков кодирования (${#FILES[@]} файлов)..."
 
-encode_worker() {
+# Функция воркера (будет запущена в подоболочке)
+process_file() {
     local file="$1"
     local id="$2"
-    local out="$TEMP_DIR/$id.chunk"
+    local temp_dir="$3"
+    local out="$temp_dir/$id.chunk"
+    local ready="$temp_dir/$id.ready"
 
     if [ -f "$file" ]; then
         echo "" > "$out"
@@ -147,24 +161,32 @@ encode_worker() {
         base64 "$file" >> "$out"
         echo "# END_B64_ $file" >> "$out"
     else
-        echo -e "  ${C_ERR}[SKIP]${C_RST} Файл '$file' не найден."
-        touch "$out"
+        # Заглушка, если файла нет (чтобы не ломать структуру)
+        echo "" > "$out" 
+        echo -e "${C_ERR}   [SKIP] Файл '$file' не найден.${C_RST}"
     fi
-    # ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЕТ:
-    touch "$TEMP_DIR/$id.ready"
+    # Сигнализируем о готовности
+    touch "$ready"
 }
 
-# Запуск воркеров в фоновом режиме
+# Запуск процессов в фоне
 for i in "${!FILES[@]}"; do
-    encode_worker "${FILES[$i]}" "$i" &
+    # Запускаем в фоне (&)
+    process_file "${FILES[$i]}" "$i" "$TEMP_DIR" &
 done
 
-# Ожидание завершения всех фоновых процессов
-# Вместо простого wait
-echo -n "[PACKER] Progress: "
-while [ $(ls -1 "$TEMP_DIR"/*.ready 2>/dev/null | wc -l) -lt ${#FILES[@]} ]; do
-    echo -ne "\r[PACKER] Progress: $(ls -1 "$TEMP_DIR"/*.ready 2>/dev/null | wc -l) / ${#FILES[@]} "
-    sleep 0.5
+# Цикл ожидания с прогресс-баром
+TOTAL=${#FILES[@]}
+while true; do
+    DONE=$(ls -1 "$TEMP_DIR"/*.ready 2>/dev/null | wc -l)
+    
+    # Рисуем прогресс
+    echo -ne "\r[PACKER] Progress: $DONE / $TOTAL   "
+    
+    if [ "$DONE" -ge "$TOTAL" ]; then
+        break
+    fi
+    sleep 0.2
 done
 echo ""
 
@@ -172,22 +194,26 @@ echo -e "[PACKER] Все потоки завершены. Сборка фина�
 
 # --- 4. Сборка и финализация ---
 for i in "${!FILES[@]}"; do
-    cat "$TEMP_DIR/$i.chunk" >> "$NEW_UNPACKER"
+    if [ -f "$TEMP_DIR/$i.chunk" ]; then
+        cat "$TEMP_DIR/$i.chunk" >> "$NEW_UNPACKER"
+    fi
 done
 
-mv "$NEW_UNPACKER" "_unpacker.sh"
-chmod +x "_unpacker.sh"
+# Делаем распаковщик исполняемым
+chmod +x "$NEW_UNPACKER"
+
+# Удаляем временную папку
 rm -rf "$TEMP_DIR"
 
-# --- 5. Создание ZIP архива ---
+# --- 5. Создание архива (tar.gz для Linux) ---
 ZIP_DATE=$(date +"%d.%m.%Y_%H-%M")
-ZIP_NAME="routerFW_LinuxDockerBuilder_v$ZIP_DATE.tar.gz"
+ARCHIVE_NAME="routerFW_LinuxDockerBuilder_v$ZIP_DATE.tar.gz"
 
-echo -e "[PACKER] Создание резервной копии в $ZIP_NAME..."
-tar -czf "$ZIP_NAME" "_unpacker.sh"
+echo -e "[PACKER] Создание архива $ARCHIVE_NAME..."
+tar -czf "$ARCHIVE_NAME" "$NEW_UNPACKER"
 
 echo -e "${C_OK}========================================${C_RST}"
-echo -e "  Файл обновлен: _unpacker.sh"
-echo -e "  Архив создан:  $ZIP_NAME"
+echo -e "  Файл обновлен: $NEW_UNPACKER"
+echo -e "  Архив создан:  $ARCHIVE_NAME"
 echo -e "  ГОТОВО (v2.1 SH MT)"
 echo -e "${C_OK}========================================${C_RST}"

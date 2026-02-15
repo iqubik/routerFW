@@ -932,8 +932,8 @@ while true; do
         # --- [БЫСТРАЯ ИНИЦИАЛИЗАЦИЯ] ---
         # Создаем только основные пути один раз, без лишних проверок
         # --- [FORCE INITIALIZATION] ---
-        # --- [FORCE INITIALIZATION] ---
-        for base in "custom_files" "custom_packages" "src_packages" "firmware_output/imagebuilder" "firmware_output/sourcebuilder"; do
+        # --- [FORCE INITIALIZATION] ---        
+        for base in "custom_files" "custom_packages" "src_packages" "custom_patches" "firmware_output/imagebuilder" "firmware_output/sourcebuilder"; do
             target_path="$base/$p_id"
             
             # 1. Если там файл-призрак или мусор - сносим
