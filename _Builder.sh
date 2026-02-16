@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.3"
+VER_NUM="4.32"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -118,7 +118,7 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_MODE_SRC="${C_ERR}SOURCE BUILDER${C_RST} (${C_GRY}Полная компиляция${C_RST})"
     L_PROFILES="Профили сборки"
     L_LEGEND_IND="${C_GRY}Индикаторы справа от профиля показывают состояние папок, файлов и результатов сборки${C_RST}"
-    L_LEGEND_TEXT="Легенда: ${C_GRY}F${C_RST}:Файлы ${C_KEY}P${C_RST}:Пакеты ${C_VAL}S${C_RST}:Исх ${C_ERR}M${C_RST}:manual_config ${C_LBL}H${C_RST}:hooks ${C_GRY}|${C_RST} ${C_GRY}Прошивки:${C_RST} ${C_VAL}OI${C_RST}:Образ ${C_VAL}OS${C_RST}:Сборка"
+    L_LEGEND_TEXT="Легенда: ${C_GRY}F${C_RST}:Файлы ${C_KEY}P${C_RST}:Пакеты ${C_VAL}S${C_RST}:Исх ${C_KEY}X${C_RST}:Патчи ${C_ERR}M${C_RST}:manual_config ${C_LBL}H${C_RST}:hooks ${C_GRY}|${C_RST} ${C_GRY}Прошивки:${C_RST} ${C_VAL}OI${C_RST}:Образ ${C_VAL}OS${C_RST}:Сборка"
     H_PROF="Профиль"
     H_ARCH="Архитектура"
     H_RES="Ресурсы | Сборки"
@@ -226,7 +226,7 @@ else
     L_MODE_SRC="${C_ERR}SOURCE BUILDER${C_RST} (${C_GRY}Full Compilation${C_RST})"
     L_PROFILES="Build Profiles"
     L_LEGEND_IND="${C_GRY}Indicators to the right of the profile show the state of resources and build results.${C_RST}"
-    L_LEGEND_TEXT="Legend: ${C_GRY}F${C_RST}:Files ${C_KEY}P${C_RST}:Packages ${C_VAL}S${C_RST}:Src ${C_ERR}M${C_RST}:manual_config ${C_LBL}H${C_RST}:hooks ${C_GRY}|${C_RST} ${C_GRY}Firmwares:${C_RST} ${C_VAL}OI${C_RST}:Image ${C_VAL}OS${C_RST}:Build"
+    L_LEGEND_TEXT="Legend: ${C_GRY}F${C_RST}:Files ${C_KEY}P${C_RST}:Packages ${C_VAL}S${C_RST}:Src ${C_KEY}X${C_RST}:Patches ${C_ERR}M${C_RST}:manual_config ${C_LBL}H${C_RST}:hooks ${C_GRY}|${C_RST} ${C_GRY}Firmwares:${C_RST} ${C_VAL}OI${C_RST}:Image ${C_VAL}OS${C_RST}:Build"
     H_PROF="Profile"
     H_ARCH="Architecture"
     H_RES="Resources | Builds"
