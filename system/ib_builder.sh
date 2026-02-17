@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.3
+# file: system/ib_builder.sh v1.4
 set -e
 
 # Цвета для логов
@@ -24,6 +24,10 @@ cat "/profiles/$CONF_FILE" | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > /tmp/clean_
 source /tmp/clean_config.env
 
 [ -z "$IMAGEBUILDER_URL" ] && error "IMAGEBUILDER_URL is empty! Config parse failed."
+
+# /output теперь монтирует весь firmware_output; путь записи — imagebuilder/$p_id
+REL_PATH="${HOST_OUTPUT_DIR#*firmware_output/}"
+OUTPUT_BASE="/output/$REL_PATH"
 
 START_TIME=$(date +%s)
 TIMESTAMP=$(TZ='UTC-3' date +%d%m%y-%H%M%S)
@@ -130,7 +134,7 @@ done
 
 # --- 7. СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ---
 log "Saving artifacts..."
-TARGET_DIR="/output/$TIMESTAMP"
+TARGET_DIR="$OUTPUT_BASE/$TIMESTAMP"
 mkdir -p "$TARGET_DIR"
 find bin/targets -type f -not -path "*/packages/*" -exec cp {} "$TARGET_DIR/" \;
 
@@ -139,12 +143,12 @@ echo ""
 for f in "$TARGET_DIR"/*; do
     [ -e "$f" ] || continue
     name=$(basename "$f")
-    path="firmware_output/imagebuilder/$PROFILE_NAME/$TIMESTAMP/$name"
+    path="firmware_output/$REL_PATH/$TIMESTAMP/$name"
     echo "${path//\//\\}"
 done
 
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n============================================================"
 echo -e "=== Build completed in ${ELAPSED}s."
-echo -e "=== Artifacts: firmware_output/imagebuilder/$PROFILE_NAME/$TIMESTAMP"
+echo -e "=== Artifacts: firmware_output/$REL_PATH/$TIMESTAMP"
 echo -e "============================================================\n"
