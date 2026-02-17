@@ -73,6 +73,8 @@ if "%SYS_LANG%"=="RU" (
     set "L_FINISHED=%C_VAL%Операция завершена.%C_RST%"
     set "L_K_MOVE_ASK=Обновить профиль %C_VAL%!PROFILE_ID!.conf%C_RST% данными из Menuconfig? [Y/n]"
     set "L_K_MOVE_OK=%C_VAL%[ГОТОВО]%C_RST% Переменная SRC_EXTRA_CONFIG в профиле обновлена."
+    set "L_IB_UPDATE_ASK=Найден собранный Image Builder. Записать в профиль IMAGEBUILDER_URL (путь ниже)? [Y/n]"
+    set "L_IB_UPDATE_OK=%C_VAL%[ГОТОВО]%C_RST% IMAGEBUILDER_URL в профиле обновлён."
     set "L_K_MOVE_ARCH=Временный файл переименован в _manual_config."
     set "L_EXIT_CONFIRM=%C_ERR%Выйти из программы? (Y/n):%C_RST% "
     set "L_EXIT_BYE=%C_VAL%До новых встреч!%C_RST%"
@@ -215,6 +217,8 @@ if "%SYS_LANG%"=="RU" (
     set "L_FINISHED=%C_VAL%Операция завершена.%C_RST%"
     set "L_K_MOVE_ASK=Update %C_VAL%!PROFILE_ID!.conf%C_RST% profile with Menuconfig data? [Y/n]"
     set "L_K_MOVE_OK=%C_VAL%[DONE]%C_RST% SRC_EXTRA_CONFIG variable in profile updated."
+    set "L_IB_UPDATE_ASK=Image Builder build detected. Update profile with IMAGEBUILDER_URL (path below)? [Y/n]"
+    set "L_IB_UPDATE_OK=%C_VAL%[DONE]%C_RST% IMAGEBUILDER_URL in profile updated."
     set "L_K_MOVE_ARCH=Temporary file renamed to %C_VAL%_manual_config%C_RST%."
     set "L_EXIT_CONFIRM=%C_ERR%Exit the program? (Y/n):%C_RST% "
     set "L_EXIT_BYE=%C_VAL%See you soon!%C_RST%"
@@ -1451,7 +1455,9 @@ echo !L_INFO!   !L_P_SERVICE!: %SERVICE_NAME%
 
 :: 4. ЗАПУСК (Используем уже вычисленные переменные путей)
 :: Запуск в отдельном окне (с поддержкой интерактивного входа для SOURCE режима)
-START "%WINDOW_TITLE%" cmd /v:on /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_PATCHES_DIR=%HOST_PATCHES_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo !L_BUILD_FATAL!) ^&^& echo. ^&^& echo !L_FINISHED! ^&^& (if "%BUILD_MODE%"=="SOURCE" (set /p "stay=!L_K_STAY! " ^& if /i "^!stay^!"=="y" (echo. ^& echo !L_K_SHELL_H1! ^& echo !L_K_SHELL_H2! ^& echo !L_K_SHELL_H3! ^& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% run --rm -it %SERVICE_NAME% /bin/bash))) ^&^& pause ^"
+rem START "%WINDOW_TITLE%" cmd /v:on /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_PATCHES_DIR=%HOST_PATCHES_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo !L_BUILD_FATAL!) ^&^& echo. ^&^& echo !L_FINISHED! ^&^& (if "%BUILD_MODE%"=="SOURCE" (set /p "stay=!L_K_STAY! " ^& if /i "^!stay^!"=="y" (echo. ^& echo !L_K_SHELL_H1! ^& echo !L_K_SHELL_H2! ^& echo !L_K_SHELL_H3! ^& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% run --rm -it %SERVICE_NAME% /bin/bash))) ^&^& pause ^"
+    START "%WINDOW_TITLE%" cmd /v:on /c ^"set "SELECTED_CONF=%CONF_FILE%" ^&^& set "HOST_FILES_DIR=./custom_files/%PROFILE_ID%" ^&^& set "HOST_PKGS_DIR=%HOST_PKGS_DIR%" ^&^& set "HOST_PATCHES_DIR=%HOST_PATCHES_DIR%" ^&^& set "HOST_OUTPUT_DIR=%REL_OUT_PATH%" ^&^& (docker-compose %COMPOSE_ARG% -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME% ^|^| echo !L_BUILD_FATAL!) ^&^& echo. ^&^& echo !L_FINISHED! ^&^& (if "%BUILD_MODE%"=="SOURCE" ( powershell -NoProfile -ExecutionPolicy Bypass -Command "$out='%REL_OUT_PATH%'; $conf='!SELECTED_CONF!'; Write-Host '--- DEBUG INFO ---' -ForegroundColor Yellow; if([string]::IsNullOrWhiteSpace($out)){ $out='./firmware_output/sourcebuilder/%PROFILE_ID%' }; Write-Host ('[DEBUG] Output Dir: ' + $out); $cleanOut = $out.Replace('./',''); if(Test-Path $cleanOut){ $files = Get-ChildItem -Path $cleanOut -Filter '*imagebuilder*.tar.zst' -Recurse; Write-Host ('[DEBUG] Files found: ' + $files.Count); $best = $files | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($best){ $u = (Resolve-Path -Path $best.FullName -Relative).Replace('.\','').Replace('\','/'); Write-Host ('[DEBUG] Found IB: ' + $u) -ForegroundColor Yellow; Write-Host ''; Write-Host '!L_IB_UPDATE_ASK!' -ForegroundColor Cyan; Write-Host ('path: ' + $u); $r = Read-Host 'Update profile? [y/n]'; if($r -eq 'y'){ $pf='profiles/' + $conf; if(Test-Path $pf){ $c=Get-Content $pf -Raw; $line='IMAGEBUILDER_URL='+[char]34+$u+[char]34; if($c -match 'IMAGEBUILDER_URL='){$c=$c -replace '(?m)^IMAGEBUILDER_URL=.*',$line}else{$c=$c.Trim()+[char]10+$line}; [IO.File]::WriteAllText($pf, $c); Write-Host '!L_IB_UPDATE_OK!' -ForegroundColor Green } } } else { Write-Host '[DEBUG] Archive *imagebuilder*.tar.zst not found in folder.' -ForegroundColor Red } } else { Write-Host ('[DEBUG] Directory not found: ' + $cleanOut) -ForegroundColor Red }; Write-Host '------------------' -ForegroundColor Yellow " ) ) ^&^& (if "%BUILD_MODE%"=="SOURCE" (set /p "stay=!L_K_STAY! " ^& if /i "^!stay^!"=="y" (echo. ^& echo !L_K_SHELL_H1! ^& echo !L_K_SHELL_H2! ^& echo !L_K_SHELL_H3! ^& docker-compose %COMPOSE_ARG% -p %PROJ_NAME% run --rm -it %SERVICE_NAME% /bin/bash))) ^&^& pause ^"
+
 exit /b
 
 :: =========================================================
