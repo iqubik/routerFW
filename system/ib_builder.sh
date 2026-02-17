@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.2
+# file: system/ib_builder.sh v1.3
 set -e
 
 # Цвета для логов
@@ -133,6 +133,15 @@ log "Saving artifacts..."
 TARGET_DIR="/output/$TIMESTAMP"
 mkdir -p "$TARGET_DIR"
 find bin/targets -type f -not -path "*/packages/*" -exec cp {} "$TARGET_DIR/" \;
+
+# Список скопированных файлов с путями (вид на хосте)
+echo ""
+for f in "$TARGET_DIR"/*; do
+    [ -e "$f" ] || continue
+    name=$(basename "$f")
+    path="firmware_output/imagebuilder/$PROFILE_NAME/$TIMESTAMP/$name"
+    echo "${path//\//\\}"
+done
 
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n============================================================"

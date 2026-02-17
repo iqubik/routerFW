@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.7
+# file: system/src_builder.sh v1.8
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -250,6 +250,15 @@ TARGET_DIR="/output/$TIMESTAMP"
 mkdir -p "$TARGET_DIR"
 find bin/targets/$SRC_TARGET -type f -not -path "*/packages/*" -exec mv {} "$TARGET_DIR/" \;
 cp .config "$TARGET_DIR/build.config"
+
+# Список скопированных файлов с путями (вид на хосте)
+echo ""
+for f in "$TARGET_DIR"/*; do
+    [ -e "$f" ] || continue
+    name=$(basename "$f")
+    path="firmware_output/sourcebuilder/$PROFILE_ID/$TIMESTAMP/$name"
+    echo "${path//\//\\}"
+done
 
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
