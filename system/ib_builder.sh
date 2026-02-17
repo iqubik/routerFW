@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.4
+# file: system/ib_builder.sh v1.5
 set -e
 
 # Цвета для логов
@@ -33,21 +33,34 @@ START_TIME=$(date +%s)
 TIMESTAMP=$(TZ='UTC-3' date +%d%m%y-%H%M%S)
 
 # --- 2. СКАЧИВАНИЕ SDK (БЕЗ ОЖИДАНИЯ, С ПЕРЕЗАПУСКОМ) ---
-# Очищаем URL от параметров после ? (например ?download=)
-CLEAN_URL=$(echo "$IMAGEBUILDER_URL" | sed 's/[?&].*//')
-ARCHIVE_NAME=$(basename "$CLEAN_URL")
-CACHE_FILE="/cache/$ARCHIVE_NAME"
-TEMP_CACHE_FILE="/cache/$ARCHIVE_NAME.tmp"
-
-if [ ! -f "$CACHE_FILE" ]; then        
-    log "SDK not found. Preparing fresh download..."
-    [ -f "$TEMP_CACHE_FILE" ] && { log "Removing stale .tmp file..."; rm -f "$TEMP_CACHE_FILE"; }
-    
-    log "Downloading $ARCHIVE_NAME..."
-    wget --progress=dot:giga --tries=5 --timeout=20 --retry-connrefused -O "$TEMP_CACHE_FILE" "$IMAGEBUILDER_URL"
-    mv "$TEMP_CACHE_FILE" "$CACHE_FILE"
+if [[ "$IMAGEBUILDER_URL" =~ ^https?:// ]]; then
+    # Сетевой URL: очищаем от ? (например ?download=), качаем в кэш
+    CLEAN_URL=$(echo "$IMAGEBUILDER_URL" | sed 's/[?&].*//')
+    ARCHIVE_NAME=$(basename "$CLEAN_URL")
+    CACHE_FILE="/cache/$ARCHIVE_NAME"
+    TEMP_CACHE_FILE="/cache/$ARCHIVE_NAME.tmp"
+    if [ ! -f "$CACHE_FILE" ]; then
+        log "SDK not found. Preparing fresh download..."
+        [ -f "$TEMP_CACHE_FILE" ] && { log "Removing stale .tmp file..."; rm -f "$TEMP_CACHE_FILE"; }
+        log "Downloading $ARCHIVE_NAME..."
+        wget --progress=dot:giga --tries=5 --timeout=20 --retry-connrefused -O "$TEMP_CACHE_FILE" "$IMAGEBUILDER_URL"
+        mv "$TEMP_CACHE_FILE" "$CACHE_FILE"
+    else
+        log "Using cached $ARCHIVE_NAME"
+    fi
 else
-    log "Using cached $ARCHIVE_NAME"
+    # Локальный путь: firmware_output/... в контейнере = /output/...
+    LOCAL_PATH_NORM=$(echo "$IMAGEBUILDER_URL" | tr '\\' '/')
+    LOCAL_PATH="/output/${LOCAL_PATH_NORM#firmware_output/}"
+    ARCHIVE_NAME=$(basename "$LOCAL_PATH")
+    CACHE_FILE="/cache/$ARCHIVE_NAME"
+    [ -f "$LOCAL_PATH" ] || error "Local imagebuilder file not found: $LOCAL_PATH"
+    if [ -f "$CACHE_FILE" ]; then
+        log "Using cached $ARCHIVE_NAME"
+    else
+        log "Using local imagebuilder: $LOCAL_PATH"
+        cp "$LOCAL_PATH" "$CACHE_FILE"
+    fi
 fi
 
 # Распаковка
