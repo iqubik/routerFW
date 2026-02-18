@@ -30,6 +30,7 @@ Remote: https://github.com/iqubik/routerFW.git, branch: main.
 | `docs/` | Tutorials (Russian + English) |
 | `_packer.sh` / `_packer.bat` | Packs project into self-extracting distribution |
 | `_unpacker.sh` / `_unpacker.bat` | Self-extracting archives (base64, DO NOT READ) |
+| `.dockerignore` | Excludes `firmware_output/`, `custom_files/`, `.git/` etc. from Docker build context (критично — `firmware_output/` может весить 10+ ГБ) |
 
 ## Tech Stack
 
@@ -59,10 +60,13 @@ After a successful Source Builder run, both `.bat` and `.sh` detect `*imagebuild
 
 ## _Builder.sh — Linux-специфичные возможности (отсутствуют в .bat)
 
-- **Параллельная массовая сборка** — команда `A` запускает все профили одновременно в фоне (`&`), пишет раздельные лог-файлы с timestamp в `firmware_output/logs_<ts>/`, отображает спиннер с именами активных сборок и затраченным временем каждой
-- **Docker Credentials Fix** — на старте создаёт временный `DOCKER_CONFIG` без `credsStore`, чтобы избежать конфликтов с системным credential manager на Linux/WSL
-- **Ctrl+C handler** — `trap cleanup_exit SIGINT SIGTERM`: принудительно останавливает все контейнеры (`release_locks "ALL"`), удаляет временные файлы, восстанавливает видимость курсора (`tput cnorm`)
+- **Параллельная массовая сборка** — команда `A` запускает все профили одновременно в фоне (`&`), пишет раздельные лог-файлы с timestamp в `firmware_output/.build_logs_<ts>/`, отображает спиннер с именами активных сборок и затраченным временем каждой
+- **Docker Credentials Fix** — на старте копирует реальный `~/.docker/config.json` в `$PROJECT_DIR/.docker_tmp/`, удаляя только `credsStore`/`credHelpers`. Это сохраняет proxy-настройки и прочие параметры, но исключает credential store, конфликтующий с безголовым запуском
+- **Ctrl+C handler** — `trap cleanup_exit SIGINT SIGTERM`: принудительно останавливает все контейнеры (`release_locks "ALL"`), удаляет `.docker_tmp/`
 - **Ghost-файлы WSL/NTFS** — при инициализации папок профилей обрабатывает "призрачные" файлы, которые NTFS показывает в WSL
+- **Регистронезависимые команды меню** — `choice="${choice^^}"` нормализует ввод в верхний регистр, все команды (`M`, `E`, `A`, `K`, `C`, `I`, `W`) принимают любой регистр
+- **Выход с паузой** — подтверждение выхода `(Y/n)`, Enter = Yes, 3-секундная пауза перед завершением
+- **`--build` при запуске контейнера** — `docker compose run --build` гарантирует свежий образ с актуальными CA-сертификатами (безопасно благодаря `.dockerignore`)
 
 ## Line Endings & Encoding
 
@@ -73,7 +77,7 @@ Governed by `.gitattributes`. System is fully normalised:
 | `*.bat`, `*.ps1`, `*.cmd` | CRLF | `-text` (stored as-is) |
 | `*.sh`, `*.conf`, `*.yaml`, `Dockerfile` | LF | explicit `eol=lf` |
 | `docs/*.md`, `README*.md`, `LICENSE*`, `pub.md` | CRLF | Windows documents |
-| `.cursor/rules/*.mdc`, `*.json`, `*.yml`, `.gitignore` | LF | config/system files |
+| `.cursor/rules/*.mdc`, `*.json`, `*.yml`, `.gitignore`, `.dockerignore` | LF | config/system files |
 | `*.zip`, `*.zst`, `*.tar`, `*.gz`, `*.bin`, `*.7z` | binary | Git LFS, no EOL processing |
 
 **BOM** — only PowerShell files: `system/create_profile.ps1`, `system/import_ipk.ps1`, `scripts/rax3000m/generate_options.ps1` (UTF-8 BOM required for Cyrillic on Windows).

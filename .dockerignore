@@ -1,0 +1,22 @@
+# Большие выходные директории (прошивки, логи)
+firmware_output/
+
+# Пользовательский контент (монтируется как volumes при запуске)
+custom_files/
+custom_packages/
+src_packages/
+custom_patches/
+profiles/
+
+# Временные файлы Docker
+.docker_tmp/
+
+# Git-история
+.git/
+
+# Документация
+docs/
+
+# Самораспаковывающиеся архивы (huge base64 payloads)
+_unpacker.bat
+_unpacker.sh

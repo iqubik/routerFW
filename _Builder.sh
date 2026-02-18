@@ -326,10 +326,23 @@ BUILD_MODE="IMAGE"
 echo -e "$L_INIT_ENV"
 
 # === ФИКС DOCKER CREDENTIALS ===
+# Копируем реальный конфиг (с proxy/dns настройками), но убираем credsStore
+# чтобы не падала авторизация в безголовых окружениях
 export DOCKER_CONFIG_DIR="$PROJECT_DIR/.docker_tmp"
 mkdir -p "$DOCKER_CONFIG_DIR"
-# Создаем временный конфиг без credsStore
-echo '{"auths": {}}' > "$DOCKER_CONFIG_DIR/config.json"
+_REAL_CFG="$HOME/.docker/config.json"
+if [ -f "$_REAL_CFG" ] && command -v python3 &>/dev/null; then
+    python3 -c "
+import json, sys
+with open('$_REAL_CFG') as f:
+    cfg = json.load(f)
+cfg.pop('credsStore', None)
+cfg.pop('credHelpers', None)
+print(json.dumps(cfg))
+" > "$DOCKER_CONFIG_DIR/config.json" 2>/dev/null || echo '{"auths":{}}' > "$DOCKER_CONFIG_DIR/config.json"
+else
+    echo '{"auths":{}}' > "$DOCKER_CONFIG_DIR/config.json"
+fi
 export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"
 
 # Предварительный пулл теперь точно сработает
@@ -433,8 +446,8 @@ build_routine() {
     # 3. Пауза (важно для Windows/WSL)
     sleep 2
 
-    # 4. Запуск (Флаг --security-opt удален, так как compose его не поддерживает здесь)
-    $C_EXE -f "$comp_file" -p "$proj_name" run --rm --quiet-pull "$service"
+    # 4. Запуск (--build гарантирует свежий образ с актуальными CA-сертификатами)
+    $C_EXE -f "$comp_file" -p "$proj_name" run --build --rm --quiet-pull "$service"
     # === ВАЖНО: ЗАПОМИНАЕМ РЕЗУЛЬТАТ СБОРКИ ===
     local build_status=$?
 
