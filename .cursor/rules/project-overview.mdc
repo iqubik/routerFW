@@ -6,7 +6,7 @@ alwaysApply: true
 # routerFW — OpenWrtFW Builder
 
 Cross-platform framework for building custom OpenWrt firmware via Docker.
-Version: 4.41 (_Builder.bat + _Builder.sh). License: GPL-3.0. Author: iqubik.
+Version: 4.42 (_Builder.bat + _Builder.sh). License: GPL-3.0. Author: iqubik.
 Remote: https://github.com/iqubik/routerFW.git, branch: main.
 
 ## Two Build Modes
@@ -20,6 +20,7 @@ Remote: https://github.com/iqubik/routerFW.git, branch: main.
 |------|---------|
 | `_Builder.sh` / `_Builder.bat` | Main entry points (interactive menu, build orchestration) |
 | `system/` | Core build system (Dockerfiles, compose, builders, wizards) |
+| `system/lang/` | Localization dictionaries (`.bat.env` for Windows, `.sh.env` for Linux) |
 | `scripts/` | Utilities (hooks.sh, diag.sh, packager.sh, upgrade.sh) |
 | `profiles/*.conf` | Build profile configurations |
 | `custom_files/<profile>/` | File overlay (maps to `/` in firmware) |
@@ -74,8 +75,8 @@ Governed by `.gitattributes`. System is fully normalised:
 
 | Type | EOL | Rule |
 |---|---|---|
-| `*.bat`, `*.ps1`, `*.cmd` | CRLF | `-text` (stored as-is) |
-| `*.sh`, `*.conf`, `*.yaml`, `Dockerfile` | LF | explicit `eol=lf` |
+| `*.bat`, `*.ps1`, `*.cmd`, `*.bat.env` | CRLF | `-text` (stored as-is) |
+| `*.sh`, `*.sh.env`, `*.conf`, `*.yaml`, `Dockerfile` | LF | explicit `eol=lf` |
 | `docs/*.md`, `README*.md`, `LICENSE*`, `pub.md` | CRLF | Windows documents |
 | `.cursor/rules/*.mdc`, `*.json`, `*.yml`, `.gitignore`, `.dockerignore` | LF | config/system files |
 | `*.zip`, `*.zst`, `*.tar`, `*.gz`, `*.bin`, `*.7z` | binary | Git LFS, no EOL processing |
@@ -86,14 +87,36 @@ Governed by `.gitattributes`. System is fully normalised:
 
 ## Localization Dictionary System
 
-Both `_Builder.bat` and `_Builder.sh` use a **bilingual RU/EN dictionary** — two blocks of variables at the top of each file, selected by `SYS_LANG`:
+Dictionaries are stored in **external `.env` files** under `system/lang/`, loaded at startup by each builder:
 
-- `.bat`: lines ~67-361 (`if "%SYS_LANG%"=="RU"` / `) else (`)
-- `.sh`: lines ~82-399 (`if [ "$SYS_LANG" == "RU" ]` / `else`)
+| File | Format | Loader |
+|---|---|---|
+| `system/lang/ru.bat.env` | `KEY=%C_VAL%value%C_RST%` (no quotes, no `set`) | `for /f ... do call set "%%a"` in `_Builder.bat` |
+| `system/lang/en.bat.env` | same | same |
+| `system/lang/ru.sh.env` | `KEY="${C_VAL}value${C_RST}"` (double-quoted) | `source "$LANG_FILE"` in `_Builder.sh` |
+| `system/lang/en.sh.env` | same | same |
+
+**Loader in `_Builder.bat`** (lines ~66-69):
+```batch
+set "LANG_FILE=system\lang\%SYS_LANG%.bat.env"
+if not exist "%LANG_FILE%" set "LANG_FILE=system\lang\EN.bat.env"
+for /f "usebackq eol=# tokens=* delims=" %%a in ("%LANG_FILE%") do call set "%%a"
+```
+`call set` provides double expansion: `%C_VAL%` etc. are resolved via `call`'s re-parse pass. `eol=#` enables `#`-comments in `.env` files.
+
+**Loader in `_Builder.sh`** (lines ~82-85):
+```bash
+LANG_FILE="system/lang/${SYS_LANG,,}.sh.env"
+[ ! -f "$LANG_FILE" ] && LANG_FILE="system/lang/en.sh.env"
+source "$LANG_FILE"
+```
+`${SYS_LANG,,}` lowercases `RU`→`ru`, `EN`→`en`. `source` natively expands `${C_VAL}` etc.
+
+**Fallback:** both loaders fall back to EN if the file for `SYS_LANG` is missing (future language support).
 
 **Prefixes:** `L_` — all user-facing strings. `H_` — table header labels (`H_PROF`, `H_ARCH`, `H_RES`).
 
-**Feature parity rule:** if a key exists in `.bat`, it should exist in `.sh` (and vice versa where applicable). Both audits are complete (`.bat` v1 audit + `.sh` v1 audit done in Feb 2026).
+**Feature parity rule:** if a key exists in `.bat.env`, it should exist in `.sh.env` (and vice versa where applicable). The `.sh.env` files have extra keys for Linux-only features (parallel builds: `L_PARALLEL_BUILDS_START`, `L_LOG_*`, `L_ALL_BUILDS_*`, etc.).
 
 **Key naming conventions:**
 - `L_SEPARATOR` / `L_SEPARATOR_EQ` — decorative line separators (`---` / `===`)
@@ -106,7 +129,9 @@ Both `_Builder.bat` and `_Builder.sh` use a **bilingual RU/EN dictionary** — t
 - `L_IN_EDITOR` — "in editor..." / "в редакторе..." suffix
 - `L_BTN_MENUCONFIG` — "Menuconfig/mc" button label
 
-**Bootstrap convention:** strings that run before the dictionary is initialized (Ctrl+C handler, language detector output, FORCE_LANG echo) are left as hardcoded English and marked with:
+**Adding a new language:** create `system/lang/xx.bat.env` and `system/lang/xx.sh.env` with the same set of keys, then extend the language detector to set `SYS_LANG=XX`. The loader fallback to EN handles missing files gracefully.
+
+**Bootstrap convention:** strings that run before the dictionary is loaded (Ctrl+C handler, language detector output, FORCE_LANG echo) are left as hardcoded English and marked with:
 ```bash
 # Bootstrap — dict not yet available
 ```

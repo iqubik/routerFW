@@ -21,7 +21,9 @@ Same weighted language detection as `.sh` but uses Windows-specific checks:
 - PowerShell: `Get-Culture`, `Get-WinUserLanguageList`
 - Console codepage: CP866 = Russian
 
-Dictionary pattern with `L_*` variables, same as shell scripts.
+Dictionary is loaded from external `.env` files (`system/lang/{RU,EN}.bat.env`).
+Format: `KEY=%C_VAL%value%C_RST%` (standard `.env`, no `set`).
+Loader: `for /f "usebackq eol=# tokens=* delims=" %%a in ("%LANG_FILE%") do call set "%%a"` — `call set` gives double expansion for `%C_*%` color variables. Fallback to EN if file missing.
 
 ## Feature Parity
 
