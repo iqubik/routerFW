@@ -25,6 +25,12 @@
 5.  [**Урок 5: Продвинутый: Система патчей исходного кода**](./05-patch-sys.md)
     *   *Кастомизация сборок путем прямого изменения исходного кода OpenWrt с помощью системы "зеркального оверлея".*
 
+## Архитектура проекта
+
+*   [**Архитектура и поток процессов (RU)**](./ARCHITECTURE_ru.md) — текстовые схемы всех этапов сборки.
+*   [**Architecture & Process Flow (EN)**](./ARCHITECTURE_en.md) — English version.
+*   [**Диаграммы Mermaid**](./ARCHITECTURE_diagram.md) — полные интерактивные блок-схемы: старт, меню, сборка, очистка, menuconfig.
+
 ---
 
 Аудит проекта https://github.com/iqubik/routerFW/blob/main/audit.md

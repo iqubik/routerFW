@@ -25,6 +25,12 @@ This is a series of lessons designed to help you master the Universal Builder, f
 5.  [**Lesson 5: Advanced: Source Code Patching System**](./05-patch-sys.en.md)
     *   *Customizing builds by directly modifying OpenWrt source code using the "mirror overlay" system.*
 
+## Project Architecture
+
+*   [**Architecture & Process Flow (EN)**](./ARCHITECTURE_en.md) — text diagrams of all build stages.
+*   [**Архитектура и поток процессов (RU)**](./ARCHITECTURE_ru.md) — Russian version.
+*   [**Mermaid Diagrams**](./ARCHITECTURE_diagram.md) — full interactive flowcharts: startup, menu, build, cleanup, menuconfig.
+
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/audit.md

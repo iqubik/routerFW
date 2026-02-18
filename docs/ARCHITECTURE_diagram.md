@@ -1,6 +1,8 @@
+# file docs\ARCHITECTURE_diagram.md
+
 # routerFW — Process Diagrams / Диаграммы процессов
 
-> Version: 4.43. Full diagram set. See [ARCHITECTURE_STUDY_PLAN.md](ARCHITECTURE_STUDY_PLAN.md) for coverage checklist.
+> Version: 4.43. Full diagram set.
 >
 > EN → [ARCHITECTURE_en.md](ARCHITECTURE_en.md) · RU → [ARCHITECTURE_ru.md](ARCHITECTURE_ru.md)
 

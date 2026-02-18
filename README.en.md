@@ -56,6 +56,7 @@ An extended knowledge base has been created for the project to help you go from 
 *   **Lessons 1-3:** Basics, configuration setup, and quick start.
 *   **Lesson 4 (Advanced):** Advanced Source mode: implementing third-party programs from source, applying patches, and deep customization.
 *   **Troubleshooting:** Solutions for common compilation and Docker issues.
+*   **[Project Architecture & Diagrams](docs/ARCHITECTURE_en.md)** — full flowcharts of all builder processes.
 
 ---
 
