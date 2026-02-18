@@ -31,6 +31,8 @@ FILES=(
     "system/src.dockerfile.legacy"
     "system/create_profile.sh"
     "system/import_ipk.sh"
+    "system/lang/ru.sh.env"
+    "system/lang/en.sh.env"
     "scripts/show_pkgs.sh"
     "_Builder.sh"
     "README.md"
