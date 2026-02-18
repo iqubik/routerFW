@@ -1,0 +1,36 @@
+---
+description: Conventions for Windows Batch scripts in routerFW
+globs: "**/*.bat"
+alwaysApply: false
+---
+
+# Batch Script Conventions
+
+## Style
+
+- Header: `@echo off` then `rem file: <name>`
+- `setlocal enabledelayedexpansion` for variable expansion in blocks
+- Console: `chcp 65001 >nul` (UTF-8), `mode con: cols=120 lines=40`
+- ANSI colors via ESC codes: `C_KEY`, `C_LBL`, `C_GRY`, `C_VAL`, `C_ERR`, `C_RST`
+
+## Bilingual Pattern
+
+Same weighted language detection as `.sh` but uses Windows-specific checks:
+- Registry: `HKCU\Control Panel\Desktop\PreferredUILanguages`
+- Install language: `HKLM\...\Nls\Language\InstallLanguage` (0419 = Russian)
+- PowerShell: `Get-Culture`, `Get-WinUserLanguageList`
+- Console codepage: CP866 = Russian
+
+Dictionary pattern with `L_*` variables, same as shell scripts.
+
+## Feature Parity
+
+`.bat` scripts must stay in sync with their `.sh` counterparts:
+- `_Builder.bat` <-> `_Builder.sh`
+- `_packer.bat` <-> `_packer.sh`
+
+When modifying one, the other must be updated with equivalent logic.
+
+## FORBIDDEN
+
+- NEVER read or edit `_unpacker.bat` — contains base64 payload

@@ -1,0 +1,48 @@
+---
+description: Conventions for Bash scripts in routerFW
+globs: "**/*.sh"
+alwaysApply: false
+---
+
+# Shell Script Conventions
+
+## Style
+
+- Shebang: `#!/bin/bash`
+- Header comment: `# file: <relative_path> v<version>`
+- Comments in Russian (primary) or English — match surrounding context
+- ANSI color codes via variables: `GREEN`, `YELLOW`, `RED`, `CYAN`, `NC` (No Color)
+- Logging functions: `log()`, `warn()`, `error()` with colored `[INFO]`, `[WARN]`, `[FATAL]` prefixes
+- Use `set -e` for fail-fast in builder scripts
+
+## Bilingual Pattern
+
+Main scripts (`_Builder.sh`) use a language detection system (weighted scoring) and a dictionary pattern:
+
+```bash
+SYS_LANG="EN"  # or "RU", set by detection logic
+FORCE_LANG="AUTO"  # AUTO | RU | EN override
+```
+
+All user-facing strings are defined as `L_*` variables with both RU and EN variants:
+
+```bash
+if [ "$SYS_LANG" = "RU" ]; then
+    L_MENU_TITLE="Главное меню"
+else
+    L_MENU_TITLE="Main Menu"
+fi
+```
+
+## Key Variables
+
+- `PROJECT_DIR` — root of the project (set via `cd "$(dirname "${BASH_SOURCE[0]}")" && pwd`)
+- `PROFILE_ID` — profile name without `.conf` extension
+- `CONF_FILE` — selected profile filename (e.g. `rax3000m_emmc_test_new.conf`)
+- `VER_NUM` — version number string
+
+## Docker Integration
+
+Builder scripts run inside Docker containers. They receive configuration via:
+- Environment variables from docker-compose (`CONF_FILE`, `HOST_OUTPUT_DIR`)
+- Mounted volumes for profiles, packages, files, output, and cache

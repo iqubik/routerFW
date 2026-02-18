@@ -1,0 +1,31 @@
+---
+description: Docker and Docker Compose conventions
+globs: "system/docker*.yaml,system/*dockerfile*"
+alwaysApply: false
+---
+
+# Docker Configuration
+
+## Compose Files
+
+- `system/docker-compose.yaml` — Image Builder (2 services: modern + legacy)
+- `system/docker-compose-src.yaml` — Source Builder (2 services: modern + legacy)
+
+Services are selected by `_Builder.sh`/`_Builder.bat` based on the ImageBuilder URL version detection.
+
+## Volume Mounts Pattern
+
+All compose files mount host directories relative to project root:
+- `../profiles:/profiles` — profile configs
+- `../${HOST_PKGS_DIR}:/input_packages` — custom .ipk packages
+- `../${HOST_FILES_DIR}:/overlay_files` — file overlay
+- `../firmware_output:/output` — build output
+
+Environment variables `CONF_FILE`, `HOST_OUTPUT_DIR` are passed from the host builder script.
+
+## Dockerfiles
+
+- Modern images use Ubuntu 22.04/24.04
+- Legacy images use Ubuntu 18.04 with `old-releases.ubuntu.com` mirrors
+- Source Builder creates user `build` (UID 1000) to avoid root compilation
+- All images install minimal build dependencies only

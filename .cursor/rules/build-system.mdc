@@ -1,0 +1,48 @@
+---
+description: Build system internals — Docker, compose, builder scripts
+globs: "system/**"
+alwaysApply: false
+---
+
+# Build System (system/ directory)
+
+## Image Builder Flow
+
+`docker-compose.yaml` -> `ib_builder.sh` (runs inside container):
+1. Normalize config (strip BOM, CRLF)
+2. Download/extract ImageBuilder SDK (with caching in `/cache` volume)
+3. Apply custom packages from `/input_packages`
+4. Apply file overlay from `/overlay_files`
+5. Configure custom repos/keys if defined
+6. Modify partition sizes (ROOTFS_SIZE, KERNEL_SIZE) if set
+7. Run `make image` with assembled PACKAGES list
+8. Copy output to `/output/<profile>/`
+
+## Source Builder Flow
+
+`docker-compose-src.yaml` -> `src_builder.sh` (runs as user `build` inside container):
+1. Fix volume permissions (optimized: skips if `.git` exists and ownership correct)
+2. Git clone or fetch `SRC_REPO` at `SRC_BRANCH`
+3. Update feeds (optimized: skips if commit unchanged)
+4. Apply patches from `custom_patches/<profile>/` (CRLF->LF conversion)
+5. Run hooks from `scripts/hooks.sh`
+6. Generate `.config` from profile's `SRC_EXTRA_CONFIG`
+7. Compile with `make -j<cores>` (CCache enabled, 20GB limit)
+8. Copy output firmware to `/output/<profile>/`
+
+## Docker Images
+
+| Dockerfile | Base | Purpose |
+|---|---|---|
+| `dockerfile` | Ubuntu 22.04 | Modern Image Builder |
+| `dockerfile.legacy` | Ubuntu 18.04 | Legacy Image Builder |
+| `src.dockerfile` | Ubuntu 24.04 | Modern Source Builder (GCC 13, ccache) |
+| `src.dockerfile.legacy` | Ubuntu 18.04 | Legacy Source Builder |
+
+## Docker Volumes
+
+- `imagebuilder-cache` — SDK archives
+- `ipk-cache` — downloaded packages
+- `src-workdir` — OpenWrt source tree (persistent across builds)
+- `src-dl-cache` — source download cache
+- `src-ccache` — compiler cache

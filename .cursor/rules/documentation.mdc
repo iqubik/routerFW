@@ -1,0 +1,31 @@
+---
+description: Documentation conventions for Markdown files
+globs: "**/*.md"
+alwaysApply: false
+---
+
+# Documentation Conventions
+
+## Bilingual Structure
+
+All documentation exists in two versions:
+- `filename.md` — Russian (primary)
+- `filename.en.md` — English
+
+When editing docs, update both language versions.
+
+## Tutorial Structure (docs/)
+
+Lessons are numbered sequentially: `01-introduction.md`, `02-digital-twin.md`, etc.
+Each has an index file: `docs/index.md` / `docs/index.en.md`.
+
+## README
+
+- `README.md` — Russian, primary
+- `README.en.md` — English
+
+## Audit Files
+
+- `audit.md`, `audit_cto.md`, `rax_audit.md` — project analysis documents
+- `GEMINI.md` — AI-generated architecture overview
+- `pub.md` — release notes
