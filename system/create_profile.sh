@@ -335,14 +335,13 @@ COMMON_LIST="$FINAL_COMMON_LIST"
 
 # === IMAGE BUILDER CONFIG
 IMAGEBUILDER_URL="$IB_URL"
-PKGS="\$COMMON_LIST"
-
-#CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
-#CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci
-#src/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/packages
-#src/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/special"
+#CUSTOM_KEYS="https://fantastic-packages.github.io/packages/releases/24.10/53ff2b6672243d28.pub"
+#CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/packages/releases/24.10/packages/$ARCH/luci
+#src/gz fantastic_packages https://fantastic-packages.github.io/packages/releases/24.10/packages/$ARCH/packages
+#src/gz fantastic_special https://fantastic-packages.github.io/packages/releases/24.10/packages/$ARCH/special"
 #DISABLED_SERVICES="transmission-daemon minidlna"
-#EXTRA_IMAGE_NAME="custom"
+IMAGE_PKGS="\$COMMON_LIST"
+#IMAGE_EXTRA_NAME="custom"
 
 # === Extra config options
 #ROOTFS_SIZE="512"
@@ -354,7 +353,7 @@ SRC_BRANCH="$branch"
 SRC_TARGET="$TARGET"
 SRC_SUBTARGET="$SUBTARGET"
 SRC_ARCH="$ARCH"
-SRC_PACKAGES="\$PKGS"
+SRC_PACKAGES="\$IMAGE_PKGS"
 SRC_CORES="safe"
 
 ## SPACE SAVING (For 4MB / 8MB flash devices)

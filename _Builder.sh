@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.32"
+VER_NUM="4.41"
 
 # Выключаем мигающий курсор
 tput civis 2>/dev/null
@@ -192,6 +192,10 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_LOG_FAIL_IN="${C_ERR}[ОШИБКА]${C_RST} Сборка профиля '%s' упала за %s. См. лог."
     L_LOG_OK_IN="${C_VAL}[ГОТОВО]${C_RST}  Сборка профиля '%s' завершена за %s."
 
+    # Post-build IB URL Update
+    L_IB_UPDATE_ASK="Найден собранный Image Builder!"
+    L_IB_UPDATE_OK="${C_VAL}[ГОТОВО]${C_RST} IMAGEBUILDER_URL в профиле обновлён."
+
 else
     # === ENGLISH DICTIONARY ===
     L_LANG_NAME="ENGLISH"
@@ -299,6 +303,10 @@ else
     L_LOG_START="-> Starting:"
     L_LOG_FAIL_IN="${C_ERR}[ERROR]${C_RST} Build for profile '%s' failed in %s. Check log."
     L_LOG_OK_IN="${C_VAL}[DONE]${C_RST}  Build for profile '%s' completed in %s."
+
+    # Post-build IB URL Update
+    L_IB_UPDATE_ASK="Image Builder build detected!"
+    L_IB_UPDATE_OK="${C_VAL}[DONE]${C_RST} IMAGEBUILDER_URL in profile updated."
 fi
 
 echo -e "${C_LBL}[INIT]${C_RST} Language detector (Weighted Detection)..."
@@ -445,6 +453,34 @@ build_routine() {
     if [ "$BUILD_MODE" == "SOURCE" ]; then
         if [ $build_status -eq 0 ]; then
             echo -e "\n${C_VAL}Build Finished Successfully.${C_RST}"
+
+            # === POST-BUILD: поиск *imagebuilder*.tar.zst и обновление IMAGEBUILDER_URL ===
+            local ib_archive=""
+            ib_archive=$(find "${HOST_OUTPUT_DIR#./}" -name "*imagebuilder*.tar.zst" 2>/dev/null \
+                | sort -t_ -k1 2>/dev/null | tail -1)
+            if [ -n "$ib_archive" ]; then
+                # Нормализуем путь: убираем ведущий ./ если есть
+                ib_archive="${ib_archive#./}"
+                echo ""
+                echo -e "${C_KEY}${L_IB_UPDATE_ASK}${C_RST}"
+                echo -e "  ${C_GRY}${ib_archive}${C_RST}"
+                echo -e "${C_LBL}Update profile IMAGEBUILDER_URL? [y/N]:${C_RST} "
+                read -r ib_upd_choice
+                if [[ "$ib_upd_choice" =~ ^[Yy]$ ]]; then
+                    local prof_path="profiles/${conf_file}"
+                    local new_url_line="IMAGEBUILDER_URL=\"${ib_archive}\""
+                    if grep -qE '^IMAGEBUILDER_URL=' "$prof_path"; then
+                        # Комментируем старую строку и вставляем новую после неё
+                        sed -i -E "s|^(IMAGEBUILDER_URL=.*)$|#\1\n${new_url_line}|" "$prof_path"
+                    elif grep -qE '^#.*IMAGEBUILDER_URL=' "$prof_path"; then
+                        # Добавляем новую строку в конец файла
+                        echo "$new_url_line" >> "$prof_path"
+                    else
+                        echo "$new_url_line" >> "$prof_path"
+                    fi
+                    echo -e "${L_IB_UPDATE_OK}"
+                fi
+            fi
         else
             echo -e "\n${C_ERR}Build Failed.${C_RST}"
         fi
@@ -849,6 +885,41 @@ EOF
     chmod +x "$target" 2>/dev/null
 }
 
+# === PROFILE VARIABLE MIGRATION (идемпотентная миграция устаревших имён) ===
+# Переименовывает PKGS -> IMAGE_PKGS и EXTRA_IMAGE_NAME -> IMAGE_EXTRA_NAME
+# Запускается один раз при старте; безопасна для повторного запуска.
+migrate_profile_vars() {
+    for p in profiles/*.conf; do
+        [ -e "$p" ] || continue
+        local content
+        content=$(cat "$p")
+        local changed=0
+
+        # PKGS= -> IMAGE_PKGS= (только если IMAGE_PKGS ещё не существует)
+        if echo "$content" | grep -qE '^#?PKGS=' && ! echo "$content" | grep -qE '^#?IMAGE_PKGS='; then
+            sed -i \
+                -e 's/^PKGS=/IMAGE_PKGS=/' \
+                -e 's/^#PKGS=/#IMAGE_PKGS=/' \
+                -e 's/\$PKGS\b/$IMAGE_PKGS/g' \
+                "$p"
+            changed=1
+        fi
+
+        # EXTRA_IMAGE_NAME= -> IMAGE_EXTRA_NAME= (только если IMAGE_EXTRA_NAME ещё не существует)
+        if echo "$content" | grep -qE '^#?EXTRA_IMAGE_NAME=' && ! echo "$content" | grep -qE '^#?IMAGE_EXTRA_NAME='; then
+            sed -i \
+                -e 's/^EXTRA_IMAGE_NAME=/IMAGE_EXTRA_NAME=/' \
+                -e 's/^#EXTRA_IMAGE_NAME=/#IMAGE_EXTRA_NAME=/' \
+                "$p"
+            changed=1
+        fi
+
+        if [ $changed -eq 1 ]; then
+            echo -e "  ${C_VAL}${L_INIT_PATCHED}${C_RST} $(basename "$p") — IMAGE_PKGS / IMAGE_EXTRA_NAME"
+        fi
+    done
+}
+
 # === ADVANCED ARCHITECTURE MAPPING (v3.0) ===
 patch_architectures() {
     echo -e "${C_LBL}${L_INIT_MAP}${C_RST}"
@@ -893,6 +964,7 @@ patch_architectures() {
 }
 
 patch_architectures
+migrate_profile_vars
 
 # === ГЛАВНОЕ МЕНЮ ===
 while true; do
