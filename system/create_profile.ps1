@@ -1,9 +1,9 @@
-﻿<#
+<#
 .SYNOPSIS
     OpenWrt/ImmortalWrt Universal Profile Creator.
     file: system\create_profile.ps1
 .VERSION
-    2.31 (arch fix)
+    2.4 (mirrors fix)
 .DESCRIPTION
     Скрипт-мастер (Wizard) для создания конфигурационных файлов профилей сборки.
     Поддерживает:
@@ -360,9 +360,12 @@ $Step = 1
                 if ($folderHtml -match 'href="((openwrt|immortalwrt)-imagebuilder-[^"]+\.tar\.(xz|zst))"') {
                     $ibFileName = $Matches[1]; $currentUrl = "$($GlobalState.FinalUrl)$ibFileName"
                     if ($GlobalState.Source -eq "ImmortalWrt") {
-                        Write-Host "$($L.Step6_Mirror)`n 1. Official`n 2. KyaruCloud (CDN)" -ForegroundColor Yellow
-                        $mirrorSel = Read-Host "`n$($L.PromptSelect) (1-2) [Default: 2]"
-                        $GlobalState.IBUrl = if ($mirrorSel -eq '1') { $currentUrl } else { $currentUrl.Replace("https://downloads.immortalwrt.org", "https://immortalwrt.kyarucloud.moe") }
+                        Write-Host "$($L.Step6_Mirror)`n 1. PKU (mirrors.pku.edu.cn)`n 2. SJTU (mirrors.sjtug.sjtu.edu.cn)`n 3. Official`n 4. KyaruCloud (CDN)" -ForegroundColor Yellow
+                        $mirrorSel = Read-Host "`n$($L.PromptSelect) (1-4) [Default: 1]"
+                        $GlobalState.IBUrl = if ($mirrorSel -eq '3') { $currentUrl }
+                            elseif ($mirrorSel -eq '4') { $currentUrl.Replace("https://downloads.immortalwrt.org", "https://immortalwrt.kyarucloud.moe") }
+                            elseif ($mirrorSel -eq '2') { $currentUrl.Replace("https://downloads.immortalwrt.org", "https://mirrors.sjtug.sjtu.edu.cn/immortalwrt") }
+                            else { $currentUrl.Replace("https://downloads.immortalwrt.org", "https://mirrors.pku.edu.cn/immortalwrt") }
                     } else { $GlobalState.IBUrl = $currentUrl }
                 } else {
                     Write-Host "$($L.Step6_ErrIB)" -ForegroundColor Red; Read-Host; $Step--; continue

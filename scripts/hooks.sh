@@ -279,7 +279,8 @@ BACKUP_MK="include/kernel-defaults.mk.bak"
 # 1. Определяем дистрибутив (OpenWrt/ImmortalWrt). // Determine distro type.
 if grep -riq "immortalwrt" include/version.mk package/base-files/files/etc/openwrt_release 2>/dev/null; then
     DISTRO_NAME="immortalwrt"
-    DOWNLOAD_DOMAIN="downloads.immortalwrt.org"
+    # Зеркала: PKU (релизы 24.10.4), SJTU (24.10-SNAPSHOT kmods 6.6.95 → 3ca4b8cb...a86cab), Official, KyaruCloud
+    IW_MIRRORS=( "https://mirrors.pku.edu.cn/immortalwrt" "https://mirrors.sjtug.sjtu.edu.cn/immortalwrt" "https://downloads.immortalwrt.org" "https://immortalwrt.kyarucloud.moe" )
     log "Detected distro: IMMORTALWRT" # Обнаружен дистрибутив: IMMORTALWRT
 else
     DISTRO_NAME="openwrt"
@@ -298,35 +299,65 @@ else
     # Для релизных сборок пытаемся получить хэш. // For release builds, try to get the hash.
     KERNEL_HASH=""
 
-    # 3. СПЕЦИАЛЬНЫЙ СЛУЧАЙ: Ручное получение хэша для определенных веток.
+    # 3. СПЕЦИАЛЬНЫЙ СЛУЧАЙ: Ветки с именем релиза в формате openwrt-24.10-6.6 (ядро 6.6.95).
+    #    Хэш берём ТОЛЬКО со страницы kmods (формат 6.6.95-1-<32hex>). Snapshot-manifest даёт хэш
+    #    другого ядра → несовместимые kmod и "Hash changed" при каждой сборке.
     if [[ "$CLEAN_VER" == "openwrt-24.10-6.6" ]]; then
-        warn "Special branch '$CLEAN_VER' detected. Using kyarucloud mirror to get Vermagic."
-        # Адаптированная команда пользователя с curl. // User's command adapted for curl.
-        HASH_CMD='curl -s "https://immortalwrt.kyarucloud.moe/releases/24.10-SNAPSHOT/targets/mediatek/filogic/kmods/" | grep -oE "6\.6\.95-1-[0-9a-f]{32}" | head -n 1 | cut -d"-" -f3'
-        KERNEL_HASH=$(eval "$HASH_CMD")
-        log "Hash obtained from mirror: $KERNEL_HASH"
+        warn "Special branch '$CLEAN_VER' detected. Getting Vermagic from kmods page only (no snapshot manifest)."
+        KMODS_PATH="releases/24.10-SNAPSHOT/targets/${SRC_TARGET}/${SRC_SUBTARGET}/kmods/"
+        for BASE in "${IW_MIRRORS[@]}"; do
+            KMODS_URL="${BASE}/${KMODS_PATH}"
+            log "Trying kmods: $KMODS_URL"
+            KERNEL_HASH=$(curl -s --fail --connect-timeout 15 "$KMODS_URL" | grep -oE "6\.6\.95-1-[0-9a-f]{32}" | head -n 1 | cut -d"-" -f3)
+            if [[ "$KERNEL_HASH" =~ ^[0-9a-f]{32}$ ]]; then
+                log "Hash obtained from mirror: $KERNEL_HASH"; break
+            fi
+            KERNEL_HASH=""
+        done
+        if [ -z "$KERNEL_HASH" ]; then
+            warn "Kmods page did not return hash for 6.6.95. Vermagic Hack skipped for this branch."
+        fi
     fi
 
-    # 4. СТАНДАРТНЫЙ СЛУЧАЙ: Если хэш не был получен ранее, скачиваем манифест.
-    if [ -z "$KERNEL_HASH" ]; then
+    # 4. СТАНДАРТНЫЙ СЛУЧАЙ: Если хэш не был получен ранее, скачиваем манифест (релиз или snapshot).
+    #    Для openwrt-24.10-6.6 НЕ используем манифест — только kmods (блок 3); иначе подставится чужой snapshot-хэш.
+    if [ -z "$KERNEL_HASH" ] && [[ "$CLEAN_VER" != "openwrt-24.10-6.6" ]]; then
         log "Target version: $CLEAN_VER ($SRC_TARGET / $SRC_SUBTARGET)" # Целевая версия...
-        MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
-        
-        log "Downloading manifest from: $MANIFEST_URL"
-        MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
-        
-        # Если релиз не найден (404), пробуем fallback на SNAPSHOTS
-        if [ -z "$MANIFEST_DATA" ]; then
-            warn "Release manifest not found. Trying snapshots..."
-            MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+        MANIFEST_DATA=""
+
+        if [[ "$DISTRO_NAME" == "immortalwrt" ]] && [[ -n "${IW_MIRRORS+x}" ]]; then
+            # ImmortalWrt: пробуем зеркала по порядку (PKU → Official → KyaruCloud)
+            for BASE in "${IW_MIRRORS[@]}"; do
+                MANIFEST_URL="${BASE}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+                log "Trying manifest: $MANIFEST_URL"
+                MANIFEST_DATA=$(curl -s --fail --connect-timeout 15 "$MANIFEST_URL")
+                [ -n "$MANIFEST_DATA" ] && break
+            done
+            if [ -z "$MANIFEST_DATA" ]; then
+                warn "Release manifest not found. Trying snapshots on mirrors..."
+                for BASE in "${IW_MIRRORS[@]}"; do
+                    MANIFEST_URL="${BASE}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+                    MANIFEST_DATA=$(curl -s --fail --connect-timeout 15 "$MANIFEST_URL")
+                    [ -n "$MANIFEST_DATA" ] && break
+                done
+            fi
+        else
+            # OpenWrt или один URL
+            MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/releases/${CLEAN_VER}/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${CLEAN_VER}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+            log "Downloading manifest from: $MANIFEST_URL"
             MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+            if [ -z "$MANIFEST_DATA" ]; then
+                warn "Release manifest not found. Trying snapshots..."
+                MANIFEST_URL="https://${DOWNLOAD_DOMAIN}/snapshots/targets/${SRC_TARGET}/${SRC_SUBTARGET}/${DISTRO_NAME}-${SRC_TARGET}-${SRC_SUBTARGET}.manifest"
+                MANIFEST_DATA=$(curl -s --fail "$MANIFEST_URL")
+            fi
         fi
 
         if [ -n "$MANIFEST_DATA" ]; then
             # Извлекаем хэш ядра (vermagic). // Extract kernel hash.
             KERNEL_HASH=$(echo "$MANIFEST_DATA" | grep -m 1 '^kernel - ' | grep -oE '[0-9a-f]{32}' | head -n 1)
         else
-            warn "Manifest not found ($MANIFEST_URL)." # Манифест не найден.
+            warn "Manifest not found on any mirror." # Манифест не найден.
             err "Manifest still not found! Vermagic Hack will be skipped." # Манифест не найден.
         fi
     fi

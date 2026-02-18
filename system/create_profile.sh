@@ -3,7 +3,7 @@
 # file: system/create_profile.sh
 # =========================================================
 #  OpenWrt/ImmortalWrt Universal Profile Creator
-#  Bash Version 2.28 (JSON Fix + Sync)
+#  Bash Version 2.30 (Mirrors fix)
 # =========================================================
 
 # --- ЦВЕТА ---
@@ -264,9 +264,14 @@ while true; do
             if [ -n "$ib_file" ]; then
                 IB_URL="${FINAL_URL}${ib_file}"
                 if [ "$SOURCE" == "ImmortalWrt" ]; then
-                    echo -e "${C_YEL}${L[Step6_Mirror]}${C_RST}\n 1. Official\n 2. KyaruCloud (CDN)"
-                    read -p "Choice [2]: " m_sel
-                    [ "$m_sel" == "1" ] || IB_URL="${IB_URL/downloads.immortalwrt.org/immortalwrt.kyarucloud.moe}"
+                    echo -e "${C_YEL}${L[Step6_Mirror]}${C_RST}\n 1. PKU (mirrors.pku.edu.cn)\n 2. SJTU (mirrors.sjtug.sjtu.edu.cn)\n 3. Official\n 4. KyaruCloud (CDN)"
+                    read -p "Choice (1-4) [1]: " m_sel
+                    case "${m_sel:-1}" in
+                        2) IB_URL="${IB_URL/downloads.immortalwrt.org/mirrors.sjtug.sjtu.edu.cn/immortalwrt}" ;;
+                        3) ;; # Official — не меняем
+                        4) IB_URL="${IB_URL/downloads.immortalwrt.org/immortalwrt.kyarucloud.moe}" ;;
+                        *) IB_URL="${IB_URL/downloads.immortalwrt.org/mirrors.pku.edu.cn/immortalwrt}" ;;
+                    esac
                 fi
             else echo -e "${C_RED}${L[Step6_ErrIB]}${C_RST}"; read; ((STEP--)); continue; fi
 

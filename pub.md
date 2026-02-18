@@ -42,6 +42,18 @@
 - **Расширены правила `.gitattributes`.**  
   Добавлены явные правила `eol=lf` для `*.sh`, `*.yml`, `*.json`, `*.mdc`, `.dockerignore`; `eol=crlf` для `*.md`; явное правило для `profiles/personal.flag`.
 
+- **Docker в Linux: `run` → `up` (как в .bat).**  
+  В `_Builder.sh` сборка запускается через `docker compose up --build --force-recreate --remove-orphans` вместо `run --build --rm`. Имя контейнера теперь предсказуемое: `[project]_[service]_1`, совпадает с логикой очистки и с поведением Windows-версии.
+
+- **Исключение `.docker_tmp/` из Git.**  
+  В `.gitignore` добавлена папка `.docker_tmp/` (Docker runtime) — не попадает в репозиторий.
+
+- **Зеркала ImmortalWrt в сборке и мастерах.**  
+  В `hooks.sh` (Source Builder) для vermagic и манифестов используется список зеркал: PKU, SJTU, Official, KyaruCloud. Для ветки openwrt-24.10-6.6 хэш берётся только со страницы kmods, без подстановки snapshot-manifest. В `create_profile.ps1` и `create_profile.sh` при выборе ImmortalWrt доступны четыре источника загрузки IB: 1. PKU (по умолчанию), 2. SJTU, 3. Official, 4. KyaruCloud.
+
+- **Чтение профиля в `_Builder.sh` без CRLF.**  
+  При разборе `target_var` из профиля к значению применяется `tr -d '\r'`, чтобы под Windows/WSL не ломалась проверка Legacy/SRC_BRANCH.
+
 ---
 
 ## English
@@ -80,6 +92,18 @@
 
 - **Expanded `.gitattributes` rules.**  
   Explicit `eol=lf` rules added for `*.sh`, `*.yml`, `*.json`, `*.mdc`, `.dockerignore`; `eol=crlf` for `*.md`; explicit rule for `profiles/personal.flag`.
+
+- **Docker on Linux: `run` → `up` (same as .bat).**  
+  `_Builder.sh` now uses `docker compose up --build --force-recreate --remove-orphans` instead of `run --build --rm`. Container names are predictable: `[project]_[service]_1`, matching cleanup logic and Windows behaviour.
+
+- **`.docker_tmp/` ignored by Git.**  
+  `.gitignore` now includes `.docker_tmp/` (Docker runtime) so it is not tracked.
+
+- **ImmortalWrt mirrors in build and wizards.**  
+  In `hooks.sh` (Source Builder), vermagic and manifest fetching use mirrors: PKU, SJTU, Official, KyaruCloud. For branch openwrt-24.10-6.6 the hash is taken only from the kmods page, without snapshot-manifest fallback. In `create_profile.ps1` and `create_profile.sh`, when choosing ImmortalWrt, four ImageBuilder sources are available: 1. PKU (default), 2. SJTU, 3. Official, 4. KyaruCloud.
+
+- **Profile parsing in `_Builder.sh` without CRLF.**  
+  When reading `target_var` from the profile, `tr -d '\r'` is applied so Legacy/SRC_BRANCH checks work correctly under Windows/WSL.
 
 ---
 

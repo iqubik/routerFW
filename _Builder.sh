@@ -497,7 +497,7 @@ build_routine() {
     
     [[ "$BUILD_MODE" == "IMAGE" ]] && target_var="IMAGEBUILDER_URL" || target_var="SRC_BRANCH"
     
-    local target_val=$(grep "$target_var=" "profiles/$conf_file" | cut -d'"' -f2)
+    local target_val=$(grep "$target_var=" "profiles/$conf_file" | cut -d'"' -f2 | tr -d '\r')
     [ -z "$target_val" ] && { echo -e "${C_ERR}[SKIP] $target_var not found${C_RST}"; return; }
 
     # Строгая проверка Legacy, как в BAT файле
@@ -542,8 +542,8 @@ build_routine() {
     # 3. Пауза (важно для Windows/WSL)
     sleep 2
 
-    # 4. Запуск (--build гарантирует свежий образ с актуальными CA-сертификатами)
-    $C_EXE -f "$comp_file" -p "$proj_name" run --build --rm --quiet-pull "$service"
+    # 4. Запуск (up, как в .bat: контейнер [project]_[service]_1; --build — свежий образ с CA)
+    $C_EXE -f "$comp_file" -p "$proj_name" up --build --force-recreate --remove-orphans "$service"
     # === ВАЖНО: ЗАПОМИНАЕМ РЕЗУЛЬТАТ СБОРКИ ===
     local build_status=$?
 

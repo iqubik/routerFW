@@ -12,3 +12,6 @@
 /bck/
 /reverse/
 debug.md
+
+# Docker runtime
+.docker_tmp/
