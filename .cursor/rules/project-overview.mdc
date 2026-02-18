@@ -6,7 +6,7 @@ alwaysApply: true
 # routerFW — OpenWrtFW Builder
 
 Cross-platform framework for building custom OpenWrt firmware via Docker.
-Version: 4.42 (_Builder.bat + _Builder.sh). License: GPL-3.0. Author: iqubik.
+Version: 4.43 (_Builder.bat + _Builder.sh). License: GPL-3.0. Author: iqubik.
 Remote: https://github.com/iqubik/routerFW.git, branch: main.
 
 ## Two Build Modes

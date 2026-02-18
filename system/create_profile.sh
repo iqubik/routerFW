@@ -36,7 +36,7 @@ else Lang="$DetectedLang"; fi
 # --- СЛОВАРЬ ---
 declare -A L
 if [ "$Lang" == "RU" ]; then
-    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.28 UX++)"
+    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.30 UX++)"
     L[StructureLabel]="СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:"
     L[PathLabel]="ПУТЬ: "
     L[PromptSelect]="Выберите номер"
@@ -63,7 +63,7 @@ if [ "$Lang" == "RU" ]; then
     L[Step6_Saved]="Конфиг успешно сохранен:"
     L[FinalAction]="Нажмите Enter для создания нового профиля или 'Q' для выхода..."
 else
-    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.28 UX+)"
+    L[HeaderTitle]="UNIVERSAL Profile Creator (v2.30 UX+)"
     L[StructureLabel]="TYPICAL FIRMWARE FILENAME STRUCTURE:"
     L[PathLabel]="PATH: "
     L[PromptSelect]="Select number"

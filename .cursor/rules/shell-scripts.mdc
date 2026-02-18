@@ -9,9 +9,9 @@ alwaysApply: false
 ## Style
 
 - Shebang: `#!/bin/bash`
-- Header comment: `# file: <relative_path> v<version>`
+- Header comment: `# file: <relative_path>` (version suffix optional, mandatory only for system builders)
 - Comments in Russian (primary) or English — match surrounding context
-- ANSI color codes via variables: `GREEN`, `YELLOW`, `RED`, `CYAN`, `NC` (No Color)
+- ANSI color codes via variables: `C_VAL`, `C_ERR`, `C_KEY`, `C_LBL`, `C_GRY`, `C_RST`, `C_OK` (alias of C_VAL)
 - Logging functions: `log()`, `warn()`, `error()` with colored `[INFO]`, `[WARN]`, `[FATAL]` prefixes
 - Use `set -e` for fail-fast in builder scripts
 
@@ -24,10 +24,10 @@ SYS_LANG="EN"  # or "RU", set by detection logic
 FORCE_LANG="AUTO"  # AUTO | RU | EN override
 ```
 
-Dictionary is loaded from external `.env` files (`system/lang/{ru,en}.sh.env`).
-Format: `KEY="${C_VAL}value${C_RST}"` (double-quoted `.env`, bash-compatible).
-Loader: `source "$LANG_FILE"` — bash natively expands `${C_*}` color variables.
-`${SYS_LANG,,}` lowercases the lang code for filename matching. Fallback to `en.sh.env` if file missing.
+Dictionary is loaded from unified `.env` files (`system/lang/ru.env` / `system/lang/en.env`).
+Format: `KEY={C_VAL}value{C_RST}` — neutral pseudo-format, no quotes, `{C_*}` placeholders.
+Loader: `load_lang()` function — `while read` loop + `${val//\{C_VAL\}/$C_VAL}` substitutions, `printf -v` to set globals.
+`${SYS_LANG,,}` lowercases the lang code for filename matching. Fallback to `en.env` if file missing.
 
 ## Key Variables
 

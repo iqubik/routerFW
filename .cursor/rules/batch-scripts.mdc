@@ -11,7 +11,7 @@ alwaysApply: false
 - Header: `@echo off` then `rem file: <name>`
 - `setlocal enabledelayedexpansion` for variable expansion in blocks
 - Console: `chcp 65001 >nul` (UTF-8), `mode con: cols=120 lines=40`
-- ANSI colors via ESC codes: `C_KEY`, `C_LBL`, `C_GRY`, `C_VAL`, `C_ERR`, `C_RST`
+- ANSI colors via ESC codes: `C_KEY`, `C_LBL`, `C_GRY`, `C_VAL`, `C_ERR`, `C_RST`, `C_OK` (alias of C_VAL)
 
 ## Bilingual Pattern
 
@@ -21,9 +21,9 @@ Same weighted language detection as `.sh` but uses Windows-specific checks:
 - PowerShell: `Get-Culture`, `Get-WinUserLanguageList`
 - Console codepage: CP866 = Russian
 
-Dictionary is loaded from external `.env` files (`system/lang/{RU,EN}.bat.env`).
-Format: `KEY=%C_VAL%value%C_RST%` (standard `.env`, no `set`).
-Loader: `for /f "usebackq eol=# tokens=* delims=" %%a in ("%LANG_FILE%") do call set "%%a"` — `call set` gives double expansion for `%C_*%` color variables. Fallback to EN if file missing.
+Dictionary is loaded from unified `.env` files (`system/lang/RU.env` / `system/lang/en.env`).
+Format: `KEY={C_VAL}value{C_RST}` — neutral pseudo-format, no quotes, `{C_*}` placeholders.
+Loader: custom `for /f "usebackq eol=# tokens=1,* delims==" %%k` block — expands `{C_*}` to ANSI codes via `!_v:{C_VAL}=%C_VAL%!` (early+late expansion). Fallback to `en.env` if file missing.
 
 ## Feature Parity
 

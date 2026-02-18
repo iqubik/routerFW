@@ -1,7 +1,8 @@
 #!/bin/bash
 # file: scripts/hooks.sh
 # ======================================================================================
-#  Универсальный скрипт-хук для Source Builder v1.6 // Universal hook script for Source Builder
+#  Универсальный скрипт-хук для Source Builder // Universal hook script for Source Builder
+HOOKS_VERSION="1.7"
 # ======================================================================================
 #
 #  ИЗМЕНЕНИЕ: Комментарии внутри скрипта были улучшены для максимальной ясности.
@@ -48,7 +49,7 @@ export GIT_TERMINAL_PROMPT=0
 log() { echo -e "${CYAN}[HOOK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[HOOK] WARNING: $1${NC}"; }
 err()  { echo -e "${RED}[HOOK] ERROR: $1${NC}"; }
-log ">>> Running hooks.sh script (Universal v1.5.1)..."
+log ">>> Running hooks.sh script (Universal v${HOOKS_VERSION})..."
 
 # ======================================================================================
 #  БЛОК 1: ДЕМОНСТРАЦИЯ МОДИФИКАЦИИ ФАЙЛОВ // BLOCK 1: FILE MODIFICATION DEMO

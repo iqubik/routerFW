@@ -47,7 +47,7 @@ if ($FORCE_LANG -ne "AUTO") {
 # --- СЛОВАРЬ (DICTIONARY) ---
 $L = @{}
 if ($Lang -eq "RU") {
-    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.28 UX++)"
+    $L.HeaderTitle    = "UNIVERSAL Profile Creator (v2.30 UX++)"
     $L.StructureLabel = "СТРУКТУРА ТИПОВОГО ИМЕНИ ПРОШИВКИ:"
     $L.PathLabel      = "ПУТЬ: "
     $L.PromptSelect   = "Выберите номер"
