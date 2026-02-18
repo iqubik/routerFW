@@ -6,18 +6,13 @@ cd "$PROJECT_DIR"
 
 VER_NUM="4.41"
 
-# Выключаем мигающий курсор
-tput civis 2>/dev/null
-
-# Функция восстановления курсора и очистки при прерывании (Ctrl+C)
+# Функция очистки при прерывании (Ctrl+C)
 cleanup_exit() {
     echo -e "\n${C_ERR}[INTERRUPT]${C_RST} Cleaning up running containers..."
     # Stop all running build containers to prevent orphans
     release_locks "ALL"
     # Remove the temporary Docker config
     rm -rf "$PROJECT_DIR/.docker_tmp" 
-    # Restore cursor visibility
-    tput cnorm
     echo -e "${C_RST}"
     exit 1 # Exit with an error code to indicate abnormal termination
 }

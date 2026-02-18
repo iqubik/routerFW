@@ -6,7 +6,7 @@ alwaysApply: true
 # routerFW — OpenWrtFW Builder
 
 Cross-platform framework for building custom OpenWrt firmware via Docker.
-Version: 4.41 (_Builder.bat). License: GPL-3.0. Author: iqubik.
+Version: 4.41 (_Builder.bat + _Builder.sh). License: GPL-3.0. Author: iqubik.
 Remote: https://github.com/iqubik/routerFW.git, branch: main.
 
 ## Two Build Modes
@@ -51,7 +51,18 @@ Image Builder variables use `IMAGE_` prefix: `IMAGE_PKGS`, `IMAGE_EXTRA_NAME`.
 Shared (both modes): `ROOTFS_SIZE`, `KERNEL_SIZE`.
 Source Builder variables use `SRC_` prefix: `SRC_REPO`, `SRC_BRANCH`, `SRC_TARGET`, `SRC_SUBTARGET`, `SRC_ARCH`, `SRC_CORES`, `SRC_PACKAGES`, `SRC_EXTRA_CONFIG`.
 
-`_Builder.bat` auto-migrates old names (`PKGS` → `IMAGE_PKGS`, `EXTRA_IMAGE_NAME` → `IMAGE_EXTRA_NAME`) in all profiles on every scan (idempotent). `ib_builder.sh` has fallback compatibility for unmigrated profiles.
+`_Builder.bat` and `_Builder.sh` both auto-migrate old names (`PKGS` → `IMAGE_PKGS`, `EXTRA_IMAGE_NAME` → `IMAGE_EXTRA_NAME`) in all profiles on startup (idempotent `migrate_profile_vars()` in `.sh`, PowerShell block in `.bat`). `ib_builder.sh` also has fallback compatibility (`${IMAGE_PKGS:-$PKGS}`) for any unmigrated profiles.
+
+`create_profile.sh` and `create_profile.ps1` both generate profiles with correct `IMAGE_PKGS` / `IMAGE_EXTRA_NAME` variable names. Fantastic-packages URLs in the template include the `/packages/` path segment and use the dynamic architecture variable (e.g. `$ARCH` in `.sh`, `$arch` in `.ps1`).
+
+After a successful Source Builder run, both `.bat` and `.sh` detect `*imagebuilder*.tar.zst` in the output folder and offer to update `IMAGEBUILDER_URL` in the profile (enables immediate use as local Image Builder).
+
+## _Builder.sh — Linux-специфичные возможности (отсутствуют в .bat)
+
+- **Параллельная массовая сборка** — команда `A` запускает все профили одновременно в фоне (`&`), пишет раздельные лог-файлы с timestamp в `firmware_output/logs_<ts>/`, отображает спиннер с именами активных сборок и затраченным временем каждой
+- **Docker Credentials Fix** — на старте создаёт временный `DOCKER_CONFIG` без `credsStore`, чтобы избежать конфликтов с системным credential manager на Linux/WSL
+- **Ctrl+C handler** — `trap cleanup_exit SIGINT SIGTERM`: принудительно останавливает все контейнеры (`release_locks "ALL"`), удаляет временные файлы, восстанавливает видимость курсора (`tput cnorm`)
+- **Ghost-файлы WSL/NTFS** — при инициализации папок профилей обрабатывает "призрачные" файлы, которые NTFS показывает в WSL
 
 ## Line Endings & Encoding
 
