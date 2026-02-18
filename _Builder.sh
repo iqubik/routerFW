@@ -80,9 +80,26 @@ if [ "$FORCE_LANG" == "RU" ]; then SYS_LANG="RU"; fi
 if [ "$FORCE_LANG" == "EN" ]; then SYS_LANG="EN"; fi
 
 # === СЛОВАРЬ (DICTIONARY) ===
-LANG_FILE="system/lang/${SYS_LANG,,}.sh.env"
-[ ! -f "$LANG_FILE" ] && LANG_FILE="system/lang/en.sh.env"
-source "$LANG_FILE"
+load_lang() {
+    local line key val
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        key="${line%%=*}"
+        val="${line#*=}"
+        val="${val//\{C_VAL\}/$C_VAL}"
+        val="${val//\{C_RST\}/$C_RST}"
+        val="${val//\{C_ERR\}/$C_ERR}"
+        val="${val//\{C_GRY\}/$C_GRY}"
+        val="${val//\{C_LBL\}/$C_LBL}"
+        val="${val//\{C_KEY\}/$C_KEY}"
+        val="${val//\{C_OK\}/$C_OK}"
+        printf -v "$key" '%s' "$val"
+    done < "$1"
+}
+
+LANG_FILE="system/lang/${SYS_LANG,,}.env"
+[ ! -f "$LANG_FILE" ] && LANG_FILE="system/lang/en.env"
+load_lang "$LANG_FILE"
 
 # Language detector output — технический вывод детектора, хардкод допустим
 echo -e "${C_LBL}[INIT]${C_RST} Language detector (Weighted Detection)..."
@@ -153,7 +170,7 @@ echo -e "${L_INIT_USING} $C_EXE"
 
 # Корень
 PROJECT_DIR=$(pwd)
-echo -e "${L_INIT_ROOT} ${C_VAL}${PROJECT_DIR}${C_RST}"
+echo -e "  ${C_GRY}-${C_RST} ${L_INIT_ROOT}: ${C_VAL}${PROJECT_DIR}${C_RST}"
 
 echo -e "$L_INIT_NET"
 docker network prune --force >/dev/null 2>&1
@@ -493,7 +510,7 @@ cleanup_logic() {
     local type="$1"
     local p_id="$2"
 
-    printf "  ${L_VOL_SEARCH_PROF}\n" "${type}" "${p_id}"
+    echo -e "  ${C_GRY}${L_VOL_SEARCH_PROF} ${p_id}${C_RST}"
 
     if [ "$p_id" == "ALL" ]; then
         # FIX: Ищем тома, заканчивающиеся на _type, независимо от префикса (build_ или srcbuild_)
@@ -940,12 +957,12 @@ while true; do
                 fi
 
                 # Вывод отчета
-                echo -e "${L_ST_CONF} ${C_VAL}profiles/$sel_conf${C_RST}"
-                echo -e "${L_ST_OVER} $stat_files"
-                echo -e "${L_ST_IPK} $stat_pkgs"
-                echo -e "${L_ST_SRC} $stat_srcs"
-                echo -e "${L_ST_OUTS} $stat_out_s"
-                echo -e "${L_ST_OUTI} $stat_out_i"
+                echo -e "  - ${L_ST_CONF}: ${C_VAL}profiles/$sel_conf${C_RST}"
+                echo -e "  - ${L_ST_OVER}: $stat_files"
+                echo -e "  - ${L_ST_IPK}:  $stat_pkgs"
+                echo -e "  - ${L_ST_SRC}:  $stat_srcs"
+                echo -e "  - ${L_ST_OUTS}: $stat_out_s"
+                echo -e "  - ${L_ST_OUTI}: $stat_out_i"
                 echo -e "${C_GRY}${L_SEPARATOR}${C_RST}"
                 echo ""
                 

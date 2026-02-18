@@ -2,8 +2,7 @@
 *.bat -text
 *.ps1 -text
 *.cmd -text
-*.bat.env -text
-*.sh.env  text eol=lf
+system/lang/*.env text eol=lf
 
 # Windows-документы: CRLF
 *.md  text eol=crlf

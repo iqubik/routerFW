@@ -31,6 +31,9 @@ set "C_VAL=%ESC%[92m"
 :: Bright Yellow (Ярко-желтый): Для клавиш [A], [W] и важных акцентов
 set "C_KEY=%ESC%[93m"
 
+:: Alias (псевдоним C_VAL): Для успешных операций
+set "C_OK=%C_VAL%"
+
 :: === ЯЗЫКОВОЙ МОДУЛЬ ===
 :: ТУМБЛЕR: AUTO (детект), RU (всегда рус), EN (всегда англ)
 set "FORCE_LANG=AUTO"
@@ -64,9 +67,19 @@ if %ru_score% GEQ 5 set "SYS_LANG=RU"
 if /i "%FORCE_LANG%"=="RU" set "SYS_LANG=RU"
 if /i "%FORCE_LANG%"=="EN" set "SYS_LANG=EN"
 :: === СЛОВАРЬ (DICTIONARY) ===
-set "LANG_FILE=system\lang\%SYS_LANG%.bat.env"
-if not exist "%LANG_FILE%" set "LANG_FILE=system\lang\EN.bat.env"
-for /f "usebackq eol=# tokens=* delims=" %%a in ("%LANG_FILE%") do call set "%%a"
+set "LANG_FILE=system\lang\%SYS_LANG%.env"
+if not exist "%LANG_FILE%" set "LANG_FILE=system\lang\en.env"
+for /f "usebackq eol=# tokens=1,* delims==" %%k in ("%LANG_FILE%") do (
+    set "_v=%%l"
+    set "_v=!_v:{C_VAL}=%C_VAL%!"
+    set "_v=!_v:{C_RST}=%C_RST%!"
+    set "_v=!_v:{C_ERR}=%C_ERR%!"
+    set "_v=!_v:{C_GRY}=%C_GRY%!"
+    set "_v=!_v:{C_LBL}=%C_LBL%!"
+    set "_v=!_v:{C_KEY}=%C_KEY%!"
+    set "_v=!_v:{C_OK}=%C_OK%!"
+    set "%%k=!_v!"
+)
 :: Финальный вывод вердикта
 if /i "%FORCE_LANG%"=="AUTO" (
     echo %C_LBL%[INIT]%C_RST% %L_VERDICT% %C_VAL%%L_LANG_NAME%%C_RST% (Score %ru_score%/10)
@@ -342,7 +355,7 @@ set "SEL_ID=!profile[%n_e%]:.conf=!"
 
 :: --- БЛОК ОТЛАДКИ / СОСТОЯНИЯ (DEBUG INFO) ---
 echo.
-echo %C_VAL%%L_ANALYSIS%: !SEL_ID!]%C_RST%
+echo %C_VAL%[%L_ANALYSIS%: !SEL_ID!]%C_RST%
 echo !L_SEPARATOR!
 :: Проверка наличия папок для отладки
 set "S_FILES=%C_ERR%%L_MISSING%%C_RST%"

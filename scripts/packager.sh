@@ -1,4 +1,5 @@
 #!/bin/sh
+# file: scripts/packager.sh
 # ==============================================================================
 #  OpenWrt Package Manifest Generator
 #  Version: v1.2

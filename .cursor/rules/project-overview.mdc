@@ -20,7 +20,7 @@ Remote: https://github.com/iqubik/routerFW.git, branch: main.
 |------|---------|
 | `_Builder.sh` / `_Builder.bat` | Main entry points (interactive menu, build orchestration) |
 | `system/` | Core build system (Dockerfiles, compose, builders, wizards) |
-| `system/lang/` | Localization dictionaries (`.bat.env` for Windows, `.sh.env` for Linux) |
+| `system/lang/` | Localization dictionaries (`ru.env`, `en.env` — unified pseudo-format) |
 | `scripts/` | Utilities (hooks.sh, diag.sh, packager.sh, upgrade.sh) |
 | `profiles/*.conf` | Build profile configurations |
 | `custom_files/<profile>/` | File overlay (maps to `/` in firmware) |
@@ -75,8 +75,9 @@ Governed by `.gitattributes`. System is fully normalised:
 
 | Type | EOL | Rule |
 |---|---|---|
-| `*.bat`, `*.ps1`, `*.cmd`, `*.bat.env` | CRLF | `-text` (stored as-is) |
-| `*.sh`, `*.sh.env`, `*.conf`, `*.yaml`, `Dockerfile` | LF | explicit `eol=lf` |
+| `*.bat`, `*.ps1`, `*.cmd` | CRLF | `-text` (stored as-is) |
+| `*.sh`, `*.conf`, `*.yaml`, `Dockerfile` | LF | explicit `eol=lf` |
+| `system/lang/*.env` | LF | explicit `eol=lf` (unified pseudo-format, safe for both bat and sh) |
 | `docs/*.md`, `README*.md`, `LICENSE*`, `pub.md` | CRLF | Windows documents |
 | `.cursor/rules/*.mdc`, `*.json`, `*.yml`, `.gitignore`, `.dockerignore` | LF | config/system files |
 | `*.zip`, `*.zst`, `*.tar`, `*.gz`, `*.bin`, `*.7z` | binary | Git LFS, no EOL processing |
@@ -87,49 +88,72 @@ Governed by `.gitattributes`. System is fully normalised:
 
 ## Localization Dictionary System
 
-Dictionaries are stored in **external `.env` files** under `system/lang/`, loaded at startup by each builder:
+Dictionaries are stored in **two universal `.env` files** under `system/lang/`, loaded at startup by both builders via custom loaders that substitute color placeholders on the fly:
 
 | File | Format | Loader |
 |---|---|---|
-| `system/lang/ru.bat.env` | `KEY=%C_VAL%value%C_RST%` (no quotes, no `set`) | `for /f ... do call set "%%a"` in `_Builder.bat` |
-| `system/lang/en.bat.env` | same | same |
-| `system/lang/ru.sh.env` | `KEY="${C_VAL}value${C_RST}"` (double-quoted) | `source "$LANG_FILE"` in `_Builder.sh` |
-| `system/lang/en.sh.env` | same | same |
+| `system/lang/ru.env` | `KEY={C_VAL}value{C_RST}` (no quotes, neutral `{C_*}` placeholders) | custom `for /f` block in `_Builder.bat` |
+| `system/lang/en.env` | same | `load_lang()` function in `_Builder.sh` |
 
-**Loader in `_Builder.bat`** (lines ~66-69):
+**Pseudo-format rules:**
+- Color placeholders: `{C_VAL}`, `{C_RST}`, `{C_ERR}`, `{C_GRY}`, `{C_LBL}`, `{C_KEY}`, `{C_OK}`
+- No quotes around values
+- `#` at line start — comment (ignored by both loaders)
+- Empty lines ignored by both loaders
+- `%s` in values is safe (no conflict with either loader)
+
+**Loader in `_Builder.bat`**:
 ```batch
-set "LANG_FILE=system\lang\%SYS_LANG%.bat.env"
-if not exist "%LANG_FILE%" set "LANG_FILE=system\lang\EN.bat.env"
-for /f "usebackq eol=# tokens=* delims=" %%a in ("%LANG_FILE%") do call set "%%a"
+set "LANG_FILE=system\lang\%SYS_LANG%.env"
+if not exist "%LANG_FILE%" set "LANG_FILE=system\lang\en.env"
+for /f "usebackq eol=# tokens=1,* delims==" %%k in ("%LANG_FILE%") do (
+    set "_v=%%l"
+    set "_v=!_v:{C_VAL}=%C_VAL%!"
+    set "_v=!_v:{C_RST}=%C_RST%!"
+    rem ... (аналогично для всех C_* плейсхолдеров) ...
+    set "%%k=!_v!"
+)
 ```
-`call set` provides double expansion: `%C_VAL%` etc. are resolved via `call`'s re-parse pass. `eol=#` enables `#`-comments in `.env` files.
+`%C_VAL%` — ранняя подстановка при парсинге блока `()`. `!_v:{C_VAL}=<ANSI>!` — отложенная замена строки в runtime. Требует `setlocal enabledelayedexpansion`.
 
-**Loader in `_Builder.sh`** (lines ~82-85):
+**Loader in `_Builder.sh`** — функция `load_lang()`:
 ```bash
-LANG_FILE="system/lang/${SYS_LANG,,}.sh.env"
-[ ! -f "$LANG_FILE" ] && LANG_FILE="system/lang/en.sh.env"
-source "$LANG_FILE"
+load_lang() {
+    local line key val
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        key="${line%%=*}"; val="${line#*=}"
+        val="${val//\{C_VAL\}/$C_VAL}"
+        rem ... (аналогично для всех C_* плейсхолдеров) ...
+        printf -v "$key" '%s' "$val"
+    done < "$1"
+}
+LANG_FILE="system/lang/${SYS_LANG,,}.env"
+[ ! -f "$LANG_FILE" ] && LANG_FILE="system/lang/en.env"
+load_lang "$LANG_FILE"
 ```
-`${SYS_LANG,,}` lowercases `RU`→`ru`, `EN`→`en`. `source` natively expands `${C_VAL}` etc.
+`${val//\{C_VAL\}/$C_VAL}` заменяет плейсхолдеры на ANSI-коды. `printf -v` устанавливает глобальную переменную без `eval`.
 
 **Fallback:** both loaders fall back to EN if the file for `SYS_LANG` is missing (future language support).
 
 **Prefixes:** `L_` — all user-facing strings. `H_` — table header labels (`H_PROF`, `H_ARCH`, `H_RES`).
 
-**Feature parity rule:** if a key exists in `.bat.env`, it should exist in `.sh.env` (and vice versa where applicable). The `.sh.env` files have extra keys for Linux-only features (parallel builds: `L_PARALLEL_BUILDS_START`, `L_LOG_*`, `L_ALL_BUILDS_*`, etc.).
+**Feature parity:** both platforms load the same files. Platform-only keys (e.g. `L_PARALLEL_BUILDS_START` for sh, `L_OPEN_EXPL` for bat) coexist in the unified file — each loader loads them all, but only the relevant builder uses them.
 
 **Key naming conventions:**
 - `L_SEPARATOR` / `L_SEPARATOR_EQ` — decorative line separators (`---` / `===`)
 - `L_KILL_CONTAINER` / `L_KILL_ORPHAN` — container kill messages
-- `L_ST_*` — profile analyzer label keys (`L_ST_CONF`, `L_ST_OVER`, `L_ST_IPK`, `L_ST_SRC`, `L_ST_OUTS`, `L_ST_OUTI`)
+- `L_ST_*` — profile analyzer label keys (`L_ST_CONF`, `L_ST_OVER`, `L_ST_IPK`, `L_ST_SRC`, `L_ST_OUTS`, `L_ST_OUTI`) — stored as plain text, formatting added in code
 - `L_ST_SUFFIX_*` — status suffixes for the analyzer (`(files/)`, `(ipk/)`, etc.)
 - `L_FOUND` / `L_MISSING` / `L_EMPTY` — status words in analyzer
 - `L_FINISHED` / `L_BUILD_FATAL` — build result messages (Source Builder)
 - `L_IB_UPDATE_PROMPT` — "Update profile? [y/N]" prompt after Source build
 - `L_IN_EDITOR` — "in editor..." / "в редакторе..." suffix
 - `L_BTN_MENUCONFIG` — "Menuconfig/mc" button label
+- `L_ANALYSIS` — plain text label, both builders wrap with color in code
+- `L_INIT_ROOT` — plain text label, both builders add `  - ` prefix and `: ` suffix in code
 
-**Adding a new language:** create `system/lang/xx.bat.env` and `system/lang/xx.sh.env` with the same set of keys, then extend the language detector to set `SYS_LANG=XX`. The loader fallback to EN handles missing files gracefully.
+**Adding a new language:** create `system/lang/xx.env` with the same pseudo-format, then extend the language detector to set `SYS_LANG=XX`. The loader fallback to EN handles missing files gracefully.
 
 **Bootstrap convention:** strings that run before the dictionary is loaded (Ctrl+C handler, language detector output, FORCE_LANG echo) are left as hardcoded English and marked with:
 ```bash

@@ -1,4 +1,5 @@
 #!/bin/sh
+# file: scripts/diag.sh
 # прямое выполнение на роутере: wget -qO- https://raw.githubusercontent.com/iqubik/routerFW/main/scripts/diag.sh | sh
 # ==============================================================================
 #  OpenWrt Universal Diagnostic Tool
