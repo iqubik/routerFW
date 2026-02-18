@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     OpenWrt/ImmortalWrt Universal Profile Creator.
     file: system\create_profile.ps1
@@ -451,10 +451,10 @@ COMMON_LIST="$finalCommonList"
 
 # === IMAGE BUILDER CONFIG
 IMAGEBUILDER_URL="$($GlobalState.IBUrl)"
-#CUSTOM_KEYS="https://fantastic-packages.github.io/releases/24.10/53ff2b6672243d28.pub"
-#CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/luci
-#src/gz fantastic_packages https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/packages
-#src/gz fantastic_special https://fantastic-packages.github.io/releases/24.10/packages/mipsel_24kc/special"
+#CUSTOM_KEYS="https://fantastic-packages.github.io/packages/releases/24.10/53ff2b6672243d28.pub"
+#CUSTOM_REPOS="src/gz fantastic_luci https://fantastic-packages.github.io/packages/releases/24.10/packages/$arch/luci
+#src/gz fantastic_packages https://fantastic-packages.github.io/packages/releases/24.10/packages/$arch/packages
+#src/gz fantastic_special https://fantastic-packages.github.io/packages/releases/24.10/packages/$arch/special"
 #DISABLED_SERVICES="transmission-daemon minidlna"
 PKGS="`$COMMON_LIST"
 #EXTRA_IMAGE_NAME="custom"
