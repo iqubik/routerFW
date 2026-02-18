@@ -1305,7 +1305,7 @@ while true; do
                     bash system/import_ipk.sh "$p_id" "$p_arch"
                 fi
             fi ;;
-        [Ww])
+        W)
             [ -f "system/create_profile.sh" ] && bash "system/create_profile.sh" || echo "$L_ERR_WIZ"
             read -p "Press enter..." ;;
         *)
