@@ -1,7 +1,7 @@
 @echo off
 rem file: _Builder.bat
 
-set "VER_NUM=4.40"
+set "VER_NUM=4.41"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту
@@ -484,6 +484,11 @@ echo    !C_GRY!─────────────────────�
 :: Очистка массива профилей
 for /F "tokens=1 delims==" %%a in ('set profile[ 2^>nul') do set "%%a="
 set "count=0"
+
+:: === PROFILE MIGRATION (Idempotent) ===
+:: Переименовывает PKGS -> IMAGE_PKGS и EXTRA_IMAGE_NAME -> IMAGE_EXTRA_NAME
+:: во всех профилях. Запускается при каждом сканировании, безопасно (без изменений если уже мигрировано).
+powershell -NoProfile -Command "Get-ChildItem 'profiles\*.conf' | ForEach-Object { $f=$_.FullName; $c=[IO.File]::ReadAllText($f); $changed=$false; if(($c -match '(?m)^PKGS=' -or $c -match '(?m)^#\s*PKGS=') -and $c -notmatch '(?m)^#?\s*IMAGE_PKGS='){ $c=$c -replace '(?m)^PKGS=','IMAGE_PKGS='; $c=$c -replace '(?m)^(#\s*)PKGS=','\${1}IMAGE_PKGS='; $c=$c -replace '\$PKGS\b','`$IMAGE_PKGS'; $changed=$true }; if(($c -match '(?m)^EXTRA_IMAGE_NAME=' -or $c -match '(?m)^#\s*EXTRA_IMAGE_NAME=') -and $c -notmatch '(?m)^#?\s*IMAGE_EXTRA_NAME='){ $c=$c -replace '(?m)^EXTRA_IMAGE_NAME=','IMAGE_EXTRA_NAME='; $c=$c -replace '(?m)^(#\s*)EXTRA_IMAGE_NAME=','\${1}IMAGE_EXTRA_NAME='; $changed=$true }; if($changed){ [IO.File]::WriteAllText($f,$c,[Text.UTF8Encoding]::new($false)) } }"
 
 :: 3. ЦИКЛ СКАНИРОВАНИЯ (С поддержкой словаря)
 echo    !C_LBL!!L_PROFILES!:!C_RST!

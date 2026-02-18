@@ -1,7 +1,7 @@
-# RouterFW — Релиз 4.40
+# RouterFW — Релиз 4.41
 
-**Версия:** 4.40  
-**Период изменений:** 12–18 февраля 2026 (от 4.32)
+**Версия:** 4.41  
+**Период изменений:** 18 февраля 2026 (от 4.40)
 
 ---
 
@@ -9,26 +9,17 @@
 
 ### Что нового
 
-- **Сборка прошивки из своего Image Builder.**  
-  Можно указать в профиле путь к уже собранному образу Image Builder на диске (например, после сборки из исходников). Не обязательно каждый раз качать его из интернета — сборка пойдёт из локального файла.
+- **Переименование переменных профиля Image Builder.**  
+  Переменные `PKGS` и `EXTRA_IMAGE_NAME` переименованы в `IMAGE_PKGS` и `IMAGE_EXTRA_NAME` для единообразия: теперь все переменные, относящиеся к Image Builder, имеют префикс `IMAGE_`, переменные Source Builder — `SRC_`, а общие (`ROOTFS_SIZE`, `KERNEL_SIZE`) остаются без префикса.
 
-- **Автообновление профиля после сборки из исходников.**  
-  После успешной сборки прошивки из исходников (режим SOURCE) программа может сама предложить подставить в профиль путь к только что собранному Image Builder. Так следующий запуск сборки «из коробки» уже использует ваш локальный образ.
+- **Автоматическая миграция профилей.**  
+  При каждом запуске `_Builder.bat` все `.conf`-файлы в папке `profiles/` автоматически проверяются и при необходимости обновляются на новые имена переменных. Миграция идемпотентна — уже обновлённые профили не трогаются. Все существующие профили репозитория уже мигрированы.
 
-- **Быстрый запуск Menuconfig.**  
-  При повторном открытии настройки ядра (menuconfig) проверяются права доступа к файлам. Если всё в порядке, лишняя подготовка не выполняется — вход в menuconfig становится быстрее.
+- **Обратная совместимость.**  
+  `ib_builder.sh` поддерживает оба имени переменных: если профиль содержит старые `PKGS` / `EXTRA_IMAGE_NAME` (например, написан вручную), сборка пройдёт без ошибок.
 
-- **Корректные ссылки на доп. репозитории в новом профиле.**  
-  При создании профиля через мастер (create_profile) в шаблоне подставляется правильная архитектура вашего устройства для примеров доп. репозиториев (fantastic-packages и др.), а не одна и та же для всех.
-
-- **Удобный список собранных файлов.**  
-  После сборки (и через Image Builder, и из исходников) в консоли выводится список созданных файлов прошивки и их расположение — проще найти нужный образ.
-
-- **Сборка из исходников на новых компиляторах.**  
-  Добавлено исправление для сборки на системах с GCC 13 и новее (ошибка с библиотекой libxcrypt). Сборка из исходников должна проходить без лишних сбоев.
-
-- **Стабильность и мелкие исправления.**  
-  Улучшена обработка ошибок при распаковке архивов, исправлены добавление сторонних репозиториев и применение своих патчей при сборке из исходников. Обновлены скрипты для Windows и Linux и актуальные архивы дистрибутива.
+- **Обновлены шаблон профиля и документация.**  
+  Мастер создания профилей (`create_profile.ps1`) теперь генерирует профили с новыми именами. Документация в `docs/` и правила Cursor обновлены.
 
 ---
 
@@ -36,27 +27,18 @@
 
 ### What's New
 
-- **Build firmware using your own Image Builder.**  
-  You can set in the profile a path to an Image Builder archive stored on your disk (e.g. after a source build). You no longer have to download it every time — the build will use your local file.
+- **Profile variable renaming for Image Builder.**  
+  Variables `PKGS` and `EXTRA_IMAGE_NAME` have been renamed to `IMAGE_PKGS` and `IMAGE_EXTRA_NAME` for consistency: all Image Builder variables now use the `IMAGE_` prefix, Source Builder variables use `SRC_`, and shared variables (`ROOTFS_SIZE`, `KERNEL_SIZE`) remain unprefixed.
 
-- **Auto-update profile after source build.**  
-  After a successful source build (SOURCE mode), the tool can offer to update the profile with the path to the newly built Image Builder. The next build will then use that local image by default.
+- **Automatic profile migration.**  
+  Every time `_Builder.bat` runs, all `.conf` files in the `profiles/` folder are automatically checked and updated to the new variable names if needed. Migration is idempotent — already updated profiles are not touched. All existing profiles in the repository have been migrated.
 
-- **Faster Menuconfig startup.**  
-  When opening kernel configuration (menuconfig) again, file permissions are checked. If everything is already correct, the extra setup is skipped — menuconfig starts faster.
+- **Backward compatibility.**  
+  `ib_builder.sh` supports both variable names: if a profile still contains the old `PKGS` / `EXTRA_IMAGE_NAME` (e.g. written manually), the build will complete without errors.
 
-- **Correct extra-repo links in new profiles.**  
-  When creating a profile with the wizard (create_profile), the template uses the correct architecture for your device in the example extra repositories (e.g. fantastic-packages), instead of a single hardcoded one for all.
-
-- **Clear list of built files.**  
-  After each build (both Image Builder and source), the console shows a list of created firmware files and where they are — easier to find the image you need.
-
-- **Source builds on newer compilers.**  
-  A fix was added for building on systems with GCC 13+ (libxcrypt-related error). Source builds should complete without extra failures.
-
-- **Stability and small fixes.**  
-  Better error handling when unpacking archives; fixed adding custom repositories and applying custom patches in source builds. Updated Windows and Linux scripts and current distribution archives.
+- **Updated profile template and documentation.**  
+  The profile creation wizard (`create_profile.ps1`) now generates profiles with the new names. Documentation in `docs/` and Cursor rules have been updated.
 
 ---
 
-*Release notes for GitHub — user-oriented summary of changes since 4.32.*
+*Release notes for GitHub — user-oriented summary of changes since 4.40.*

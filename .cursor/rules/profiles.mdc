@@ -19,10 +19,10 @@ TARGET_PROFILE="openwrt_device_profile_id"
 
 ```bash
 IMAGEBUILDER_URL="https://..."          # URL to ImageBuilder SDK archive (.tar.zst)
-EXTRA_IMAGE_NAME="tag"                  # Appended to output filenames
+IMAGE_EXTRA_NAME="tag"                  # Appended to output filenames (was: EXTRA_IMAGE_NAME)
 CUSTOM_KEYS="https://.../key.pub"       # Custom repo signing keys
 CUSTOM_REPOS="src/gz name https://..."  # Custom package repositories (multiline)
-PKGS="package1 package2 -excluded"      # Final package list for Image Builder
+IMAGE_PKGS="package1 package2 -excluded" # Final package list for Image Builder (was: PKGS)
 DISABLED_SERVICES="svc1 svc2"           # Services to disable
 ```
 
@@ -55,5 +55,5 @@ BASE_PKGS="pkg1 pkg2..."
 NET_PKGS="luci-proto-wireguard..."
 MODEM_PKGS="kmod-usb-serial-option..."
 MUNIS_PKGS="-pkg_to_exclude..."         # Exclusions with dash prefix
-PKGS="$COMMON_LIST $SRC_PACKAGES"
+IMAGE_PKGS="$COMMON_LIST $SRC_PACKAGES" # Final list passed to Image Builder
 ```

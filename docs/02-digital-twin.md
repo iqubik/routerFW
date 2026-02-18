@@ -65,7 +65,7 @@ COMMON_LIST="luci uhttpd htop -wpad-basic wpad-mbedtls"
 
 # БЛОК IMAGE BUILDER (Быстрая сборка из готовых пакетов)
 IMAGEBUILDER_URL="https://downloads.openwrt.org/..."
-PKGS="$COMMON_LIST" # Можно добавить или исключить пакеты через '-'
+IMAGE_PKGS="$COMMON_LIST" # Можно добавить или исключить пакеты через '-'
 
 # БЛОК SOURCE BUILDER (Полная компиляция из исходников)
 SRC_REPO="https://github.com/openwrt/openwrt.git"

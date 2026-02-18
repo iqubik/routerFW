@@ -23,6 +23,10 @@ log "Normalizing config..."
 cat "/profiles/$CONF_FILE" | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > /tmp/clean_config.env
 source /tmp/clean_config.env
 
+# Обратная совместимость: поддержка старых имён переменных в профилях
+PKGS="${IMAGE_PKGS:-$PKGS}"
+EXTRA_IMAGE_NAME="${IMAGE_EXTRA_NAME:-$EXTRA_IMAGE_NAME}"
+
 [ -z "$IMAGEBUILDER_URL" ] && error "IMAGEBUILDER_URL is empty! Config parse failed."
 
 # /output теперь монтирует весь firmware_output; путь записи — imagebuilder/$p_id

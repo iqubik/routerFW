@@ -15,7 +15,7 @@ alwaysApply: false
 4. Apply file overlay from `/overlay_files`
 5. Configure custom repos/keys if defined
 6. Modify partition sizes (ROOTFS_SIZE, KERNEL_SIZE) if set
-7. Run `make image` with assembled PACKAGES list
+7. Run `make image` with `IMAGE_PKGS` (fallback compatible with old `PKGS`)
 8. Copy output to `/output/<profile>/`
 
 ## Source Builder Flow

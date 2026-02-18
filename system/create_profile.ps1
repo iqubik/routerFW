@@ -456,8 +456,8 @@ IMAGEBUILDER_URL="$($GlobalState.IBUrl)"
 #src/gz fantastic_packages https://fantastic-packages.github.io/packages/releases/24.10/packages/$arch/packages
 #src/gz fantastic_special https://fantastic-packages.github.io/packages/releases/24.10/packages/$arch/special"
 #DISABLED_SERVICES="transmission-daemon minidlna"
-PKGS="`$COMMON_LIST"
-#EXTRA_IMAGE_NAME="custom"
+IMAGE_PKGS="`$COMMON_LIST"
+#IMAGE_EXTRA_NAME="custom"
 
 # === Extra config options
 #ROOTFS_SIZE="512"
@@ -469,7 +469,7 @@ SRC_BRANCH="$gitBranch"
 SRC_TARGET="$($GlobalState.Target)"
 SRC_SUBTARGET="$($GlobalState.Subtarget)"
 SRC_ARCH="$arch"
-SRC_PACKAGES="`$PKGS"
+SRC_PACKAGES="`$IMAGE_PKGS"
 SRC_CORES="safe"
 
 ## SPACE SAVING (For 4MB / 8MB flash devices)

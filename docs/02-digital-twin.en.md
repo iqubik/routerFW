@@ -65,7 +65,7 @@ COMMON_LIST="luci uhttpd htop -wpad-basic wpad-mbedtls"
 
 # IMAGE BUILDER BLOCK (Fast assembly from pre-compiled packages)
 IMAGEBUILDER_URL="https://downloads.openwrt.org/..."
-PKGS="$COMMON_LIST" # You can add or exclude packages using the '-' prefix
+IMAGE_PKGS="$COMMON_LIST" # You can add or exclude packages using the '-' prefix
 
 # SOURCE BUILDER BLOCK (Full compilation from source code)
 SRC_REPO="https://github.com/openwrt/openwrt.git"

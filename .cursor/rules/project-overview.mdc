@@ -6,7 +6,7 @@ alwaysApply: true
 # routerFW — OpenWrtFW Builder
 
 Cross-platform framework for building custom OpenWrt firmware via Docker.
-Version: ~4.40. License: GPL-3.0. Author: iqubik.
+Version: 4.41 (_Builder.bat). License: GPL-3.0. Author: iqubik.
 Remote: https://github.com/iqubik/routerFW.git, branch: main.
 
 ## Two Build Modes
@@ -44,6 +44,14 @@ Remote: https://github.com/iqubik/routerFW.git, branch: main.
 - Windows (.bat/.ps1) and Linux (.sh) scripts are kept in feature parity
 - Profiles are universal `.conf` files shared between both build modes
 - Docker volumes provide caching: SDK cache, package cache, ccache, source workdir
+
+## Profile Variable Naming (current)
+
+Image Builder variables use `IMAGE_` prefix: `IMAGE_PKGS`, `IMAGE_EXTRA_NAME`.
+Shared (both modes): `ROOTFS_SIZE`, `KERNEL_SIZE`.
+Source Builder variables use `SRC_` prefix: `SRC_REPO`, `SRC_BRANCH`, `SRC_TARGET`, `SRC_SUBTARGET`, `SRC_ARCH`, `SRC_CORES`, `SRC_PACKAGES`, `SRC_EXTRA_CONFIG`.
+
+`_Builder.bat` auto-migrates old names (`PKGS` → `IMAGE_PKGS`, `EXTRA_IMAGE_NAME` → `IMAGE_EXTRA_NAME`) in all profiles on every scan (idempotent). `ib_builder.sh` has fallback compatibility for unmigrated profiles.
 
 ## FORBIDDEN
 
