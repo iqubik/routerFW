@@ -166,6 +166,24 @@ load_lang "$LANG_FILE"
 - Lines written to generated `.sh` scripts (`echo "..." >> script.sh`)
 - Product constants: `OpenWrt FW Builder`, GitHub URL
 
+## Private / Gitignored Directories — STRICT ACCESS RULES
+
+The following directories are **excluded from git** (listed in `.gitignore`) because they may contain sensitive user data, private credentials, licensed or restricted packages:
+
+| Directory | Why gitignored | AI access rule |
+|---|---|---|
+| `custom_files/<profile>/` | Contains file overlay mapped to `/` in firmware — may include SSH keys, passwords, `/etc/shadow`, private configs | **NEVER read/edit without explicit user request** |
+| `custom_packages/<profile>/` | `.ipk` packages — may contain proprietary/restricted firmware, licensed binaries | **NEVER read/edit without explicit user request** |
+| `src_packages/<profile>/` | Source packages for Source Builder — same risk as above | **NEVER read/edit without explicit user request** |
+| `custom_patches/<profile>/` | Source code patches — may contain proprietary modifications | **NEVER read/edit without explicit user request** |
+| `firmware_output/` | Compiled firmware artifacts — large files (10+ GB), no credentials risk but irrelevant to code analysis | Do not read unless asked |
+
+**Rule:** These are user-private working directories. Do NOT browse, grep, or analyze their contents unless the user explicitly asks. Treat them as a black box. When suggesting changes to overlay files, always describe what to do — never open or read the actual files.
+
+## Test Environments — IGNORE
+
+- `nl_test/` and `nw_test/` — unpacked distribution snapshots used for local testing only. Do NOT read, analyze, or edit. The true source of truth is always the repository root.
+
 ## FORBIDDEN
 
 - NEVER read `_unpacker.bat` or `_unpacker.sh` — they contain huge base64-encoded payloads that will poison context
