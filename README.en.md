@@ -81,6 +81,17 @@ Building takes place in isolated **Docker containers**. The system does not clut
 
 ---
 
+### 📦 Local Image Builder and Profile Update (v4.40+)
+
+You can now build firmware **from your own** Image Builder image without downloading it from the internet each time.
+
+*   **Local path in profile:** Instead of a URL in `IMAGEBUILDER_URL`, you can set a path to an archive on disk (e.g. one you just built in Source mode). The builder will use the image from the `firmware_output` folder — no download required.
+*   **Offer to update profile:** After a successful source build (**Source Builder** mode), the program looks in the output folder for the new Image Builder file (`.tar.zst`) and offers to write its path into your `.conf`. Accept once — the next run will use that local image by default.
+
+> **💡 Workflow:** Build firmware from source → get your Image Builder in the output folder → on the next run the program offers to add it to the profile → subsequent fast (Image Builder) builds use your local image.
+
+---
+
 ## 🧹 Maintenance Mode (Cleaning System)
 
 The **[C] CLEAN** button invokes the granular cleaning wizard:
