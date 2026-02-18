@@ -84,6 +84,39 @@ Governed by `.gitattributes`. System is fully normalised:
 
 **`profiles/personal.flag`** — explicitly listed in `.gitattributes` as `text eol=lf` since it has no extension and is not matched by `*.conf`.
 
+## Localization Dictionary System
+
+Both `_Builder.bat` and `_Builder.sh` use a **bilingual RU/EN dictionary** — two blocks of variables at the top of each file, selected by `SYS_LANG`:
+
+- `.bat`: lines ~67-361 (`if "%SYS_LANG%"=="RU"` / `) else (`)
+- `.sh`: lines ~82-399 (`if [ "$SYS_LANG" == "RU" ]` / `else`)
+
+**Prefixes:** `L_` — all user-facing strings. `H_` — table header labels (`H_PROF`, `H_ARCH`, `H_RES`).
+
+**Feature parity rule:** if a key exists in `.bat`, it should exist in `.sh` (and vice versa where applicable). Both audits are complete (`.bat` v1 audit + `.sh` v1 audit done in Feb 2026).
+
+**Key naming conventions:**
+- `L_SEPARATOR` / `L_SEPARATOR_EQ` — decorative line separators (`---` / `===`)
+- `L_KILL_CONTAINER` / `L_KILL_ORPHAN` — container kill messages
+- `L_ST_*` — profile analyzer label keys (`L_ST_CONF`, `L_ST_OVER`, `L_ST_IPK`, `L_ST_SRC`, `L_ST_OUTS`, `L_ST_OUTI`)
+- `L_ST_SUFFIX_*` — status suffixes for the analyzer (`(files/)`, `(ipk/)`, etc.)
+- `L_FOUND` / `L_MISSING` / `L_EMPTY` — status words in analyzer
+- `L_FINISHED` / `L_BUILD_FATAL` — build result messages (Source Builder)
+- `L_IB_UPDATE_PROMPT` — "Update profile? [y/N]" prompt after Source build
+- `L_IN_EDITOR` — "in editor..." / "в редакторе..." suffix
+- `L_BTN_MENUCONFIG` — "Menuconfig/mc" button label
+
+**Bootstrap convention:** strings that run before the dictionary is initialized (Ctrl+C handler, language detector output, FORCE_LANG echo) are left as hardcoded English and marked with:
+```bash
+# Bootstrap — dict not yet available
+```
+
+**Do NOT localize:**
+- Strings inside `cat <<EOF ... EOF` heredocs (run inside containers)
+- `docker exec` / `docker run` command arguments
+- Lines written to generated `.sh` scripts (`echo "..." >> script.sh`)
+- Product constants: `OpenWrt FW Builder`, GitHub URL
+
 ## FORBIDDEN
 
 - NEVER read `_unpacker.bat` or `_unpacker.sh` — they contain huge base64-encoded payloads that will poison context
