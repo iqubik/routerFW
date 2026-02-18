@@ -130,7 +130,7 @@ if [ "$SYS_LANG" == "RU" ]; then
     L_BTN_EXIT="Выход"
     L_BTN_IPK="Импорт IPK"
     L_BACK="${C_KEY}Назад${C_RST}"
-    L_EXIT_CONFIRM="${C_ERR}Выйти из программы? (Y/N):${C_RST} "
+    L_EXIT_CONFIRM="${C_ERR}Выйти из программы? (Y/n):${C_RST} "
     L_EXIT_BYE="${C_VAL}До новых встреч!${C_RST}"
     L_ERR_INPUT="${C_ERR}Ошибка ввода.${C_RST}"
 
@@ -242,7 +242,7 @@ else
     L_BTN_EXIT="Exit"
     L_BTN_IPK="Import IPK"
     L_BACK="${C_KEY}Back${C_RST}"
-    L_EXIT_CONFIRM="${C_ERR}Exit the program? (Y/N):${C_RST} "
+    L_EXIT_CONFIRM="${C_ERR}Exit the program? (Y/n):${C_RST} "
     L_EXIT_BYE="${C_VAL}See you soon!${C_RST}"
     L_ERR_INPUT="${C_ERR}Input error.${C_RST}"
 
@@ -1070,20 +1070,21 @@ while true; do
     echo ""
 
     read -p "${C_LBL}${L_CHOICE}${C_VAL} ⚡ ${C_RST}" choice
+    choice="${choice^^}"
 
     case "$choice" in
         0) 
             echo -ne "${C_ERR}${L_EXIT_CONFIRM}${C_RST}"
             read -r exit_confirm
-            if [[ "$exit_confirm" =~ ^[Yy]$ ]]; then
+            if [[ -z "$exit_confirm" || "$exit_confirm" =~ ^[Yy]$ ]]; then
                 echo -e "${C_OK}${L_EXIT_BYE}${C_RST}"
-                tput cnorm
+                sleep 3
                 exit 0
             fi 
             continue ;;
-        [Mm]) 
+        M) 
             [[ "$BUILD_MODE" == "IMAGE" ]] && BUILD_MODE="SOURCE" || BUILD_MODE="IMAGE" ;;
-        [Ee])
+        E)
             clear
             # === EDITOR & ANALYSIS DASHBOARD (Ported from .bat) ===
             echo -e "${C_VAL}${L_EDIT_TITLE}${C_RST}"
@@ -1160,7 +1161,7 @@ while true; do
                 "${EDITOR:-nano}" "profiles/$sel_conf"
             fi 
             ;;
-        [Aa])
+        A)
             # Массовая сборка с параллельным выполнением и логированием
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 echo -e "${C_ERR}${L_WARN_MASS}${C_RST}"
@@ -1266,7 +1267,7 @@ while true; do
             echo -e "${C_OK}${L_ALL_BUILDS_DONE}${C_RST}"
             read -p "$L_DONE_MENU"
             ;;
-        [Kk])
+        K)
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 # Очищаем экран, чтобы список не прилипал к главному меню
                 clear
@@ -1289,9 +1290,9 @@ while true; do
                     run_menuconfig "${profiles[$k_id]}"
                 fi
             fi ;;
-        [Cc])
+        C)
             cleanup_wizard ;;
-        [Ii])
+        I)
             clear
             if [ "$BUILD_MODE" == "SOURCE" ]; then
                 echo -e "${L_SEL_IMPORT}:"
