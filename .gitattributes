@@ -1,12 +1,22 @@
-# Принудительно использовать CRLF для батников (Windows формат)
+# Windows-скрипты: CRLF, без нормализации
 *.bat -text
 *.ps1 -text
 *.cmd -text
 
-# На всякий случай для других конфигов
+# Windows-документы: CRLF
+*.md  text eol=crlf
+
+# Unix-скрипты и конфиги: LF
+*.sh   text eol=lf
 *.conf text eol=lf
 *.yaml text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+*.mdc  text eol=lf
 Dockerfile text eol=lf
+
+# Специальные файлы без расширения
+profiles/personal.flag text eol=lf
 
 # Архивы и большие файлы (без обработки текста!)
 *.zip filter=lfs diff=lfs merge=lfs -text
@@ -14,4 +24,4 @@ Dockerfile text eol=lf
 *.tar filter=lfs diff=lfs merge=lfs -text
 *.gz  filter=lfs diff=lfs merge=lfs -text
 *.bin filter=lfs diff=lfs merge=lfs -text
-*.7z filter=lfs diff=lfs merge=lfs -text
+*.7z  filter=lfs diff=lfs merge=lfs -text

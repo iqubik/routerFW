@@ -53,6 +53,22 @@ Source Builder variables use `SRC_` prefix: `SRC_REPO`, `SRC_BRANCH`, `SRC_TARGE
 
 `_Builder.bat` auto-migrates old names (`PKGS` → `IMAGE_PKGS`, `EXTRA_IMAGE_NAME` → `IMAGE_EXTRA_NAME`) in all profiles on every scan (idempotent). `ib_builder.sh` has fallback compatibility for unmigrated profiles.
 
+## Line Endings & Encoding
+
+Governed by `.gitattributes`. System is fully normalised:
+
+| Type | EOL | Rule |
+|---|---|---|
+| `*.bat`, `*.ps1`, `*.cmd` | CRLF | `-text` (stored as-is) |
+| `*.sh`, `*.conf`, `*.yaml`, `Dockerfile` | LF | explicit `eol=lf` |
+| `docs/*.md`, `README*.md`, `LICENSE*`, `pub.md` | CRLF | Windows documents |
+| `.cursor/rules/*.mdc`, `*.json`, `*.yml`, `.gitignore` | LF | config/system files |
+| `*.zip`, `*.zst`, `*.tar`, `*.gz`, `*.bin`, `*.7z` | binary | Git LFS, no EOL processing |
+
+**BOM** — only PowerShell files: `system/create_profile.ps1`, `system/import_ipk.ps1`, `scripts/rax3000m/generate_options.ps1` (UTF-8 BOM required for Cyrillic on Windows).
+
+**`profiles/personal.flag`** — explicitly listed in `.gitattributes` as `text eol=lf` since it has no extension and is not matched by `*.conf`.
+
 ## FORBIDDEN
 
 - NEVER read `_unpacker.bat` or `_unpacker.sh` — they contain huge base64-encoded payloads that will poison context
