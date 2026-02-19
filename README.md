@@ -345,9 +345,9 @@ SRC_CORES="safe"
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-stats-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-stats-v3.svg">
-  <img alt="Release stats and sparkline" src="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-stats-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-stats-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-stats-v3.svg">
+  <img alt="Release stats and sparkline" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-stats-v3.svg">
 </picture>
 
 ---
