@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
+  <img alt="Release strip (by date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
+</picture>
+
 # Language / Язык
 [🇷🇺 Russian] | [🇺🇸 English](README.en.md)
 
@@ -332,11 +338,6 @@ SRC_CORES="safe"
   <img alt="Release timeline (tag + date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline.svg">
 </picture>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
-  <img alt="Release strip (by date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
-</picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3-dark.svg">
