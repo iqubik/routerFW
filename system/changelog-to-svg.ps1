@@ -174,12 +174,25 @@ function Write-SvgFile($path, $isDark) {
         $dateShort = EscapeXml($r.published.ToString("dd.MM", [System.Globalization.CultureInfo]::InvariantCulture))
         $url = EscapeXml($r.url)
 
+        $lifeBegin = 2
+        $lifeDur = 20
+        $inv = [System.Globalization.CultureInfo]::InvariantCulture
+        $t0 = [double]$i / $n
+        $t1 = [double]($i + 1) / $n
+        $seg = 1.0 / $n
+        $ramp = [math]::Min(0.15 * $seg, ($t1 - $t0) / 2)
+        $ta = [math]::Round($t0 + $ramp, 4).ToString($inv)
+        $tb = [math]::Round($t1 - $ramp, 4).ToString($inv)
+        $t0s = [math]::Round($t0, 4).ToString($inv)
+        $t1s = [math]::Round($t1, 4).ToString($inv)
+        $keyTimesLife = "0;" + $t0s + ";" + $ta + ";" + $tb + ";" + $t1s + ";1"
+        $keySplinesLife = "0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1"
         if ($url) {
             [void]$sb.AppendLine('  <a xlink:href="' + $url + '" target="_blank" rel="noopener">')
         }
-        [void]$sb.AppendLine('    <circle class="pt" cx="' + $x + '" cy="' + $y + '" r="' + [int]$radius + '" fill="' + $accent + '" stroke="' + $fg + '" stroke-width="1" style="animation-delay: ' + $delaySec + 's"/>')
-        [void]$sb.AppendLine('    <text class="pt" x="' + $x + '" y="' + ($y - $radius - 4) + '" text-anchor="middle" fill="' + $fg + '" font-size="9" font-family="system-ui,sans-serif" style="animation-delay: ' + $delaySec + 's">' + $label + '</text>')
-        [void]$sb.AppendLine('    <text class="pt" x="' + $x + '" y="' + ($y + $radius + 6) + '" text-anchor="middle" fill="' + $muted + '" font-size="7" font-family="system-ui,sans-serif" style="animation-delay: ' + $delaySec + 's">' + $dateShort + '</text>')
+        [void]$sb.AppendLine('    <g transform="translate(' + $x + ',' + $y + ')"><circle class="pt" cx="0" cy="0" r="' + [int]$radius + '" fill="' + $accent + '" stroke="' + $fg + '" stroke-width="1" style="animation-delay: ' + $delaySec + 's"/><animateTransform attributeName="transform" type="scale" values="1;1;1.15;1.15;1;1" dur="' + $lifeDur + 's" repeatCount="indefinite" begin="' + $lifeBegin + 's" keyTimes="' + $keyTimesLife + '" calcMode="spline" keySplines="' + $keySplinesLife + '" additive="sum"/></g>')
+        [void]$sb.AppendLine('    <g opacity="0.05"><animate attributeName="opacity" values="0.05;0.05;1;1;0.05;0.05" dur="' + $lifeDur + 's" repeatCount="indefinite" begin="' + $lifeBegin + 's" keyTimes="' + $keyTimesLife + '" calcMode="spline" keySplines="' + $keySplinesLife + '"/><text x="' + $x + '" y="' + ($y - $radius - 4) + '" text-anchor="middle" fill="' + $fg + '" font-size="9" font-family="system-ui,sans-serif">' + $label + '</text></g>')
+        [void]$sb.AppendLine('    <g opacity="0.05"><animate attributeName="opacity" values="0.05;0.05;1;1;0.05;0.05" dur="' + $lifeDur + 's" repeatCount="indefinite" begin="' + $lifeBegin + 's" keyTimes="' + $keyTimesLife + '" calcMode="spline" keySplines="' + $keySplinesLife + '"/><text x="' + $x + '" y="' + ($y + $radius + 6) + '" text-anchor="middle" fill="' + $muted + '" font-size="7" font-family="system-ui,sans-serif">' + $dateShort + '</text></g>')
         if ($url) {
             [void]$sb.AppendLine('  </a>')
         }

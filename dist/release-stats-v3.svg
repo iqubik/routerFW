@@ -6,28 +6,28 @@
 <g class="st-card" style="animation-delay:0.05s">
 <text x="20" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">30</text>
 <text x="20" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Releases</text>
-<rect class="st-bar" x="20" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.2s"/>
-<rect class="st-bar" x="41" y="56" width="19" height="8" rx="1" fill="#0969da" style="animation-delay:0.23s"/>
-<rect class="st-bar" x="62" y="44" width="19" height="20" rx="1" fill="#0969da" style="animation-delay:0.26s"/>
-<rect class="st-bar" x="83" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.29s"/>
-<rect class="st-bar" x="104" y="59" width="19" height="5" rx="1" fill="#0969da" style="animation-delay:0.32s"/>
-<rect class="st-bar" x="125" y="63" width="19" height="1" rx="1" fill="#0969da" style="animation-delay:0.35s"/>
-<rect class="st-bar" x="146" y="59" width="19" height="5" rx="1" fill="#0969da" style="animation-delay:0.38s"/>
-<rect class="st-bar" x="167" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.41s"/>
+<rect class="st-bar" x="20" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.2s"><animate attributeName="y" values="52;51;52" dur="4s" repeatCount="indefinite" begin="0.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="41" y="56" width="19" height="8" rx="1" fill="#0969da" style="animation-delay:0.23s"><animate attributeName="y" values="56;55;56" dur="4s" repeatCount="indefinite" begin="0.9s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="62" y="44" width="19" height="20" rx="1" fill="#0969da" style="animation-delay:0.26s"><animate attributeName="y" values="44;43;44" dur="4s" repeatCount="indefinite" begin="1.3s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="83" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.29s"><animate attributeName="y" values="52;51;52" dur="4s" repeatCount="indefinite" begin="1.7s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="104" y="59" width="19" height="5" rx="1" fill="#0969da" style="animation-delay:0.32s"><animate attributeName="y" values="59;58;59" dur="4s" repeatCount="indefinite" begin="2.1s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="125" y="63" width="19" height="1" rx="1" fill="#0969da" style="animation-delay:0.35s"><animate attributeName="y" values="63;62;63" dur="4s" repeatCount="indefinite" begin="2.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="146" y="59" width="19" height="5" rx="1" fill="#0969da" style="animation-delay:0.38s"><animate attributeName="y" values="59;58;59" dur="4s" repeatCount="indefinite" begin="2.9s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="167" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.41s"><animate attributeName="y" values="52;51;52" dur="4s" repeatCount="indefinite" begin="3.3s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text x="103" y="78" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">by week</text>
 </g>
 <rect class="st-card" x="210" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.04s"/>
 <g class="st-card" style="animation-delay:0.08s">
 <text x="218" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">586</text>
 <text x="218" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Changelog items</text>
-<rect class="st-bar" x="218" y="54" width="19" height="10" rx="1" fill="#1a7f37" style="animation-delay:0.25s"/>
-<rect class="st-bar" x="239" y="56" width="19" height="8" rx="1" fill="#1a7f37" style="animation-delay:0.28s"/>
-<rect class="st-bar" x="260" y="44" width="19" height="20" rx="1" fill="#1a7f37" style="animation-delay:0.31s"/>
-<rect class="st-bar" x="281" y="47" width="19" height="17" rx="1" fill="#1a7f37" style="animation-delay:0.34s"/>
-<rect class="st-bar" x="302" y="57" width="19" height="7" rx="1" fill="#1a7f37" style="animation-delay:0.37s"/>
-<rect class="st-bar" x="323" y="63" width="19" height="1" rx="1" fill="#1a7f37" style="animation-delay:0.4s"/>
-<rect class="st-bar" x="344" y="55" width="19" height="9" rx="1" fill="#1a7f37" style="animation-delay:0.43s"/>
-<rect class="st-bar" x="365" y="46" width="19" height="18" rx="1" fill="#1a7f37" style="animation-delay:0.46s"/>
+<rect class="st-bar" x="218" y="54" width="19" height="10" rx="1" fill="#1a7f37" style="animation-delay:0.25s"><animate attributeName="y" values="54;53;54" dur="4s" repeatCount="indefinite" begin="0.6s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="239" y="56" width="19" height="8" rx="1" fill="#1a7f37" style="animation-delay:0.28s"><animate attributeName="y" values="56;55;56" dur="4s" repeatCount="indefinite" begin="1s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="260" y="44" width="19" height="20" rx="1" fill="#1a7f37" style="animation-delay:0.31s"><animate attributeName="y" values="44;43;44" dur="4s" repeatCount="indefinite" begin="1.4s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="281" y="47" width="19" height="17" rx="1" fill="#1a7f37" style="animation-delay:0.34s"><animate attributeName="y" values="47;46;47" dur="4s" repeatCount="indefinite" begin="1.8s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="302" y="57" width="19" height="7" rx="1" fill="#1a7f37" style="animation-delay:0.37s"><animate attributeName="y" values="57;56;57" dur="4s" repeatCount="indefinite" begin="2.2s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="323" y="63" width="19" height="1" rx="1" fill="#1a7f37" style="animation-delay:0.4s"><animate attributeName="y" values="63;62;63" dur="4s" repeatCount="indefinite" begin="2.6s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="344" y="55" width="19" height="9" rx="1" fill="#1a7f37" style="animation-delay:0.43s"><animate attributeName="y" values="55;54;55" dur="4s" repeatCount="indefinite" begin="3s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="365" y="46" width="19" height="18" rx="1" fill="#1a7f37" style="animation-delay:0.46s"><animate attributeName="y" values="46;45;46" dur="4s" repeatCount="indefinite" begin="3.4s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text x="301" y="78" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">items per week</text>
 </g>
 <rect class="st-card" x="408" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.08s"/>

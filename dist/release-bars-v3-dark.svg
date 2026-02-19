@@ -3,34 +3,34 @@
 <style>.pb-bar{ transform-origin:left center; transform:scaleX(0); animation:pbGrow 0.4s ease forwards; } .pb-dot{ opacity:0; animation:pbFade 0.3s ease forwards; } @keyframes pbGrow{ to{ transform:scaleX(1); } } @keyframes pbFade{ to{ opacity:1; } }</style>
 <rect width="800" height="241" fill="#0d1117" rx="8"/>
 <text x="52" y="20" fill="#8b949e" font-size="11" font-family="system-ui,sans-serif">Top 10 releases by changelog size (items)</text>
-<rect class="pb-bar" x="52" y="28" width="638" height="14" rx="3" fill="#58a6ff" style="animation-delay:0s"/>
+<rect class="pb-bar" x="52" y="28" width="638" height="14" rx="3" fill="#58a6ff" style="animation-delay:0s"><animate attributeName="y" values="28;30;28" dur="4s" repeatCount="indefinite" begin="0.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="39" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0s">3.9</text>
 <text class="pb-dot" x="698" y="39" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0s">46</text>
-<rect class="pb-bar" x="52" y="45" width="596" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.03s"/>
+<rect class="pb-bar" x="52" y="45" width="596" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.03s"><animate attributeName="y" values="45;47;45" dur="4s" repeatCount="indefinite" begin="1s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="56" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.03s">4.22</text>
 <text class="pb-dot" x="656" y="56" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.03s">43</text>
-<rect class="pb-bar" x="52" y="62" width="541" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.06s"/>
+<rect class="pb-bar" x="52" y="62" width="541" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.06s"><animate attributeName="y" values="62;64;62" dur="4s" repeatCount="indefinite" begin="1.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="73" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.06s">4.09</text>
 <text class="pb-dot" x="601" y="73" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.06s">39</text>
-<rect class="pb-bar" x="52" y="79" width="513" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.09s"/>
+<rect class="pb-bar" x="52" y="79" width="513" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.09s"><animate attributeName="y" values="79;81;79" dur="4s" repeatCount="indefinite" begin="2s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="90" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.09s">4.42</text>
 <text class="pb-dot" x="573" y="90" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.09s">37</text>
-<rect class="pb-bar" x="52" y="96" width="513" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.12s"/>
+<rect class="pb-bar" x="52" y="96" width="513" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.12s"><animate attributeName="y" values="96;98;96" dur="4s" repeatCount="indefinite" begin="2.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="107" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.12s">3.2</text>
 <text class="pb-dot" x="573" y="107" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.12s">37</text>
-<rect class="pb-bar" x="52" y="113" width="402" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.15s"/>
+<rect class="pb-bar" x="52" y="113" width="402" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.15s"><animate attributeName="y" values="113;115;113" dur="4s" repeatCount="indefinite" begin="3s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="124" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.15s">4.32</text>
 <text class="pb-dot" x="462" y="124" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.15s">29</text>
-<rect class="pb-bar" x="52" y="130" width="402" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.18s"/>
+<rect class="pb-bar" x="52" y="130" width="402" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.18s"><animate attributeName="y" values="130;132;130" dur="4s" repeatCount="indefinite" begin="3.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="141" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.18s">4.20</text>
 <text class="pb-dot" x="462" y="141" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.18s">29</text>
-<rect class="pb-bar" x="52" y="147" width="361" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.21s"/>
+<rect class="pb-bar" x="52" y="147" width="361" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.21s"><animate attributeName="y" values="147;149;147" dur="4s" repeatCount="indefinite" begin="4s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="158" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.21s">4.04_hotfix</text>
 <text class="pb-dot" x="421" y="158" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.21s">26</text>
-<rect class="pb-bar" x="52" y="164" width="319" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.24s"/>
+<rect class="pb-bar" x="52" y="164" width="319" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.24s"><animate attributeName="y" values="164;166;164" dur="4s" repeatCount="indefinite" begin="4.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="175" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.24s">4.40</text>
 <text class="pb-dot" x="379" y="175" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.24s">23</text>
-<rect class="pb-bar" x="52" y="181" width="291" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.27s"/>
+<rect class="pb-bar" x="52" y="181" width="291" height="14" rx="3" fill="#58a6ff" style="animation-delay:0.27s"><animate attributeName="y" values="181;183;181" dur="4s" repeatCount="indefinite" begin="5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
 <text class="pb-dot" x="46" y="192" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.27s">4.02</text>
 <text class="pb-dot" x="351" y="192" fill="#e6edf3" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.27s">21</text>
 <text x="52" y="231" fill="#8b949e" font-size="10" font-family="system-ui,sans-serif">… +20 releases (256 items)</text>
