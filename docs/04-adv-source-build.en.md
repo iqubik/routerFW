@@ -1,4 +1,11 @@
 # file docs\04-adv-source-build.en.md
+
+<p align="center">
+  <a href="04-adv-source-build.md"><b>🇷🇺 Русский</b></a> | <b>🇺🇸 English</b>
+</p>
+
+---
+
 # Lesson 4: Advanced Source Mode: Sync, Hooks, and Indicators (v4.03)
 
 **Lesson Goal:** Master professional `Source Builder` tools: automatic settings synchronization, resource monitoring, advanced kernel patching via hooks, and the "Binary-to-Source" IPK import mechanism.

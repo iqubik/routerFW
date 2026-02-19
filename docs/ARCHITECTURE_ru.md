@@ -1,4 +1,4 @@
-# file docs\ARCHITECTURE_ru.md
+# file: docs\ARCHITECTURE_ru.md
 
 # routerFW — Архитектура и поток процессов
 
@@ -253,4 +253,4 @@ _packer.sh / _packer.bat
 
 ## 12. Полная карта процессов (Mermaid)
 
-См. [ARCHITECTURE_diagram.md](ARCHITECTURE_diagram.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig. EN + RU + таблица легенды.
+См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).

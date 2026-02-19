@@ -1,3 +1,4 @@
+# file: docs\index.en.md
 <p align="center">
   <a href="index.md"><b>🇷🇺 Русский</b></a> | <b>🇺🇸 English</b>
 </p>
@@ -29,7 +30,7 @@ This is a series of lessons designed to help you master the Universal Builder, f
 
 *   [**Architecture & Process Flow (EN)**](./ARCHITECTURE_en.md) — text diagrams of all build stages.
 *   [**Архитектура и поток процессов (RU)**](./ARCHITECTURE_ru.md) — Russian version.
-*   [**Mermaid Diagrams**](./ARCHITECTURE_diagram.md) — full interactive flowcharts: startup, menu, build, cleanup, menuconfig.
+*   [**Mermaid Diagrams**](./ARCHITECTURE_diagram_en.md) — full interactive flowcharts: startup, menu, build, cleanup, menuconfig.
 
 ---
 

@@ -16,8 +16,17 @@ When editing docs, update both language versions.
 
 ## Tutorial Structure (docs/)
 
-Lessons are numbered sequentially: `01-introduction.md`, `02-digital-twin.md`, etc.
+Lessons are numbered sequentially: `01-introduction.md`, `02-digital-twin.md`, … `05-patch-sys.md` (and `.en.md`).
 Each has an index file: `docs/index.md` / `docs/index.en.md`.
+
+**Lesson page UI:** Every lesson page (01–05, both RU and EN) must start with the language switcher block (centered): `🇷🇺 Русский | 🇺🇸 English` with a link to the other language version, then `---` before the main heading.
+
+## Architecture diagrams
+
+Diagram set is split by language (no single combined file):
+- `docs/ARCHITECTURE_diagram_en.md` — §1–5 (Startup, Menu, Build, Cleanup, Menuconfig) + Legend
+- `docs/ARCHITECTURE_diagram_ru.md` — §1–5 (same content in Russian) + Легенда
+Index and text docs link to these; ARCHITECTURE_en.md → diagram_en, ARCHITECTURE_ru.md → diagram_ru.
 
 ## README
 

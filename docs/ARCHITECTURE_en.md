@@ -1,4 +1,4 @@
-# file docs\ARCHITECTURE_en.md
+# file: docs\ARCHITECTURE_en.md
 
 # routerFW — Architecture & Process Flow
 
@@ -253,4 +253,4 @@ _packer.sh / _packer.bat
 
 ## 12. Full Process Map (Mermaid)
 
-See [ARCHITECTURE_diagram.md](ARCHITECTURE_diagram.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow. EN + RU + legend table.
+See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).

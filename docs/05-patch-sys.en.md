@@ -1,3 +1,11 @@
+# file: docs\05-patch-sys.en.md
+
+<p align="center">
+  <a href="05-patch-sys.md"><b>🇷🇺 Русский</b></a> | <b>🇺🇸 English</b>
+</p>
+
+---
+
 # 🛠 Guide: Source Code Patching System
 
 ## 1. Introduction
