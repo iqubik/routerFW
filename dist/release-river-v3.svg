@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 220" width="100%" height="220">
+<defs><linearGradient id="riverGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1a7f37"/><stop offset="100%" stop-color="#0969da"/></linearGradient></defs>
+<style>.rv-poly{ opacity:0; animation:rvFade 1s ease 0.15s forwards; } .rv-dot{ opacity:0; animation:rvFade 0.4s ease forwards; } .rv-label{ opacity:0; animation:rvFade 0.4s ease forwards; } @keyframes rvFade{ to{ opacity:1; } }</style>
+<rect width="800" height="220" fill="#ffffff" rx="8"/>
+<text x="410" y="26" fill="#656d76" font-size="12" text-anchor="middle" font-family="system-ui,sans-serif">Changelog size over time (width = items per release)</text>
+<line x1="48" y1="111" x2="772" y2="111" stroke="#d0d7de" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/>
+<polygon class="rv-poly" points="48,108 68,82 87,83 88,82 94,87 99,92 147,76 159,91 189,104 191,88 191,84 193,91 217,83 231,82 244,74 265,84 282,81 293,79 310,76 326,86 349,86 375,84 389,78 598,75 610,83 681,78 761,80 766,85 770,76 772,84 772,138 770,146 766,137 761,142 681,144 610,139 598,147 389,144 375,138 349,136 326,136 310,146 293,143 282,141 265,138 244,148 231,140 217,139 193,131 191,138 191,134 189,118 159,131 147,146 99,130 94,135 88,140 87,139 68,140 48,114" fill="url(#riverGrad)" opacity="0.9"/>
+<circle class="rv-dot" cx="48" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.25s"/>
+<circle class="rv-dot" cx="68" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.28s"/>
+<circle class="rv-dot" cx="87" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.31s"/>
+<circle class="rv-dot" cx="88" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.34s"/>
+<circle class="rv-dot" cx="94" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.37s"/>
+<circle class="rv-dot" cx="99" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.4s"/>
+<circle class="rv-dot" cx="147" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.43s"/>
+<circle class="rv-dot" cx="159" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.46s"/>
+<circle class="rv-dot" cx="189" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.49s"/>
+<circle class="rv-dot" cx="191" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.52s"/>
+<circle class="rv-dot" cx="191" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.55s"/>
+<circle class="rv-dot" cx="193" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.58s"/>
+<circle class="rv-dot" cx="217" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.61s"/>
+<circle class="rv-dot" cx="231" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.64s"/>
+<circle class="rv-dot" cx="244" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.67s"/>
+<circle class="rv-dot" cx="265" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.7s"/>
+<circle class="rv-dot" cx="282" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.73s"/>
+<circle class="rv-dot" cx="293" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.76s"/>
+<circle class="rv-dot" cx="310" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.79s"/>
+<circle class="rv-dot" cx="326" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.82s"/>
+<circle class="rv-dot" cx="349" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.85s"/>
+<circle class="rv-dot" cx="375" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.88s"/>
+<circle class="rv-dot" cx="389" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.91s"/>
+<circle class="rv-dot" cx="598" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.94s"/>
+<circle class="rv-dot" cx="610" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:0.97s"/>
+<circle class="rv-dot" cx="681" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:1s"/>
+<circle class="rv-dot" cx="761" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:1.03s"/>
+<circle class="rv-dot" cx="766" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:1.06s"/>
+<circle class="rv-dot" cx="770" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:1.09s"/>
+<circle class="rv-dot" cx="772" cy="111" r="3" fill="#1f2328" stroke="#0969da" stroke-width="1.5" style="animation-delay:1.12s"/>
+<text class="rv-label" x="244" y="68" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif" style="animation-delay:0.82s">3.9 (46)</text>
+<text class="rv-label" x="598" y="69" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif" style="animation-delay:1.09s">4.22 (43)</text>
+<text class="rv-label" x="310" y="70" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif" style="animation-delay:0.94s">4.09 (39)</text>
+<text class="rv-label" x="147" y="70" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif" style="animation-delay:0.58s">3.2 (37)</text>
+<text class="rv-label" x="770" y="70" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif" style="animation-delay:1.24s">4.42 (37)</text>
+<text class="rv-label" x="681" y="72" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif" style="animation-delay:1.15s">4.32 (29)</text>
+<text x="48" y="210" fill="#656d76" font-size="10" font-family="system-ui,sans-serif">25 Dec 2025</text>
+<text x="772" y="210" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif">18 Feb 2026</text>
+<text x="768" y="89" fill="#656d76" font-size="9" text-anchor="end" font-family="system-ui,sans-serif">width ∝</text>
+<text x="768" y="99" fill="#656d76" font-size="9" text-anchor="end" font-family="system-ui,sans-serif">items</text>
+</svg>

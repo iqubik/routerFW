@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 160" width="100%" height="160">
+<style>.hm-cell{ opacity:0; transform-origin:center; animation:hmPop 0.35s ease forwards; } @keyframes hmPop{ 0%{ opacity:0; transform:scale(0.7); } 100%{ opacity:1; transform:scale(1); } }</style>
+<rect width="800" height="160" fill="#0d1117" rx="8"/>
+<rect class="hm-cell" x="14" y="34" width="79" height="34" rx="4" fill="#58a6ff" style="animation-delay:0s"/>
+<rect class="hm-cell" x="95" y="34" width="79" height="34" rx="4" fill="#58a6ff" style="animation-delay:0.03s"/>
+<rect class="hm-cell" x="176" y="34" width="79" height="34" rx="4" fill="#a371f7" style="animation-delay:0.06s"/>
+<rect class="hm-cell" x="257" y="34" width="79" height="34" rx="4" fill="#a371f7" style="animation-delay:0.09s"/>
+<rect class="hm-cell" x="338" y="34" width="79" height="34" rx="4" fill="#238636" style="animation-delay:0.12s"/>
+<rect class="hm-cell" x="419" y="34" width="79" height="34" rx="4" fill="#21262d" style="animation-delay:0.15s"/>
+<rect class="hm-cell" x="500" y="34" width="79" height="34" rx="4" fill="#58a6ff" style="animation-delay:0.18s"/>
+<rect class="hm-cell" x="581" y="34" width="79" height="34" rx="4" fill="#a371f7" style="animation-delay:0.21s"/>
+<text x="12" y="152" fill="#8b949e" font-size="10" font-family="system-ui,sans-serif">25 Dec 2025</text>
+<text x="660" y="152" fill="#8b949e" font-size="10" text-anchor="end" font-family="system-ui,sans-serif">18 Feb 2026</text>
+<text x="336" y="22" fill="#8b949e" font-size="11" text-anchor="middle" font-family="system-ui,sans-serif">Releases by week</text>
+<rect x="668" y="44" width="10" height="10" rx="2" fill="#238636"/>
+<text x="682" y="52" fill="#8b949e" font-size="9" font-family="system-ui,sans-serif">Low</text>
+<rect x="668" y="62" width="10" height="10" rx="2" fill="#58a6ff"/>
+<text x="682" y="70" fill="#8b949e" font-size="9" font-family="system-ui,sans-serif">Mid</text>
+<rect x="668" y="80" width="10" height="10" rx="2" fill="#a371f7"/>
+<text x="682" y="88" fill="#8b949e" font-size="9" font-family="system-ui,sans-serif">High</text>
+</svg>

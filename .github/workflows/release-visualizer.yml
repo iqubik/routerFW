@@ -1,0 +1,45 @@
+# file: .github/workflows/release-visualizer.yml
+# Обновляет CHANGELOG из релизов, генерирует timeline/tree + V3 виджеты, деплоит dist/ в output (вместе со змейкой).
+name: Release visualizer
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PowerShell
+        uses: actions/setup-powershell@v1
+
+      - name: Refresh CHANGELOG from releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./system/get-git.ps1
+
+      - name: Generate snake (contribution grid)
+        uses: Platane/snk@v3
+        with:
+          github_user_name: ${{ github.repository_owner }}
+          outputs: |
+            dist/github-contribution-grid-snake.svg
+            dist/github-contribution-grid-snake-dark.svg?palette=github-dark
+
+      - name: Generate timeline and tree SVGs
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./system/changelog-to-svg.ps1
+
+      - name: Generate V3 widgets (heatmap, river, bars, stats)
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./system/changelog-to-svg-v3.ps1
+
+      - uses: crazy-max/ghaction-github-pages@v3.1.0
+        with:
+          target_branch: output
+          build_dir: dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
