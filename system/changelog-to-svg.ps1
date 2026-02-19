@@ -85,13 +85,13 @@ $maxDate = ($releases | Measure-Object -Property published -Maximum).Maximum
 $dateRange = ($maxDate - $minDate).TotalDays
 if ($dateRange -lt 1) { $dateRange = 1 }
 
-# SVG dimensions and padding
+# SVG dimensions and padding (высота /2 для компактного вида)
 $width = 800
-$height = 360
+$height = 180
 $padL = 52
 $padR = 24
-$padT = 28
-$padB = 44
+$padT = 14
+$padB = 22
 $chartW = $width - $padL - $padR
 $chartH = $height - $padT - $padB
 
@@ -142,11 +142,11 @@ function Write-SvgFile($path, $isDark) {
     [void]$sb.AppendLine('</g>')
 
     # Axis labels (dates)
-    [void]$sb.AppendLine('<g fill="' + $muted + '" font-size="10" font-family="system-ui,sans-serif">')
+    [void]$sb.AppendLine('<g fill="' + $muted + '" font-size="9" font-family="system-ui,sans-serif">')
     for ($i = 0; $i -le 4; $i++) {
         $d = $minDate.AddDays(($i / 4) * $dateRange)
         $x = $padL + ($i / 4) * $chartW
-        [void]$sb.AppendLine('  <text x="' + $x + '" y="' + ($height - 16) + '" text-anchor="middle">' + (EscapeXml($d.ToString("yyyy-MM-dd"))) + '</text>')
+        [void]$sb.AppendLine('  <text x="' + $x + '" y="' + ($height - 8) + '" text-anchor="middle">' + (EscapeXml($d.ToString("yyyy-MM-dd"))) + '</text>')
     }
     [void]$sb.AppendLine('</g>')
 
@@ -166,18 +166,20 @@ function Write-SvgFile($path, $isDark) {
         $x = Get-XFromDate $r.published
         $y = Get-YFromIndex $i
         $delaySec = [math]::Round(0.3 + $i * 0.12, 2)
-        $radius = 5
+        $radius = 4
         if ($r.body_length -gt 0) {
-            $radius = 4 + [math]::Min(6, [math]::Log10(1 + $r.body_length) * 1.5)
+            $radius = 3 + [math]::Min(4, [math]::Log10(1 + $r.body_length) * 1.2)
         }
         $label = EscapeXml($r.tag)
+        $dateShort = EscapeXml($r.published.ToString("dd.MM", [System.Globalization.CultureInfo]::InvariantCulture))
         $url = EscapeXml($r.url)
 
         if ($url) {
             [void]$sb.AppendLine('  <a xlink:href="' + $url + '" target="_blank" rel="noopener">')
         }
-        [void]$sb.AppendLine('    <circle class="pt" cx="' + $x + '" cy="' + $y + '" r="' + [int]$radius + '" fill="' + $accent + '" stroke="' + $fg + '" stroke-width="1.5" style="animation-delay: ' + $delaySec + 's"/>')
-        [void]$sb.AppendLine('    <text class="pt" x="' + $x + '" y="' + ($y - $radius - 6) + '" text-anchor="middle" fill="' + $fg + '" font-size="11" font-family="system-ui,sans-serif" style="animation-delay: ' + $delaySec + 's">' + $label + '</text>')
+        [void]$sb.AppendLine('    <circle class="pt" cx="' + $x + '" cy="' + $y + '" r="' + [int]$radius + '" fill="' + $accent + '" stroke="' + $fg + '" stroke-width="1" style="animation-delay: ' + $delaySec + 's"/>')
+        [void]$sb.AppendLine('    <text class="pt" x="' + $x + '" y="' + ($y - $radius - 4) + '" text-anchor="middle" fill="' + $fg + '" font-size="9" font-family="system-ui,sans-serif" style="animation-delay: ' + $delaySec + 's">' + $label + '</text>')
+        [void]$sb.AppendLine('    <text class="pt" x="' + $x + '" y="' + ($y + $radius + 6) + '" text-anchor="middle" fill="' + $muted + '" font-size="7" font-family="system-ui,sans-serif" style="animation-delay: ' + $delaySec + 's">' + $dateShort + '</text>')
         if ($url) {
             [void]$sb.AppendLine('  </a>')
         }
@@ -190,21 +192,19 @@ function Write-SvgFile($path, $isDark) {
     [System.IO.File]::WriteAllText($path, $sb.ToString(), $utf8NoBom)
 }
 
-# ---- Древо развития фич: вертикальное дерево, размер узла = объём фич (bullet_count/body) ----
-$treeNodeHeight = 56
-$treeWidth = 520
-$treeHeight = [math]::Max(320, $n * $treeNodeHeight)
-$treePadL = 28
+# ---- Горизонтальная лента релизов (по времени): линия по X, узлы по дате, без вертикали ----
+$treeWidth = 800
+$treeHeight = 88
+$treePadL = 52
 $treePadR = 24
-$treePadT = 24
-$treePadB = 24
-$treeCenterX = $treePadL + 32
-$treeChartH = $treeHeight - $treePadT - $treePadB
+$treePadT = 12
+$treePadB = 12
+$treeChartW = $treeWidth - $treePadL - $treePadR
+$treeCenterY = $treeHeight / 2
 
-function Get-TreeY($i) {
-    if ($n -le 1) { return $treePadT + $treeChartH / 2 }
-    $t = $i / ([double]($n - 1))
-    return [int]($treePadT + $t * $treeChartH)
+function Get-TreeX($d) {
+    $t = ($d - $minDate).TotalDays / $dateRange
+    return [int]($treePadL + $t * $treeChartW)
 }
 
 function Write-TreeSvgFile($path, $isDark) {
@@ -214,40 +214,49 @@ function Write-TreeSvgFile($path, $isDark) {
     $accent = if ($isDark) { "#58a6ff" } else { "#0969da" }
     $muted = if ($isDark) { "#8b949e" } else { "#656d76" }
 
+    $treeCycleSec = [math]::Max(60, $n * 2.5)
+    $treeFocusPct = [math]::Round(100 / $n, 2)
+    $treeFocusSec = $treeCycleSec / $n
+
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
     [void]$sb.AppendLine('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ' + $treeWidth + ' ' + $treeHeight + '" width="' + $treeWidth + '" height="' + $treeHeight + '">')
     [void]$sb.AppendLine('<style>')
-    [void]$sb.AppendLine('  .tr-nd { opacity: 0; animation: trFade 0.35s ease forwards; }')
+    [void]$sb.AppendLine('  .tr-nd { opacity: 0; animation: trFade 0.4s ease forwards; }')
     [void]$sb.AppendLine('  .tr-ln { opacity: 0; stroke-dasharray: 800; stroke-dashoffset: 800; animation: trDraw 0.8s ease forwards; }')
+    [void]$sb.AppendLine('  .tr-dot { animation: trFade 0.4s ease forwards, trDotFocus ' + $treeCycleSec + 's linear infinite; }')
+    [void]$sb.AppendLine('  .tr-txt { fill-opacity: 0.05; animation: trFocus ' + $treeCycleSec + 's linear infinite; }')
+    [void]$sb.AppendLine('  .tr-txt:hover { fill-opacity: 1 !important; }')
     [void]$sb.AppendLine('  @keyframes trFade { to { opacity: 1; } }')
     [void]$sb.AppendLine('  @keyframes trDraw { to { stroke-dashoffset: 0; opacity: 1; } }')
+    [void]$sb.AppendLine('  @keyframes trDotFocus { 0% { transform: scale(1.2); } ' + $treeFocusPct + '% { transform: scale(0.9); } 100% { transform: scale(0.9); } }')
+    [void]$sb.AppendLine('  @keyframes trFocus { 0% { fill-opacity: 1; } ' + $treeFocusPct + '% { fill-opacity: 0.05; } 100% { fill-opacity: 0.05; } }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('<rect width="' + $treeWidth + '" height="' + $treeHeight + '" fill="' + $bg + '"/>')
 
-    # Вертикальная линия ствола (от первого до последнего узла)
-    $y0 = Get-TreeY 0
-    $yN = Get-TreeY ($n - 1)
-    [void]$sb.AppendLine('<line x1="' + $treeCenterX + '" y1="' + $y0 + '" x2="' + $treeCenterX + '" y2="' + $yN + '" stroke="' + $grid + '" stroke-width="2" class="tr-ln" style="animation-delay: 0.1s"/>')
+    $x0 = Get-TreeX $releases[0].published
+    $xN = Get-TreeX $releases[$n - 1].published
+    [void]$sb.AppendLine('<line x1="' + $x0 + '" y1="' + $treeCenterY + '" x2="' + $xN + '" y2="' + $treeCenterY + '" stroke="' + $grid + '" stroke-width="2" class="tr-ln" style="animation-delay: 0.1s"/>')
 
     for ($i = 0; $i -lt $n; $i++) {
         $r = $releases[$i]
-        $y = Get-TreeY $i
-        $delaySec = [math]::Round(0.15 + $i * 0.08, 2)
-        # Размер узла по объёму фич: bullet_count + лог от длины тела
-        $vol = $r.bullet_count + [math]::Max(0, [math]::Log10(1 + $r.body_length / 100) * 3)
-        $radius = [math]::Max(6, [math]::Min(20, 6 + $vol))
+        $x = Get-TreeX $r.published
+        $delaySec = [math]::Round(0.15 + $i * 0.03, 2)
+        $txtDelaySec = [math]::Round(-$i * $treeFocusSec, 2)
+        $vol = $r.bullet_count + [math]::Max(0, [math]::Log10(1 + $r.body_length / 100) * 2)
+        $radius = [math]::Max(4, [math]::Min(12, 4 + $vol))
         $label = EscapeXml($r.tag)
         $url = EscapeXml($r.url)
         $hint = if ($r.bullet_count -gt 0) { " (" + $r.bullet_count + ")" } else { "" }
         $tagLabel = $label + $hint
+        $dateShort = EscapeXml($r.published.ToString("dd.MM", [System.Globalization.CultureInfo]::InvariantCulture))
 
         if ($url) {
             [void]$sb.AppendLine('  <a xlink:href="' + $url + '" target="_blank" rel="noopener">')
         }
-        [void]$sb.AppendLine('    <circle class="tr-nd" cx="' + $treeCenterX + '" cy="' + $y + '" r="' + [int]$radius + '" fill="' + $accent + '" stroke="' + $fg + '" stroke-width="1.5" style="animation-delay: ' + $delaySec + 's"/>')
-        [void]$sb.AppendLine('    <text class="tr-nd" x="' + ($treeCenterX + $radius + 10) + '" y="' + ($y + 4) + '" fill="' + $fg + '" font-size="12" font-family="system-ui,sans-serif" style="animation-delay: ' + $delaySec + 's">' + (EscapeXml($tagLabel)) + '</text>')
-        [void]$sb.AppendLine('    <text class="tr-nd" x="' + ($treeCenterX + $radius + 10) + '" y="' + ($y + 18) + '" fill="' + $muted + '" font-size="9" font-family="system-ui,sans-serif" style="animation-delay: ' + $delaySec + 's">' + (EscapeXml($r.published.ToString("yyyy-MM-dd"))) + '</text>')
+        [void]$sb.AppendLine('    <circle class="tr-nd tr-dot" cx="' + $x + '" cy="' + $treeCenterY + '" r="' + [int]$radius + '" fill="' + $accent + '" stroke="' + $fg + '" stroke-width="1" style="transform-origin: ' + $x + 'px ' + [int]$treeCenterY + 'px; animation-delay: ' + $delaySec + 's, ' + $txtDelaySec + 's"/>')
+        [void]$sb.AppendLine('    <text class="tr-txt" x="' + $x + '" y="' + ($treeCenterY - $radius - 4) + '" text-anchor="middle" fill="' + $fg + '" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: ' + $txtDelaySec + 's">' + (EscapeXml($tagLabel)) + '</text>')
+        [void]$sb.AppendLine('    <text class="tr-txt" x="' + $x + '" y="' + ($treeCenterY + $radius + 10) + '" text-anchor="middle" fill="' + $muted + '" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: ' + $txtDelaySec + 's">' + $dateShort + '</text>')
         if ($url) {
             [void]$sb.AppendLine('  </a>')
         }

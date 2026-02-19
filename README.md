@@ -324,7 +324,19 @@ SRC_CORES="safe"
   <img alt="github contribution grid snake animation" src="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
 </picture>
 
-Визуализация релизов (CHANGELOG) — heatmap, река активности, пульс-бары, статистика:
+Визуализация релизов (CHANGELOG) — временная шкала, heatmap, река активности, пульс-бары, статистика:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline.svg">
+  <img alt="Release timeline (tag + date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline.svg">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
+  <img alt="Release strip (by date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
+</picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-heatmap-v3-dark.svg">

@@ -1,12 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 100" width="100%" height="100">
-<style>.st-num{ opacity:0; animation:stPop 0.4s ease forwards; } .st-spark{ opacity:0; stroke-dasharray:500; stroke-dashoffset:500; animation:stDraw 1s ease forwards; } @keyframes stPop{ to{ opacity:1; } } @keyframes stDraw{ to{ stroke-dashoffset:0; opacity:1; } }</style>
+<style>.st-card{ opacity:0; animation:stPop 0.35s ease forwards; } @keyframes stPop{ to{ opacity:1; } } .st-bar{ transform-origin:bottom; transform:scaleY(0); animation:stBar 0.4s ease forwards; } @keyframes stBar{ to{ transform:scaleY(1); } }</style>
 <rect width="800" height="100" fill="#f6f8fa" rx="8"/>
-<text class="st-num" x="24" y="48" fill="#1f2328" font-size="18" font-weight="600" font-family="system-ui,sans-serif">30</text>
-<text class="st-num" x="24" y="64" fill="#656d76" font-size="10" font-family="system-ui,sans-serif">releases</text>
-<text class="st-num" x="96" y="48" fill="#1f2328" font-size="18" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.08s">586</text>
-<text class="st-num" x="96" y="64" fill="#656d76" font-size="10" font-family="system-ui,sans-serif" style="animation-delay:0.08s">items</text>
-<text class="st-num" x="168" y="50" fill="#656d76" font-size="11" font-family="system-ui,sans-serif" style="animation-delay:0.12s">Dec 2025 — Feb 2026</text>
-<path class="st-spark" d="M 476 55.2941176470588 L 626 32 L 776 53.1764705882353" fill="none" stroke="#0969da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation-delay:0.3s"/>
-<text x="468" y="50" fill="#656d76" font-size="9" text-anchor="end" font-family="system-ui,sans-serif">per month</text>
+<rect class="st-card" x="12" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0s"/>
+<g class="st-card" style="animation-delay:0.05s">
+<text x="20" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">30</text>
+<text x="20" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Releases</text>
+<rect class="st-bar" x="20" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.2s"/>
+<rect class="st-bar" x="41" y="56" width="19" height="8" rx="1" fill="#0969da" style="animation-delay:0.23s"/>
+<rect class="st-bar" x="62" y="44" width="19" height="20" rx="1" fill="#0969da" style="animation-delay:0.26s"/>
+<rect class="st-bar" x="83" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.29s"/>
+<rect class="st-bar" x="104" y="59" width="19" height="5" rx="1" fill="#0969da" style="animation-delay:0.32s"/>
+<rect class="st-bar" x="125" y="63" width="19" height="1" rx="1" fill="#0969da" style="animation-delay:0.35s"/>
+<rect class="st-bar" x="146" y="59" width="19" height="5" rx="1" fill="#0969da" style="animation-delay:0.38s"/>
+<rect class="st-bar" x="167" y="52" width="19" height="12" rx="1" fill="#0969da" style="animation-delay:0.41s"/>
+<text x="103" y="78" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">by week</text>
+</g>
+<rect class="st-card" x="210" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.04s"/>
+<g class="st-card" style="animation-delay:0.08s">
+<text x="218" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">586</text>
+<text x="218" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Changelog items</text>
+<rect class="st-bar" x="218" y="54" width="19" height="10" rx="1" fill="#1a7f37" style="animation-delay:0.25s"/>
+<rect class="st-bar" x="239" y="56" width="19" height="8" rx="1" fill="#1a7f37" style="animation-delay:0.28s"/>
+<rect class="st-bar" x="260" y="44" width="19" height="20" rx="1" fill="#1a7f37" style="animation-delay:0.31s"/>
+<rect class="st-bar" x="281" y="47" width="19" height="17" rx="1" fill="#1a7f37" style="animation-delay:0.34s"/>
+<rect class="st-bar" x="302" y="57" width="19" height="7" rx="1" fill="#1a7f37" style="animation-delay:0.37s"/>
+<rect class="st-bar" x="323" y="63" width="19" height="1" rx="1" fill="#1a7f37" style="animation-delay:0.4s"/>
+<rect class="st-bar" x="344" y="55" width="19" height="9" rx="1" fill="#1a7f37" style="animation-delay:0.43s"/>
+<rect class="st-bar" x="365" y="46" width="19" height="18" rx="1" fill="#1a7f37" style="animation-delay:0.46s"/>
+<text x="301" y="78" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">items per week</text>
+</g>
+<rect class="st-card" x="408" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.08s"/>
+<g class="st-card" style="animation-delay:0.12s">
+<text x="499" y="26" fill="#1f2328" font-size="11" font-weight="600" text-anchor="middle" font-family="system-ui,sans-serif">Dec 2025 — Feb 2026</text>
+<text x="499" y="38" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif">Period</text>
+<text x="499" y="56" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif">8 w · 55 d</text>
+</g>
+<rect class="st-card" x="606" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.12s"/>
+<g class="st-card" style="animation-delay:0.15s">
+<text x="614" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">~3.8/wk</text>
+<text x="614" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Pace</text>
+<text x="697" y="49" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">Largest</text>
+<text x="697" y="61" fill="#1f2328" font-size="10" font-weight="600" text-anchor="middle" font-family="system-ui,sans-serif">3.9 (46)</text>
+</g>
 </svg>

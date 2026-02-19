@@ -257,123 +257,175 @@ function Write-RiverSvgSimple($path, $isDark) {
     [System.IO.File]::WriteAllText($path, $sb.ToString(), $utf8)
 }
 
-# ---- 3) Pulse bars: горизонтальные столбцы по релизам, длина = bullet_count, анимация появления ----
+# ---- 3) Bars: топ релизов по размеру чейнджлога — компактно, с числами ----
 $barsW = 800
-$barsPadL = 56
-$barsPadR = 24
-$barsPadT = 36
-$barsPadB = 32
+$barsPadL = 52
+$barsPadR = 20
+$barsPadT = 28
+$barsPadB = 28
 $barsChartW = $barsW - $barsPadL - $barsPadR
-$barGap = if ($n -gt 20) { 2 } else { 4 }
-# Высота: уместить все строки в 500px макс, без выхода за нижний край
-$barsMaxH = 500
-$barsContentH = $barsMaxH - $barsPadT - $barsPadB
-$barHeight = [math]::Max(2, [math]::Floor(($barsContentH - ($n - 1) * $barGap) / $n))
-$barsChartH = $n * $barHeight + ($n - 1) * $barGap
-$barsH = $barsPadT + $barsChartH + $barsPadB
+$barsTopN = 10
+$barsRows = [math]::Min($barsTopN, $n)
+$barHeight = 14
+$barGap = 3
+$barsChartH = $barsRows * $barHeight + ([math]::Max(0, $barsRows - 1) * $barGap)
+$barsH = $barsPadT + $barsChartH + $barsPadB + 18
 
-function Get-BarX($i) {
-    if ($n -le 1) { return $barsPadL + $barsChartW / 2 }
-    $t = $i / ([double]($n - 1))
-    return [int]($barsPadL + $t * $barsChartW)
+$barsReleasesSorted = $releases | Sort-Object -Property bullet_count -Descending
+$barsTopReleases = $barsReleasesSorted | Select-Object -First $barsTopN
+$barsOtherCount = [math]::Max(0, $n - $barsTopN)
+$barsOtherBullets = 0
+if ($barsOtherCount -gt 0) {
+    $barsReleasesSorted | Select-Object -Skip $barsTopN | ForEach-Object { $barsOtherBullets += $_.bullet_count }
 }
+$barsMaxInTop = if ($barsTopReleases.Count -gt 0) { ($barsTopReleases | Measure-Object -Property bullet_count -Maximum).Maximum } else { 1 }
 
 function Write-BarsSvg($path, $isDark) {
     $bg = if ($isDark) { "#0d1117" } else { "#ffffff" }
     $fg = if ($isDark) { "#e6edf3" } else { "#1f2328" }
     $muted = if ($isDark) { "#8b949e" } else { "#656d76" }
     $accent = if ($isDark) { "#58a6ff" } else { "#0969da" }
-    $grid = if ($isDark) { "#21262d" } else { "#d0d7de" }
 
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
-    [void]$sb.AppendLine('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ' + $barsW + ' ' + $barsH + '" width="100%" height="' + $barsH + '">')
-    [void]$sb.AppendLine('<style>.pb-bar{ transform-origin:left center; transform:scaleX(0); animation:pbGrow 0.6s ease forwards; } .pb-dot{ opacity:0; animation:pbFade 0.35s ease forwards; } @keyframes pbGrow{ to{ transform:scaleX(1); } } @keyframes pbFade{ to{ opacity:1; } }</style>')
+    [void]$sb.AppendLine('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + $barsW + ' ' + $barsH + '" width="100%" height="' + $barsH + '">')
+    [void]$sb.AppendLine('<style>.pb-bar{ transform-origin:left center; transform:scaleX(0); animation:pbGrow 0.4s ease forwards; } .pb-dot{ opacity:0; animation:pbFade 0.3s ease forwards; } @keyframes pbGrow{ to{ transform:scaleX(1); } } @keyframes pbFade{ to{ opacity:1; } }</style>')
     [void]$sb.AppendLine('<rect width="' + $barsW + '" height="' + $barsH + '" fill="' + $bg + '" rx="8"/>')
+    [void]$sb.AppendLine('<text x="' + $barsPadL + '" y="' + ($barsPadT - 8) + '" fill="' + $muted + '" font-size="11" font-family="system-ui,sans-serif">Top ' + $barsRows + ' releases by changelog size (items)</text>')
 
-    $barMaxLen = $barsChartW * 0.75
-    $barX2Max = $barsPadL + $barsChartW
-    foreach ($i in 0..($n - 1)) {
-        $r = $releases[$i]
-        $x = Get-BarX $i
-        $y = $barsPadT + $i * ($barHeight + $barGap) + $barHeight / 2
-        $len = 0
-        if ($maxBullet -gt 0) { $len = $barMaxLen * [math]::Min(1, ($r.bullet_count + 1) / ($maxBullet + 1)) }
-        if ($len -lt 8) { $len = 8 }
-        $x2 = [math]::Min($x + $len, $barX2Max)
-        $delay = [math]::Round(0.04 * $i, 2)
-        $titleShort = if ($r.title) { ($r.title.Trim() -replace '\s+', ' ').Trim() } else { "" }
-        if ($titleShort.Length -gt 28) { $titleShort = $titleShort.Substring(0, 25) + "…" }
-        if ($titleShort -eq $r.tag) { $titleShort = "" }
-        [void]$sb.AppendLine('<line x1="' + $x + '" y1="' + [int]$y + '" x2="' + $x + '" y2="' + [int]$y + '" stroke="' + $grid + '" stroke-width="1" opacity="0.5"/>')
-        [void]$sb.AppendLine('<line class="pb-bar" x1="' + $x + '" y1="' + [int]$y + '" x2="' + [int]$x2 + '" y2="' + [int]$y + '" stroke="' + $accent + '" stroke-width="' + [int]$barHeight + '" stroke-linecap="round" style="animation-delay:' + $delay + 's"/>')
-        [void]$sb.AppendLine('<text class="pb-dot" x="' + ($x - 6) + '" y="' + ([int]$y + 4) + '" fill="' + $muted + '" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:' + $delay + 's">' + (EscapeXml($r.tag)) + '</text>')
-        if ($titleShort) {
-            [void]$sb.AppendLine('<text class="pb-dot" x="' + ([int]$x2 + 8) + '" y="' + ([int]$y + 4) + '" fill="' + $muted + '" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:' + $delay + 's">' + (EscapeXml($titleShort)) + '</text>')
-        }
+    $barX0 = $barsPadL
+    $barLenMax = $barsChartW - 90
+    $idx = 0
+    foreach ($r in $barsTopReleases) {
+        $y = $barsPadT + $idx * ($barHeight + $barGap) + $barHeight / 2
+        $len = 8
+        if ($barsMaxInTop -gt 0) { $len = [math]::Max(8, $barLenMax * $r.bullet_count / $barsMaxInTop) }
+        $x2 = [math]::Min($barX0 + $len, $barX0 + $barLenMax)
+        $delay = [math]::Round(0.03 * $idx, 2)
+        [void]$sb.AppendLine('<rect class="pb-bar" x="' + [int]$barX0 + '" y="' + ([int]$y - $barHeight/2) + '" width="' + [int]($x2 - $barX0) + '" height="' + $barHeight + '" rx="3" fill="' + $accent + '" style="animation-delay:' + $delay + 's"/>')
+        [void]$sb.AppendLine('<text class="pb-dot" x="' + ($barX0 - 6) + '" y="' + ([int]$y + 4) + '" fill="' + $muted + '" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:' + $delay + 's">' + (EscapeXml($r.tag)) + '</text>')
+        [void]$sb.AppendLine('<text class="pb-dot" x="' + ([int]$x2 + 8) + '" y="' + ([int]$y + 4) + '" fill="' + $fg + '" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:' + $delay + 's">' + $r.bullet_count + '</text>')
+        $idx++
     }
-    [void]$sb.AppendLine('<text x="' + $barsPadL + '" y="' + ($barsPadT - 10) + '" fill="' + $muted + '" font-size="11" font-family="system-ui,sans-serif">Release size (changelog items)</text>')
+
+    $footerY = $barsH - 10
+    if ($barsOtherCount -gt 0) {
+        $footerText = "… +" + $barsOtherCount + " releases (" + $barsOtherBullets + " items)"
+        [void]$sb.AppendLine('<text x="' + $barsPadL + '" y="' + $footerY + '" fill="' + $muted + '" font-size="10" font-family="system-ui,sans-serif">' + (EscapeXml($footerText)) + '</text>')
+    }
+    [void]$sb.AppendLine('<text x="' + ($barsW - $barsPadR) + '" y="' + $footerY + '" fill="' + $muted + '" font-size="9" text-anchor="end" font-family="system-ui,sans-serif">max ' + $barsMaxInTop + '</text>')
     [void]$sb.AppendLine('</svg>')
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($path, $sb.ToString(), $utf8)
 }
 
-# ---- 4) Stats strip: ключевые числа + мини sparkline ----
+# ---- 4) Stats dashboard: карточки с метриками + мини-графики по неделям (компактно, высота /2) ----
 $statsW = 800
 $statsH = 100
-$statsPad = 24
-$sparkW = 300
-$sparkH = 36
+$statsPad = 10
+$statsCardW = [math]::Floor(($statsW - 2 * $statsPad - 3 * 12) / 4)
+$statsCardH = $statsH - 2 * $statsPad
+$statsChartH = 26
+$statsNumH = 18
 
-# Sparkline: releases per month
-$monthBuckets = @{}
-foreach ($r in $releases) {
-    $key = $r.published.Year * 100 + $r.published.Month
-    if (-not $monthBuckets[$key]) { $monthBuckets[$key] = 0 }
-    $monthBuckets[$key]++
+$statsWeeks = $heatmapWeeksTotal
+$statsWeekCountMax = 1
+$statsWeekBulletsMax = 1
+for ($w = 0; $w -lt $statsWeeks; $w++) {
+    $c = $heatmapWeekBuckets[$w].count
+    $b = $heatmapWeekBuckets[$w].bullets
+    if ($c -gt $statsWeekCountMax) { $statsWeekCountMax = $c }
+    if ($b -gt $statsWeekBulletsMax) { $statsWeekBulletsMax = $b }
 }
-$sortedMonths = $monthBuckets.Keys | Sort-Object
-$sparkMax = 1
-foreach ($k in $sortedMonths) { if ($monthBuckets[$k] -gt $sparkMax) { $sparkMax = $monthBuckets[$k] } }
+if ($statsWeekCountMax -lt 1) { $statsWeekCountMax = 1 }
+if ($statsWeekBulletsMax -lt 1) { $statsWeekBulletsMax = 1 }
+
+$avgPerWeek = if ($statsWeeks -gt 0) { [math]::Round($n / $statsWeeks, 1) } else { 0 }
+$largestRelease = $releases | Sort-Object -Property bullet_count -Descending | Select-Object -First 1
 
 function Write-StatsSvg($path, $isDark) {
     $bg = if ($isDark) { "#0d1117" } else { "#f6f8fa" }
     $fg = if ($isDark) { "#e6edf3" } else { "#1f2328" }
     $muted = if ($isDark) { "#8b949e" } else { "#656d76" }
     $accent = if ($isDark) { "#58a6ff" } else { "#0969da" }
+    $accent2 = if ($isDark) { "#3fb950" } else { "#1a7f37" }
+    $cardBg = if ($isDark) { "#161b22" } else { "#ffffff" }
+    $cardStroke = if ($isDark) { "#21262d" } else { "#d0d7de" }
 
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
     [void]$sb.AppendLine('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + $statsW + ' ' + $statsH + '" width="100%" height="' + $statsH + '">')
-    [void]$sb.AppendLine('<style>.st-num{ opacity:0; animation:stPop 0.4s ease forwards; } .st-spark{ opacity:0; stroke-dasharray:500; stroke-dashoffset:500; animation:stDraw 1s ease forwards; } @keyframes stPop{ to{ opacity:1; } } @keyframes stDraw{ to{ stroke-dashoffset:0; opacity:1; } }</style>')
+    [void]$sb.AppendLine('<style>.st-card{ opacity:0; animation:stPop 0.35s ease forwards; } @keyframes stPop{ to{ opacity:1; } } .st-bar{ transform-origin:bottom; transform:scaleY(0); animation:stBar 0.4s ease forwards; } @keyframes stBar{ to{ transform:scaleY(1); } }</style>')
     [void]$sb.AppendLine('<rect width="' + $statsW + '" height="' + $statsH + '" fill="' + $bg + '" rx="8"/>')
 
-    $yCenter = $statsH / 2
-    $x = $statsPad
-    [void]$sb.AppendLine('<text class="st-num" x="' + $x + '" y="' + ($yCenter - 2) + '" fill="' + $fg + '" font-size="18" font-weight="600" font-family="system-ui,sans-serif">' + $n + '</text>')
-    [void]$sb.AppendLine('<text class="st-num" x="' + $x + '" y="' + ($yCenter + 14) + '" fill="' + $muted + '" font-size="10" font-family="system-ui,sans-serif">releases</text>')
-    $x += 72
-    [void]$sb.AppendLine('<text class="st-num" x="' + $x + '" y="' + ($yCenter - 2) + '" fill="' + $fg + '" font-size="18" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.08s">' + $totalBullets + '</text>')
-    [void]$sb.AppendLine('<text class="st-num" x="' + $x + '" y="' + ($yCenter + 14) + '" fill="' + $muted + '" font-size="10" font-family="system-ui,sans-serif" style="animation-delay:0.08s">items</text>')
-    $x += 72
-    $rangeStr = $minDate.ToString("MMM yyyy", [System.Globalization.CultureInfo]::InvariantCulture) + " — " + $maxDate.ToString("MMM yyyy", [System.Globalization.CultureInfo]::InvariantCulture)
-    [void]$sb.AppendLine('<text class="st-num" x="' + $x + '" y="' + $yCenter + '" fill="' + $muted + '" font-size="11" font-family="system-ui,sans-serif" style="animation-delay:0.12s">' + (EscapeXml($rangeStr)) + '</text>')
+    $cardGap = 12
+    $cardLeft = $statsPad
+    $chartPad = 10
+    $barGap = 2
+    $cardTop = $statsPad + 2
+    $numY = $cardTop + 14
+    $labelY = $cardTop + 26
+    $innerChartY = $cardTop + 32
+    $barMaxH = $statsChartH - 6
+    $captionY = $cardTop + $statsCardH - 4 - 10
+    $cardCenterX = $statsCardW / 2
+    $midBlockY = $innerChartY + $barMaxH / 2
 
-    $sparkX0 = $statsW - $statsPad - $sparkW
-    $sparkY0 = $yCenter - $sparkH / 2
-    $sparkPath = ""
-    $idx = 0
-    foreach ($k in $sortedMonths) {
-        $v = $monthBuckets[$k]
-        $px = $sparkX0 + ($idx / [math]::Max(1, ($sortedMonths.Count - 1))) * $sparkW
-        $py = $sparkY0 + $sparkH - ($v / $sparkMax) * $sparkH
-        if ($sparkPath -eq "") { $sparkPath = "M $px $py" } else { $sparkPath += " L $px $py" }
-        $idx++
+    for ($card = 0; $card -lt 4; $card++) {
+        $cx = $cardLeft + $card * ($statsCardW + $cardGap)
+        $cardCenter = $cx + $cardCenterX
+        $innerW = $statsCardW - 2 * $chartPad
+        $barW = [math]::Max(2, ($innerW - ($statsWeeks - 1) * $barGap) / $statsWeeks)
+
+        [void]$sb.AppendLine('<rect class="st-card" x="' + ($cx + 2) + '" y="' + $cardTop + '" width="' + ($statsCardW - 4) + '" height="' + ($statsCardH - 4) + '" rx="6" fill="' + $cardBg + '" stroke="' + $cardStroke + '" stroke-width="1" style="animation-delay:' + ([math]::Round(0.04 * $card, 2)) + 's"/>')
+
+        if ($card -eq 0) {
+            [void]$sb.AppendLine('<g class="st-card" style="animation-delay:0.05s">')
+            [void]$sb.AppendLine('<text x="' + ($cx + $chartPad) + '" y="' + $numY + '" fill="' + $fg + '" font-size="16" font-weight="600" font-family="system-ui,sans-serif">' + $n + '</text>')
+            [void]$sb.AppendLine('<text x="' + ($cx + $chartPad) + '" y="' + $labelY + '" fill="' + $muted + '" font-size="9" font-family="system-ui,sans-serif">Releases</text>')
+            for ($w = 0; $w -lt $statsWeeks; $w++) {
+                $v = $heatmapWeekBuckets[$w].count
+                $bx = $cx + $chartPad + $w * ($barW + $barGap)
+                $bh = if ($statsWeekCountMax -gt 0) { [math]::Max(1, $barMaxH * $v / $statsWeekCountMax) } else { 1 }
+                [void]$sb.AppendLine('<rect class="st-bar" x="' + [int]$bx + '" y="' + ($innerChartY + $barMaxH - $bh) + '" width="' + [int]$barW + '" height="' + [int]$bh + '" rx="1" fill="' + $accent + '" style="animation-delay:' + ([math]::Round(0.2 + $w * 0.03, 2)) + 's"/>')
+            }
+            [void]$sb.AppendLine('<text x="' + [int]$cardCenter + '" y="' + $captionY + '" fill="' + $muted + '" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">by week</text>')
+            [void]$sb.AppendLine('</g>')
+        }
+        elseif ($card -eq 1) {
+            [void]$sb.AppendLine('<g class="st-card" style="animation-delay:0.08s">')
+            [void]$sb.AppendLine('<text x="' + ($cx + $chartPad) + '" y="' + $numY + '" fill="' + $fg + '" font-size="16" font-weight="600" font-family="system-ui,sans-serif">' + $totalBullets + '</text>')
+            [void]$sb.AppendLine('<text x="' + ($cx + $chartPad) + '" y="' + $labelY + '" fill="' + $muted + '" font-size="9" font-family="system-ui,sans-serif">Changelog items</text>')
+            for ($w = 0; $w -lt $statsWeeks; $w++) {
+                $v = $heatmapWeekBuckets[$w].bullets
+                $bx = $cx + $chartPad + $w * ($barW + $barGap)
+                $bh = if ($statsWeekBulletsMax -gt 0) { [math]::Max(1, $barMaxH * $v / $statsWeekBulletsMax) } else { 1 }
+                [void]$sb.AppendLine('<rect class="st-bar" x="' + [int]$bx + '" y="' + ($innerChartY + $barMaxH - $bh) + '" width="' + [int]$barW + '" height="' + [int]$bh + '" rx="1" fill="' + $accent2 + '" style="animation-delay:' + ([math]::Round(0.25 + $w * 0.03, 2)) + 's"/>')
+            }
+            [void]$sb.AppendLine('<text x="' + [int]$cardCenter + '" y="' + $captionY + '" fill="' + $muted + '" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">items per week</text>')
+            [void]$sb.AppendLine('</g>')
+        }
+        elseif ($card -eq 2) {
+            [void]$sb.AppendLine('<g class="st-card" style="animation-delay:0.12s">')
+            $rangeStr = $minDate.ToString("MMM yyyy", [System.Globalization.CultureInfo]::InvariantCulture) + " — " + $maxDate.ToString("MMM yyyy", [System.Globalization.CultureInfo]::InvariantCulture)
+            [void]$sb.AppendLine('<text x="' + [int]$cardCenter + '" y="' + $numY + '" fill="' + $fg + '" font-size="11" font-weight="600" text-anchor="middle" font-family="system-ui,sans-serif">' + (EscapeXml($rangeStr)) + '</text>')
+            [void]$sb.AppendLine('<text x="' + [int]$cardCenter + '" y="' + $labelY + '" fill="' + $muted + '" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif">Period</text>')
+            $daysTotal = [int]$dateRange
+            [void]$sb.AppendLine('<text x="' + [int]$cardCenter + '" y="' + ($midBlockY + 2) + '" fill="' + $muted + '" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif">' + $statsWeeks + ' w · ' + $daysTotal + ' d</text>')
+            [void]$sb.AppendLine('</g>')
+        }
+        else {
+            [void]$sb.AppendLine('<g class="st-card" style="animation-delay:0.15s">')
+            [void]$sb.AppendLine('<text x="' + ($cx + $chartPad) + '" y="' + $numY + '" fill="' + $fg + '" font-size="16" font-weight="600" font-family="system-ui,sans-serif">~' + $avgPerWeek + '/wk</text>')
+            [void]$sb.AppendLine('<text x="' + ($cx + $chartPad) + '" y="' + $labelY + '" fill="' + $muted + '" font-size="9" font-family="system-ui,sans-serif">Pace</text>')
+            if ($largestRelease) {
+                [void]$sb.AppendLine('<text x="' + [int]$cardCenter + '" y="' + ($midBlockY - 5) + '" fill="' + $muted + '" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">Largest</text>')
+                [void]$sb.AppendLine('<text x="' + [int]$cardCenter + '" y="' + ($midBlockY + 7) + '" fill="' + $fg + '" font-size="10" font-weight="600" text-anchor="middle" font-family="system-ui,sans-serif">' + (EscapeXml($largestRelease.tag)) + ' (' + $largestRelease.bullet_count + ')</text>')
+            }
+            [void]$sb.AppendLine('</g>')
+        }
     }
-    if ($sparkPath -ne "") {
-        [void]$sb.AppendLine('<path class="st-spark" d="' + $sparkPath + '" fill="none" stroke="' + $accent + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation-delay:0.3s"/>')
-    }
-    [void]$sb.AppendLine('<text x="' + ($sparkX0 - 8) + '" y="' + $yCenter + '" fill="' + $muted + '" font-size="9" text-anchor="end" font-family="system-ui,sans-serif">per month</text>')
+
     [void]$sb.AppendLine('</svg>')
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($path, $sb.ToString(), $utf8)

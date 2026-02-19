@@ -1,107 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 486" width="100%" height="486">
-<style>.pb-bar{ transform-origin:left center; transform:scaleX(0); animation:pbGrow 0.6s ease forwards; } .pb-dot{ opacity:0; animation:pbFade 0.35s ease forwards; } @keyframes pbGrow{ to{ transform:scaleX(1); } } @keyframes pbFade{ to{ opacity:1; } }</style>
-<rect width="800" height="486" fill="#ffffff" rx="8"/>
-<line x1="56" y1="42" x2="56" y2="42" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="56" y1="42" x2="64" y2="42" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0s"/>
-<text class="pb-dot" x="50" y="46" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0s">1.0</text>
-<text class="pb-dot" x="72" y="46" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:0s">OpenWrt Builder v1.0</text>
-<line x1="81" y1="56" x2="81" y2="56" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="81" y1="56" x2="89" y2="56" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.04s"/>
-<text class="pb-dot" x="75" y="60" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.04s">2.0</text>
-<line x1="106" y1="70" x2="106" y2="70" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="106" y1="70" x2="114" y2="70" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.08s"/>
-<text class="pb-dot" x="100" y="74" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.08s">2.1</text>
-<line x1="130" y1="84" x2="130" y2="84" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="130" y1="84" x2="138" y2="84" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.12s"/>
-<text class="pb-dot" x="124" y="88" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.12s">2.4</text>
-<line x1="155" y1="98" x2="155" y2="98" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="155" y1="98" x2="163" y2="98" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.16s"/>
-<text class="pb-dot" x="149" y="102" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.16s">2.5</text>
-<line x1="180" y1="112" x2="180" y2="112" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="180" y1="112" x2="188" y2="112" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.2s"/>
-<text class="pb-dot" x="174" y="116" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.2s">2.51</text>
-<line x1="205" y1="126" x2="205" y2="126" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="205" y1="126" x2="745" y2="126" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.24s"/>
-<text class="pb-dot" x="199" y="130" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.24s">3.2</text>
-<text class="pb-dot" x="753" y="130" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:0.24s">v3.2</text>
-<line x1="230" y1="140" x2="230" y2="140" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="230" y1="140" x2="238" y2="140" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.28s"/>
-<text class="pb-dot" x="224" y="144" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.28s">3.3</text>
-<line x1="255" y1="154" x2="255" y2="154" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="255" y1="154" x2="263" y2="154" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.32s"/>
-<text class="pb-dot" x="249" y="158" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.32s">3.4</text>
-<line x1="279" y1="168" x2="279" y2="168" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="279" y1="168" x2="287" y2="168" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.36s"/>
-<text class="pb-dot" x="273" y="172" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.36s">3.5</text>
-<line x1="304" y1="182" x2="304" y2="182" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="304" y1="182" x2="312" y2="182" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.4s"/>
-<text class="pb-dot" x="298" y="186" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.4s">3.51</text>
-<line x1="329" y1="196" x2="329" y2="196" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="329" y1="196" x2="337" y2="196" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.44s"/>
-<text class="pb-dot" x="323" y="200" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.44s">3.54</text>
-<line x1="354" y1="210" x2="354" y2="210" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="354" y1="210" x2="362" y2="210" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.48s"/>
-<text class="pb-dot" x="348" y="214" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.48s">3.6</text>
-<line x1="379" y1="224" x2="379" y2="224" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="379" y1="224" x2="387" y2="224" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.52s"/>
-<text class="pb-dot" x="373" y="228" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.52s">3.8</text>
-<line x1="404" y1="238" x2="404" y2="238" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="404" y1="238" x2="776" y2="238" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.56s"/>
-<text class="pb-dot" x="398" y="242" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.56s">3.9</text>
-<text class="pb-dot" x="784" y="242" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:0.56s">3.9 RU-EN lang + Linux?</text>
-<line x1="428" y1="252" x2="428" y2="252" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="428" y1="252" x2="436" y2="252" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.6s"/>
-<text class="pb-dot" x="422" y="256" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.6s">4.0</text>
-<text class="pb-dot" x="444" y="256" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:0.6s">&lt; 4.0 Win+Lin RU+EN &gt;</text>
-<line x1="453" y1="266" x2="453" y2="266" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="453" y1="266" x2="461" y2="266" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.64s"/>
-<text class="pb-dot" x="447" y="270" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.64s">4.02</text>
-<line x1="478" y1="280" x2="478" y2="280" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="478" y1="280" x2="776" y2="280" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.68s"/>
-<text class="pb-dot" x="472" y="284" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.68s">4.04_hotfix</text>
-<text class="pb-dot" x="784" y="284" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:0.68s">4.08_hotfix</text>
-<line x1="503" y1="294" x2="503" y2="294" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="503" y1="294" x2="776" y2="294" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.72s"/>
-<text class="pb-dot" x="497" y="298" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.72s">4.09</text>
-<line x1="528" y1="308" x2="528" y2="308" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="528" y1="308" x2="536" y2="308" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.76s"/>
-<text class="pb-dot" x="522" y="312" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.76s">4.1</text>
-<line x1="553" y1="322" x2="553" y2="322" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="553" y1="322" x2="561" y2="322" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.8s"/>
-<text class="pb-dot" x="547" y="326" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.8s">4.11</text>
-<line x1="577" y1="336" x2="577" y2="336" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="577" y1="336" x2="585" y2="336" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.84s"/>
-<text class="pb-dot" x="571" y="340" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.84s">4.12</text>
-<line x1="602" y1="350" x2="602" y2="350" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="602" y1="350" x2="776" y2="350" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.88s"/>
-<text class="pb-dot" x="596" y="354" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.88s">4.20</text>
-<line x1="627" y1="364" x2="627" y2="364" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="627" y1="364" x2="776" y2="364" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.92s"/>
-<text class="pb-dot" x="621" y="368" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.92s">4.22</text>
-<text class="pb-dot" x="784" y="368" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:0.92s">Release v4.22 (RAX3000M e…</text>
-<line x1="652" y1="378" x2="652" y2="378" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="652" y1="378" x2="660" y2="378" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:0.96s"/>
-<text class="pb-dot" x="646" y="382" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.96s">4.3</text>
-<text class="pb-dot" x="668" y="382" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:0.96s">4.3 src patch support</text>
-<line x1="677" y1="392" x2="677" y2="392" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="677" y1="392" x2="776" y2="392" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:1s"/>
-<text class="pb-dot" x="671" y="396" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:1s">4.32</text>
-<text class="pb-dot" x="784" y="396" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:1s">4.32 menuconfig, patches,…</text>
-<line x1="702" y1="406" x2="702" y2="406" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="702" y1="406" x2="776" y2="406" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:1.04s"/>
-<text class="pb-dot" x="696" y="410" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:1.04s">4.40</text>
-<text class="pb-dot" x="784" y="410" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:1.04s">4.40 local ib win</text>
-<line x1="726" y1="420" x2="726" y2="420" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="726" y1="420" x2="734" y2="420" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:1.08s"/>
-<text class="pb-dot" x="720" y="424" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:1.08s">4.41</text>
-<text class="pb-dot" x="742" y="424" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:1.08s">RouterFW 4.41</text>
-<line x1="751" y1="434" x2="751" y2="434" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="751" y1="434" x2="776" y2="434" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:1.12s"/>
-<text class="pb-dot" x="745" y="438" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:1.12s">4.42</text>
-<line x1="776" y1="448" x2="776" y2="448" stroke="#d0d7de" stroke-width="1" opacity="0.5"/>
-<line class="pb-bar" x1="776" y1="448" x2="776" y2="448" stroke="#0969da" stroke-width="12" stroke-linecap="round" style="animation-delay:1.16s"/>
-<text class="pb-dot" x="770" y="452" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:1.16s">4.43</text>
-<text class="pb-dot" x="784" y="452" fill="#656d76" font-size="9" font-family="system-ui,sans-serif" style="animation-delay:1.16s">4.43 lang refactor</text>
-<text x="56" y="26" fill="#656d76" font-size="11" font-family="system-ui,sans-serif">Release size (changelog items)</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 241" width="100%" height="241">
+<style>.pb-bar{ transform-origin:left center; transform:scaleX(0); animation:pbGrow 0.4s ease forwards; } .pb-dot{ opacity:0; animation:pbFade 0.3s ease forwards; } @keyframes pbGrow{ to{ transform:scaleX(1); } } @keyframes pbFade{ to{ opacity:1; } }</style>
+<rect width="800" height="241" fill="#ffffff" rx="8"/>
+<text x="52" y="20" fill="#656d76" font-size="11" font-family="system-ui,sans-serif">Top 10 releases by changelog size (items)</text>
+<rect class="pb-bar" x="52" y="28" width="638" height="14" rx="3" fill="#0969da" style="animation-delay:0s"/>
+<text class="pb-dot" x="46" y="39" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0s">3.9</text>
+<text class="pb-dot" x="698" y="39" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0s">46</text>
+<rect class="pb-bar" x="52" y="45" width="596" height="14" rx="3" fill="#0969da" style="animation-delay:0.03s"/>
+<text class="pb-dot" x="46" y="56" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.03s">4.22</text>
+<text class="pb-dot" x="656" y="56" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.03s">43</text>
+<rect class="pb-bar" x="52" y="62" width="541" height="14" rx="3" fill="#0969da" style="animation-delay:0.06s"/>
+<text class="pb-dot" x="46" y="73" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.06s">4.09</text>
+<text class="pb-dot" x="601" y="73" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.06s">39</text>
+<rect class="pb-bar" x="52" y="79" width="513" height="14" rx="3" fill="#0969da" style="animation-delay:0.09s"/>
+<text class="pb-dot" x="46" y="90" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.09s">4.42</text>
+<text class="pb-dot" x="573" y="90" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.09s">37</text>
+<rect class="pb-bar" x="52" y="96" width="513" height="14" rx="3" fill="#0969da" style="animation-delay:0.12s"/>
+<text class="pb-dot" x="46" y="107" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.12s">3.2</text>
+<text class="pb-dot" x="573" y="107" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.12s">37</text>
+<rect class="pb-bar" x="52" y="113" width="402" height="14" rx="3" fill="#0969da" style="animation-delay:0.15s"/>
+<text class="pb-dot" x="46" y="124" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.15s">4.32</text>
+<text class="pb-dot" x="462" y="124" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.15s">29</text>
+<rect class="pb-bar" x="52" y="130" width="402" height="14" rx="3" fill="#0969da" style="animation-delay:0.18s"/>
+<text class="pb-dot" x="46" y="141" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.18s">4.20</text>
+<text class="pb-dot" x="462" y="141" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.18s">29</text>
+<rect class="pb-bar" x="52" y="147" width="361" height="14" rx="3" fill="#0969da" style="animation-delay:0.21s"/>
+<text class="pb-dot" x="46" y="158" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.21s">4.04_hotfix</text>
+<text class="pb-dot" x="421" y="158" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.21s">26</text>
+<rect class="pb-bar" x="52" y="164" width="319" height="14" rx="3" fill="#0969da" style="animation-delay:0.24s"/>
+<text class="pb-dot" x="46" y="175" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.24s">4.40</text>
+<text class="pb-dot" x="379" y="175" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.24s">23</text>
+<rect class="pb-bar" x="52" y="181" width="291" height="14" rx="3" fill="#0969da" style="animation-delay:0.27s"/>
+<text class="pb-dot" x="46" y="192" fill="#656d76" font-size="10" text-anchor="end" font-family="system-ui,sans-serif" style="animation-delay:0.27s">4.02</text>
+<text class="pb-dot" x="351" y="192" fill="#1f2328" font-size="10" font-weight="600" font-family="system-ui,sans-serif" style="animation-delay:0.27s">21</text>
+<text x="52" y="231" fill="#656d76" font-size="10" font-family="system-ui,sans-serif">… +20 releases (256 items)</text>
+<text x="780" y="231" fill="#656d76" font-size="9" text-anchor="end" font-family="system-ui,sans-serif">max 46</text>
 </svg>
