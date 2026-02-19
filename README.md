@@ -322,6 +322,12 @@ SRC_CORES="safe"
 *   `show_pkgs.sh` - Альтернативный вариант получить список пакетов из уроков.
 *   `99-permissions.sh` — Авто-фикс прав доступа для файлов (Dropbear/SSH).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
+  <img alt="Release strip (by date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
+</picture>
+
 График работы с гитом:
 
 <picture>
@@ -331,12 +337,6 @@ SRC_CORES="safe"
 </picture>
 
 Визуализация релизов (CHANGELOG) — временная шкала, heatmap, река активности, пульс-бары, статистика:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
-  <img alt="Release activity heatmap (weeks)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
-</picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-river-v3-dark.svg">
@@ -357,9 +357,9 @@ SRC_CORES="safe"
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
-  <img alt="Release strip (by date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
+  <img alt="Release activity heatmap (weeks)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
 </picture>
 
 ---
