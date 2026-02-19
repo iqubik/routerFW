@@ -49,15 +49,15 @@ START
 
 ```
 Main Menu
-  ├─ [B / number] Build selected profile
+  ├─ [number]     Build selected profile
   ├─ [M]          Switch build mode: IMAGE ↔ SOURCE
   ├─ [E]          Edit profile in $EDITOR
   ├─ [A]          Parallel build ALL profiles (Linux only, background jobs + spinner)
-  ├─ [K]          Cleanup menu (cache, volumes, full reset)
-  ├─ [C]          Create new profile wizard  →  system/create_profile.sh / .ps1
+  ├─ [K]          Menuconfig (Source Builder only)
+  ├─ [C]          Cleanup Wizard (cache, volumes, full reset)
+  ├─ [W]          Create new profile wizard  →  system/create_profile.sh / .ps1
   ├─ [I]          Import .ipk packages       →  system/import_ipk.sh / .ps1
-  ├─ [W]          Menuconfig (Source Builder only)
-  └─ [Q / 0]      Quit
+  └─ [0]          Quit
 ```
 
 ---
@@ -152,6 +152,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─[13] make -j<SRC_CORES>  →  fallback make -j1 V=s on error
   │               └─[14] Copy artifacts → firmware_output/sourcebuilder/<profile>/<timestamp>/
   │
+  ├─ Fix permissions (alpine chown to host user UID, same as Image Builder)
   ├─ Post-build: detect *imagebuilder*.tar.zst → offer to update IMAGEBUILDER_URL in profile
   └─ Post-build: offer interactive shell (docker compose run --rm -it /bin/bash)
 ```
@@ -161,7 +162,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 ## 6. Menuconfig Flow (Source Builder only)
 
 ```
-Menu [W]  →  run_menuconfig(profile.conf)
+Menu [K]  →  run_menuconfig(profile.conf)
   │
   ├─ Generates firmware_output/sourcebuilder/<profile>/_menuconfig_runner.sh
   ├─ docker compose run --rm -it builder-src-openwrt /bin/bash

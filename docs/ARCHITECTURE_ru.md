@@ -49,15 +49,15 @@
 
 ```
 Главное меню
-  ├─ [B / номер] Собрать выбранный профиль
+  ├─ [номер]      Собрать выбранный профиль
   ├─ [M]         Переключить режим сборки: IMAGE ↔ SOURCE
   ├─ [E]         Открыть профиль в $EDITOR
   ├─ [A]         Параллельная сборка ВСЕХ профилей (только Linux, фоновые задачи + спиннер)
-  ├─ [K]         Меню очистки (кэш, тома, полный сброс)
-  ├─ [C]         Мастер создания нового профиля  →  system/create_profile.sh / .ps1
+  ├─ [K]         Menuconfig (только Source Builder)
+  ├─ [C]         Мастер очистки (кэш, тома, полный сброс)
+  ├─ [W]         Мастер создания нового профиля  →  system/create_profile.sh / .ps1
   ├─ [I]         Импорт .ipk-пакетов             →  system/import_ipk.sh / .ps1
-  ├─ [W]         Menuconfig (только Source Builder)
-  └─ [Q / 0]     Выход
+  └─ [0]         Выход
 ```
 
 ---
@@ -152,6 +152,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─[13] make -j<SRC_CORES>  →  резервный make -j1 V=s при ошибке
   │               └─[14] Копирование артефактов → firmware_output/sourcebuilder/<профиль>/<метка времени>/
   │
+  ├─ Исправление прав (alpine chown под UID хоста, как в Image Builder)
   ├─ После сборки: поиск *imagebuilder*.tar.zst → предложение обновить IMAGEBUILDER_URL в профиле
   └─ После сборки: предложение интерактивной оболочки (docker compose run --rm -it /bin/bash)
 ```
@@ -161,7 +162,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 ## 6. Процесс Menuconfig (только Source Builder)
 
 ```
-Меню [W]  →  run_menuconfig(profile.conf)
+Меню [K]  →  run_menuconfig(profile.conf)
   │
   ├─ Генерирует firmware_output/sourcebuilder/<профиль>/_menuconfig_runner.sh
   ├─ docker compose run --rm -it builder-src-openwrt /bin/bash

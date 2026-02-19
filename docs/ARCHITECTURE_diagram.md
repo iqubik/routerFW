@@ -10,6 +10,8 @@
 
 ## 1. Startup sequence (EN)
 
+> **Platform:** This diagram reflects **Linux** (_Builder.sh). On Windows (_Builder.bat): no trap, no Docker credentials fix; unpack uses _unpacker.bat; patch_arch runs once at startup; migrate runs on **each** menu draw.
+
 ```mermaid
 flowchart TD
     START([_Builder.sh / _Builder.bat]) --> TRAP[trap SIGINT/SIGTERM\ncleanup_exit → release_locks ALL, rm .docker_tmp]
@@ -20,13 +22,13 @@ flowchart TD
     LANG_OUT --> DOCKER_CFG[Docker credentials fix\n.docker_tmp/config.json\nstrip credsStore/credHelpers]
     DOCKER_CFG --> DOCKER_CHK{docker & compose\npresent?}
     DOCKER_CHK --> |no| EXIT_DOCKER[L_ERR_DOCKER\nread, exit 1]
-    DOCKER_CHK --> |yes| INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches]
-    INIT_DIRS --> UNPACK{_unpacker.sh\npresent?}
+    DOCKER_CHK --> |yes| UNPACK{_unpacker.sh\npresent?}
     UNPACK --> |yes| RUN_UNPACK[bash _unpacker.sh]
-    UNPACK --> |no| MIGRATE
-    RUN_UNPACK --> MIGRATE[migrate_profile_vars\nPKGS→IMAGE_PKGS\nEXTRA_IMAGE_NAME→IMAGE_EXTRA_NAME]
-    MIGRATE --> PATCH_ARCH[patch_architectures\nSRC_ARCH from SRC_TARGET/SUBTARGET]
-    PATCH_ARCH --> MENU_LOOP[while true: draw menu]
+    UNPACK --> |no| INIT_DIRS
+    RUN_UNPACK --> INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches]
+    INIT_DIRS --> PATCH_ARCH[patch_architectures\nSRC_ARCH from SRC_TARGET/SUBTARGET]
+    PATCH_ARCH --> MIGRATE[migrate_profile_vars\nPKGS→IMAGE_PKGS\nEXTRA_IMAGE_NAME→IMAGE_EXTRA_NAME]
+    MIGRATE --> MENU_LOOP[while true: draw menu]
 ```
 
 ---
@@ -38,7 +40,7 @@ flowchart TD
     MENU([Main menu\nTable: profiles + F,P,S,M,H,X,OI,OS\nOn each draw: init dirs per profile\ncreate_perms_script])
     MENU --> CHOICE{User input}
 
-    CHOICE --> |0 or Q| EXIT[Exit confirm\nY/n, sleep 3, exit 0]
+    CHOICE --> |0| EXIT[Exit confirm\nY/n, sleep 3, exit 0]
     CHOICE --> |M| SWITCH[BUILD_MODE =\nIMAGE ↔ SOURCE]
     SWITCH --> MENU
 
@@ -68,7 +70,7 @@ flowchart TD
     I_CHECK --> |no| MENU
     I_CHECK --> |yes| I_LIST[Import IPK: list profiles]
     I_LIST --> I_ID{ID}
-    I_ID --> I_RUN[import_ipk.sh p_id p_arch\ncustom_packages → src_packages]
+    I_ID --> I_RUN[import_ipk: .sh p_id p_arch / .ps1 -ProfileID -TargetArch\ncustom_packages → src_packages]
     I_RUN --> MENU
 
     CHOICE --> |W| W_RUN[create_profile.sh / .ps1\nwizard → new profiles/name.conf]
@@ -107,7 +109,8 @@ flowchart TD
     OLD_SRC & NEW_SRC --> SB[src_builder.sh\nvolumes: workdir, dl-cache, ccache\npatches, overlay_files]
     SB --> SB_STEPS[chown, git fetch/reset\nfeeds, patches\nhooks.sh or VERMAGIC rollback\n.config, overlay → files\nmake download, make -jN]
     SB_STEPS --> SB_OUT[Copy to\nfirmware_output/sourcebuilder/<id>/<ts>]
-    SB_OUT --> SB_OK{Build\nsuccess?}
+    SB_OUT --> SB_CHOWN[alpine chown\nHOST_OUTPUT_DIR]
+    SB_CHOWN --> SB_OK{Build\nsuccess?}
     SB_OK --> |no| SB_FATAL[L_BUILD_FATAL]
     SB_FATAL --> SB_SHELL_Q2
     SB_OK --> |yes| IB_TAR{*imagebuilder*\n.tar.zst in output?}
@@ -188,6 +191,8 @@ flowchart TD
 
 ## 6. Startup sequence (RU)
 
+> **Платформа:** диаграмма отражает **Linux** (_Builder.sh). В Windows (_Builder.bat): нет trap и фикса Docker credentials; распаковка — _unpacker.bat; patch_arch один раз при старте; migrate выполняется при **каждой** отрисовке меню.
+
 ```mermaid
 flowchart TD
     START([_Builder.sh / _Builder.bat]) --> TRAP[trap SIGINT/SIGTERM\ncleanup_exit → release_locks ALL, rm .docker_tmp]
@@ -198,13 +203,13 @@ flowchart TD
     LANG_OUT --> DOCKER_CFG[Исправление Docker credentials\n.docker_tmp/config.json\nудаление credsStore/credHelpers]
     DOCKER_CFG --> DOCKER_CHK{docker и compose\nустановлены?}
     DOCKER_CHK --> |нет| EXIT_DOCKER[L_ERR_DOCKER\nread, exit 1]
-    DOCKER_CHK --> |да| INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches]
-    INIT_DIRS --> UNPACK{_unpacker.sh\nесть?}
+    DOCKER_CHK --> |да| UNPACK{_unpacker.sh\nесть?}
     UNPACK --> |да| RUN_UNPACK[bash _unpacker.sh]
-    UNPACK --> |нет| MIGRATE
-    RUN_UNPACK --> MIGRATE[migrate_profile_vars\nPKGS→IMAGE_PKGS\nEXTRA_IMAGE_NAME→IMAGE_EXTRA_NAME]
-    MIGRATE --> PATCH_ARCH[patch_architectures\nSRC_ARCH из SRC_TARGET/SUBTARGET]
-    PATCH_ARCH --> MENU_LOOP[while true: отрисовка меню]
+    UNPACK --> |нет| INIT_DIRS
+    RUN_UNPACK --> INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches]
+    INIT_DIRS --> PATCH_ARCH[patch_architectures\nSRC_ARCH из SRC_TARGET/SUBTARGET]
+    PATCH_ARCH --> MIGRATE[migrate_profile_vars\nPKGS→IMAGE_PKGS\nEXTRA_IMAGE_NAME→IMAGE_EXTRA_NAME]
+    MIGRATE --> MENU_LOOP[while true: отрисовка меню]
 ```
 
 ---
@@ -216,7 +221,7 @@ flowchart TD
     MENU([Главное меню\nТаблица: профили + F,P,S,M,H,X,OI,OS\nПри каждой отрисовке: init dirs\ncreate_perms_script])
     MENU --> CHOICE{Ввод пользователя}
 
-    CHOICE --> |0 или Q| EXIT[Подтверждение выхода\nY/n, sleep 3, exit 0]
+    CHOICE --> |0| EXIT[Подтверждение выхода\nY/n, sleep 3, exit 0]
     CHOICE --> |M| SWITCH[BUILD_MODE =\nIMAGE ↔ SOURCE]
     SWITCH --> MENU
 
@@ -246,7 +251,7 @@ flowchart TD
     I_CHECK --> |нет| MENU
     I_CHECK --> |да| I_LIST[Импорт IPK: список профилей]
     I_LIST --> I_ID{ID}
-    I_ID --> I_RUN[import_ipk.sh p_id p_arch\ncustom_packages → src_packages]
+    I_ID --> I_RUN[import_ipk: .sh p_id p_arch / .ps1 -ProfileID -TargetArch\ncustom_packages → src_packages]
     I_RUN --> MENU
 
     CHOICE --> |W| W_RUN[create_profile.sh / .ps1\nмастер → новый profiles/name.conf]
@@ -285,7 +290,8 @@ flowchart TD
     OLD_SRC & NEW_SRC --> SB[src_builder.sh\nтома: workdir, dl-cache, ccache\npatches, overlay_files]
     SB --> SB_STEPS[chown, git fetch/reset\nfeeds, patches\nhooks.sh или откат VERMAGIC\n.config, overlay → files\nmake download, make -jN]
     SB_STEPS --> SB_OUT[Копирование в\nfirmware_output/sourcebuilder/<id>/<ts>]
-    SB_OUT --> SB_OK{Сборка\nуспешна?}
+    SB_OUT --> SB_CHOWN[alpine chown\nHOST_OUTPUT_DIR]
+    SB_CHOWN --> SB_OK{Сборка\nуспешна?}
     SB_OK --> |нет| SB_FATAL[L_BUILD_FATAL]
     SB_FATAL --> SB_SHELL_Q2
     SB_OK --> |да| IB_TAR{*imagebuilder*\n.tar.zst в выводе?}
