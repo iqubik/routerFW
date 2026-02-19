@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline.svg">
+  <img alt="Release timeline (tag + date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline.svg">
+</picture>
+
 # Language / Язык
 [🇷🇺 Русский язык](README.md) | [🇺🇸 English]
 
@@ -35,6 +41,11 @@ The project is deployed via a **unified international unpacker** `_unpacker`. Al
 > **Appearance: Main Window**
 <img width="1435" height="1060" alt="image" src="https://github.com/user-attachments/assets/697f34e3-c634-4203-b699-124b87152ead" />
 
+> **Appearance: Multiple build**
+<img width="1477" height="998" alt="image" src="https://github.com/user-attachments/assets/16299ec8-0435-4e67-a6ef-1c3a600091c3" />
+
+---
+
 ### 📊 Profile Indicator System
 The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for instant profile assessment:
 *   **F (Files)** — File overlay detected (`custom_files`).
@@ -43,6 +54,7 @@ The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for
 *   **X (Patches)** — **[NEW]** Source code patches detected (`custom_patches`).
 *   **M (Manual Config)** — **[NEW]** Active Menuconfig diff file detected.
 *   **H (Hooks)** — **[NEW]** Automation script `hooks.sh` detected.
+*   **OI / OS** — Ready firmware present (Image / Source Builder).
 
 ---
 
@@ -307,47 +319,43 @@ This feature turns closed-source software integration from a complex engineering
 *   `99-permissions.sh` — Auto-fix permissions for files (Dropbear/SSH).
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
-  <img alt="github contribution grid snake animation" src="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
-</picture>
-
-Release visualization (CHANGELOG) — timeline, strip, heatmap, river, bars, stats:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline.svg">
-  <img alt="Release timeline (tag + date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-timeline.svg">
-</picture>
-
-<picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
   <img alt="Release strip (by date)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-tree.svg">
 </picture>
 
+Git activity graph:
+
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-heatmap-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-heatmap-v3.svg">
-  <img alt="Release activity heatmap (weeks)" src="https://raw.githubusercontent.com/iqubik/routerFW/output/release-heatmap-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
+  <img alt="github contribution grid snake animation" src="https://raw.githubusercontent.com/iqubik/routerFW/output/github-contribution-grid-snake.svg">
+</picture>
+
+Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse bars, stats:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-river-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-river-v3.svg">
+  <img alt="Changelog volume over time" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-river-v3.svg">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-river-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-river-v3.svg">
-  <img alt="Changelog volume over time" src="https://raw.githubusercontent.com/iqubik/routerFW/output/release-river-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-bars-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-bars-v3.svg">
+  <img alt="Release size (changelog items)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-bars-v3.svg">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-bars-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-bars-v3.svg">
-  <img alt="Release size (changelog items)" src="https://raw.githubusercontent.com/iqubik/routerFW/output/release-bars-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-stats-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-stats-v3.svg">
+  <img alt="Release stats and sparkline" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-stats-v3.svg">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-stats-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-stats-v3.svg">
-  <img alt="Release stats dashboard" src="https://raw.githubusercontent.com/iqubik/routerFW/output/release-stats-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
+  <img alt="Release activity heatmap (weeks)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
 </picture>
 
 ---
