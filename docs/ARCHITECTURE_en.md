@@ -2,7 +2,7 @@
 
 # routerFW — Architecture & Process Flow
 
-> Version: 4.43. Last updated: 2026-02-18.
+> Version: 4.33. Last updated: 2026-02-18.
 
 ---
 

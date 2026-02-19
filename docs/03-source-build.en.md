@@ -37,11 +37,7 @@ We will analyze a real-world case described in `debug.md`: building firmware for
 TARGET_PROFILE="cmcc_rax3000m-emmc"
 
 # --- Section for Sourcebuilder ---
-# Specify the custom repository and branch
-SRC_REPO="https://github.com/padavanonly/immortalwrt-mt798x-6.6.git"
-
-# Target and Profile, as in Lesson 2
-# Can be found from the browser address bar (append .git at the end)
+# Specify the custom repository and branch (URL from the repo page on GitHub, append .git at the end)
 SRC_REPO="https://github.com/padavanonly/immortalwrt-mt798x-6.6.git"
 # The exact branch or tag name can also be found on the repository source page on GitHub.
 SRC_BRANCH="openwrt-24.10-6.6"

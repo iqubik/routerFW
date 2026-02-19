@@ -37,11 +37,7 @@
 TARGET_PROFILE="cmcc_rax3000m-emmc"
 
 # --- Секция для Sourcebuilder ---
-# Указываем кастомный репозиторий и ветку
-SRC_REPO="https://github.com/padavanonly/immortalwrt-mt798x-6.6.git"
-
-# Цель и профиль, как в Уроке 2
-# Можно узнать из строки браузера и вконце дописать .git
+# Указываем кастомный репозиторий и ветку (URL можно взять со страницы репозитория на GitHub, в конце дописать .git)
 SRC_REPO="https://github.com/padavanonly/immortalwrt-mt798x-6.6.git"
 # Точное значение ветки(branch) или тега(tag) так же узнаётся на странице исходников на гите.
 SRC_BRANCH="openwrt-24.10-6.6"

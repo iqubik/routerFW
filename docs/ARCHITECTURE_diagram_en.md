@@ -2,7 +2,7 @@
 
 # routerFW — Process Diagrams
 
-> Version: 4.43. English diagram set.
+> Version: 4.33. English diagram set.
 >
 > Text: [ARCHITECTURE_en.md](ARCHITECTURE_en.md) · RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md)
 

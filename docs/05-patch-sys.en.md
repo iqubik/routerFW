@@ -10,7 +10,7 @@
 
 ## 1. Introduction
 
-Version **4.3** introduces a new system for modifying the OpenWrt source code. It's designed to solve one of the most challenging tasks in firmware building: **how to change the project's source code without losing those changes when the container is recreated?**
+Version **4.33** introduces a new system for modifying the OpenWrt source code. It's designed to solve one of the most challenging tasks in firmware building: **how to change the project's source code without losing those changes when the container is recreated?**
 
 Previously, this required writing complex scripts in `hooks.sh` or manually editing files inside the Docker container. Now, the process is transparent and automated.
 
@@ -24,7 +24,7 @@ Previously, this required writing complex scripts in `hooks.sh` or manually edit
 
 ## 2. Key Concept: "Mirror Overlay"
 
-The system operates on a **mirroring** principle. The `custom_patches/<PROFILE_ID>/` directory on your computer is a projection of the OpenWrt source root folder (`/home/builder/openwrt/`) inside the container.
+The system operates on a **mirroring** principle. The `custom_patches/<PROFILE_ID>/` directory on your computer is a projection of the OpenWrt source root folder (`/home/build/openwrt/`) inside the container.
 
 > **Rule:** Any file placed in `custom_patches` will be copied into the source tree, preserving the folder structure and overwriting the original files.
 
@@ -99,11 +99,11 @@ OpenWrt automatically looks for `.patch` files in `patches-x.x` folders inside `
     └── my_profile/
         └── 001-complex-fix.patch
     ```
-2.  At the start of the build, this file will appear in the root of the OpenWrt source tree: `/home/builder/openwrt/001-complex-fix.patch`.
+2.  At the start of the build, this file will appear in the root of the OpenWrt source tree: `/home/build/openwrt/001-complex-fix.patch`.
 3.  Use `custom_files/my_profile/hooks.sh` to apply it:
     ```bash
     #!/bin/bash
-    # hooks.sh is executed in the /home/builder/openwrt root directory
+    # hooks.sh is executed in the /home/build/openwrt root directory
     echo "Applying manual patch..."
     patch -p1 < 001-complex-fix.patch
     ```

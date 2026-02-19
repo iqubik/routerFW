@@ -6,7 +6,7 @@
 
 ---
 
-# Lesson 4: Advanced Source Mode: Sync, Hooks, and Indicators (v4.03)
+# Lesson 4: Advanced Source Mode: Sync, Hooks, and Indicators (v4.33)
 
 **Lesson Goal:** Master professional `Source Builder` tools: automatic settings synchronization, resource monitoring, advanced kernel patching via hooks, and the "Binary-to-Source" IPK import mechanism.
 
@@ -14,20 +14,21 @@
 
 ### 📊 1. Resource Monitoring (Indicator System)
 
-In version **4.03**, the main menu features a "surgical" resource panel **`[F P S M H | OI OS]`**. This allows you to instantly assess your profile's readiness:
+In version **4.33**, the main menu features a "surgical" resource panel **`[F P S M H X | OI OS]`**. This allows you to instantly assess your profile's readiness:
 
 *   **F (Files)**: File overlay detected in `custom_files/%ID%`.
 *   **P (Packages)**: Pre-compiled `.ipk` packages found in `custom_packages/%ID%` (ready for import).
 *   **S (Source)**: Third-party package source code found in `src_packages/%ID%`.
-*   **M (Manual Config)**: **[NEW]** Active `manual_config` detected (unsynced Menuconfig results).
-*   **H (Hooks)**: **[NEW]** Automation script `hooks.sh` detected in the custom files folder.
+*   **M (Manual Config)**: Active `manual_config` detected (unsynced Menuconfig results).
+*   **H (Hooks)**: Automation script `hooks.sh` detected in the custom files folder.
+*   **X (Patches)**: Patch files in `custom_patches/%ID%` for overlaying onto the OpenWrt source tree.
 *   **OI / OS**: Finished firmware detected (**Image Builder** or **Source Builder**).
 
 ---
 
 ### 🔄 2. New Configuration Sync (Auto-Sync)
 
-Version **4.03** implements a seamless synchronization cycle between the interactive GUI and your text-based profile:
+Version **4.33** implements a seamless synchronization cycle between the interactive GUI and your text-based profile:
 
 1.  **Launch**: Select **[K] Menuconfig**.
 2.  **Modify**: Change settings in the standard OpenWrt interface.
@@ -106,8 +107,9 @@ If a build fails or acts strangely, use the **[C] CLEAN** menu in `SOURCE BUILDE
 2.  **[2] HARD RESET (Remove src-workdir)**: Deletes the entire source folder. Use for a "clean slate" without losing downloaded archives.
 3.  **[3] Clean Source Cache (dl)**: Deletes all downloaded `.tar.gz` package archives to free up disk space.
 4.  **[4] Clear CCACHE**: Resets the compiler cache. Use if you suspect compiler errors.
-5.  **[5] FULL FACTORY RESET**: The "nuclear option." Deletes sources, `dl` cache, and `ccache`.
-6.  **[9] Prune Docker**: Cleans unused Docker images and networks.
+5.  **[5] Clean tmp (Package Index)**: Removes the `tmp/` folder in the source tree (package index). Use when dependency updates fail or after changing feeds.
+6.  **[6] FULL FACTORY RESET**: The "nuclear option." Deletes sources, `dl` cache, and `ccache`.
+*   **[9] Prune Docker**: Cleans unused Docker images and networks.
 
 ---
 
