@@ -327,21 +327,21 @@ SRC_CORES="safe"
 Визуализация релизов (CHANGELOG) — heatmap, река активности, пульс-бары, статистика:
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-heatmap-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-heatmap-v3.svg">
-  <img alt="Release activity heatmap (weeks)" src="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-heatmap-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
+  <img alt="Release activity heatmap (weeks)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-river-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-river-v3.svg">
-  <img alt="Changelog volume over time" src="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-river-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-river-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-river-v3.svg">
+  <img alt="Changelog volume over time" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-river-v3.svg">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-bars-v3-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-bars-v3.svg">
-  <img alt="Release size (changelog items)" src="https://raw.githubusercontent.com/iqubik/routerFW/dist/release-bars-v3.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-bars-v3-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-bars-v3.svg">
+  <img alt="Release size (changelog items)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-bars-v3.svg">
 </picture>
 
 <picture>
