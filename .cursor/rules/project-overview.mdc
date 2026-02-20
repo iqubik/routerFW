@@ -28,7 +28,8 @@ Remote: https://github.com/iqubik/routerFW.git, branch: main.
 | `src_packages/<profile>/` | Source packages for Source Builder |
 | `custom_patches/<profile>/` | Source code patches (mirror overlay) |
 | `firmware_output/` | Compiled firmware output |
-| `docs/` | Tutorials (Russian + English) |
+| `dist/` | Generated SVG assets (release-timeline, release-tree, architecture-tetris, release-river, bars, stats, heatmap). Built by workflow or scripts in `system/` (e.g. `architecture-tetris.ps1`). |
+| `docs/` | Tutorials (Russian + English). **Architecture tetris** picture is embedded only in `docs/index.md` and `docs/index.en.md` (not in README). |
 | `_packer.sh` / `_packer.bat` | Packs project into self-extracting distribution |
 | `_unpacker.sh` / `_unpacker.bat` | Self-extracting archives (base64, DO NOT READ) |
 | `.dockerignore` | Excludes `firmware_output/`, `custom_files/`, `.git/` etc. from Docker build context (критично — `firmware_output/` может весить 10+ ГБ) |
