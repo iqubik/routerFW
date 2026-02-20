@@ -240,6 +240,197 @@ function Write-TetrisSvg($path, $isDark) {
     [System.IO.File]::WriteAllText($path, $sb.ToString(), $utf8)
 }
 
+# ---- Growth SVG: деление квадрата по эпохам + почкование (ячейка = релиз) ----
+# Группируем релизы по мажорной версии → 4 эпохи (I=1.x, II=2.x, III=3.x, IV=4.x)
+$epochs = @(
+    [System.Collections.ArrayList]@(),
+    [System.Collections.ArrayList]@(),
+    [System.Collections.ArrayList]@(),
+    [System.Collections.ArrayList]@()
+)
+foreach ($r in $releases) {
+    $major = 0
+    if ($r.tag -match '^(\d+)') { $major = [int]$Matches[1] }
+    $idx = [math]::Max(0, [math]::Min(3, $major - 1))
+    [void]$epochs[$idx].Add($r)
+}
+$growthW = 820
+$growthH = 420
+$growthPad = 32
+$titleH = 44
+$cellGap = 3
+$epochLabels = @('I — Основание', 'II — Комбайн', 'III — Платформа', 'IV — Зрелость')
+
+function Wrap-FeatureText($text, $maxCharsPerLine, $maxLines) {
+    if (-not $text -or $maxLines -le 0) { return @('') }
+    $maxCharsPerLine = [math]::Max(4, $maxCharsPerLine)
+    $words = $text.Trim() -split '\s+'
+    $lines = [System.Collections.ArrayList]@()
+    $current = ''
+    foreach ($w in $words) {
+        if ($w.Length -gt $maxCharsPerLine) {
+            if ($current) { [void]$lines.Add($current); $current = ''; if ($lines.Count -ge $maxLines) { return $lines } }
+            for ($j = 0; $j -lt $w.Length; $j += $maxCharsPerLine) {
+                $chunk = $w.Substring($j, [math]::Min($maxCharsPerLine, $w.Length - $j))
+                [void]$lines.Add($chunk)
+                if ($lines.Count -ge $maxLines) { return $lines }
+            }
+            continue
+        }
+        $next = if ($current) { $current + ' ' + $w } else { $w }
+        if ($next.Length -le $maxCharsPerLine) { $current = $next } else {
+            if ($current) { [void]$lines.Add($current); if ($lines.Count -ge $maxLines) { return $lines } }
+            $current = $w
+        }
+    }
+    if ($current) { [void]$lines.Add($current) }
+    if ($lines.Count -eq 0) { return @($text.Substring(0, [math]::Min($maxCharsPerLine, $text.Length))) }
+    return $lines
+}
+
+# Ключевые фичи по тегам (короткие подписи для ячеек)
+$tagToFeature = @{
+    '1.0' = 'Первый сборщик'
+    '2.0' = 'Source Builder'
+    '2.1' = 'SRC_EXTRA_CONFIG'
+    '2.4' = 'Unpacker, ImmortalWrt'
+    '2.5' = 'hooks.sh, Vermagic'
+    '2.51' = 'UTF-8, packer'
+    '3.2' = 'Единый _Builder'
+    '3.3' = 'Menuconfig [K]'
+    '3.4' = 'RAX3000M mt79'
+    '3.5' = 'personal.flag'
+    '3.51' = 'Wizard v2, зеркала'
+    '3.54' = 'Wizard v2.2'
+    '3.6' = 'system/, docs/'
+    '3.8' = 'IPK-конвейер'
+    '3.9' = 'RU/EN, Linux'
+    '4.0' = '_Builder.sh'
+    '4.02' = 'Menuconfig → .conf'
+    '4.04_hotfix' = 'Сборка SDK'
+    '4.09' = 'ib/src_builder.sh'
+    '4.1' = 'Самовосстановление'
+    '4.11' = 'Ubuntu 24.04'
+    '4.12' = 'menuconfig, safe'
+    '4.20' = 'Тома Docker'
+    '4.22' = 'Vermagic 2.0'
+    '4.3' = 'custom_patches'
+    '4.31' = '—'
+    '4.32' = '.zst/.xz, GCC 13+'
+    '4.40' = 'Локальный IB'
+    '4.41' = 'IMAGE_PKGS'
+    '4.42' = 'Миграция .sh'
+    '4.43' = 'ru.env/en.env'
+}
+
+function Write-GrowthSvg($path, $isDark) {
+    $p = Get-Palette $isDark
+    $epochColors = @($p.accent, $p.accent, $p.accent, $p.accent)
+    if ($isDark) {
+        $epochColors = @($p.accent, '#58a6ff', '#a371f7', '#3fb950')
+    } else {
+        $epochColors = @($p.accent, '#0550ae', '#8250df', '#1a7f37')
+    }
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
+    [void]$sb.AppendLine('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + $growthW + ' ' + $growthH + '" width="100%" height="' + $growthH + '">')
+    [void]$sb.AppendLine('<defs>')
+    for ($e = 0; $e -lt 4; $e++) {
+        [void]$sb.AppendLine('  <linearGradient id="epoch' + $e + '" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="' + $epochColors[$e] + '" stop-opacity="0.25"/><stop offset="100%" stop-color="' + $epochColors[$e] + '" stop-opacity="0.08"/></linearGradient>')
+    }
+    [void]$sb.AppendLine('</defs>')
+    $cycleGrowth = 20
+    [void]$sb.AppendLine('<style>')
+    [void]$sb.AppendLine('  .growth-quadrant{ transform-origin:center; animation:growthQuadrant ' + $cycleGrowth + 's ease-in-out infinite; }')
+    [void]$sb.AppendLine('  .growth-cell{ animation:growthCell ' + $cycleGrowth + 's ease-in-out infinite; }')
+    [void]$sb.AppendLine('  .growth-cell:hover{ filter:brightness(1.15); }')
+    [void]$sb.AppendLine('  @keyframes growthQuadrant{ 0%,100%{ opacity:1; transform:scale(1); } 33%{ opacity:1; transform:scale(1.03); } 66%{ opacity:1; transform:scale(0.97); } }')
+    [void]$sb.AppendLine('  @keyframes growthCell{ 0%{ opacity:0.05; } 7%{ opacity:0.5; } 14%{ opacity:1; } 55%{ opacity:0.94; } 100%{ opacity:1; } }')
+    [void]$sb.AppendLine('  .growth-breath{ animation:growthBreath 10s ease-in-out infinite; }')
+    [void]$sb.AppendLine('  @keyframes growthBreath{ 0%,100%{ opacity:1; } 50%{ opacity:0.92; } }')
+    [void]$sb.AppendLine('</style>')
+    [void]$sb.AppendLine('<rect width="' + $growthW + '" height="' + $growthH + '" fill="' + $p.bg + '" rx="12"/>')
+    [void]$sb.AppendLine('<text class="growth-breath" x="' + ($growthW/2) + '" y="26" fill="' + $p.fg + '" font-size="16" font-weight="600" text-anchor="middle" font-family="system-ui,sans-serif">Рост и развитие</text>')
+    [void]$sb.AppendLine('<text class="growth-breath" x="' + ($growthW/2) + '" y="42" fill="' + $p.muted + '" font-size="10" text-anchor="middle" font-family="system-ui,sans-serif">деление по эпохам · почкование версий</text>')
+
+    $chartLeft = $growthPad
+    $chartTop = $titleH + $growthPad
+    $chartW = $growthW - 2 * $growthPad
+    $chartH = $growthH - $titleH - 2 * $growthPad
+    $halfW = $chartW / 2
+    $halfH = $chartH / 2
+    $quadrants = @(
+        @{ x = 0; y = 0 }, @{ x = 1; y = 0 }, @{ x = 0; y = 1 }, @{ x = 1; y = 1 }
+    )
+
+    $labelH = 20
+    $lineHeight = 9
+    $cellPadV = 6
+    $cellPadH = 4
+    $fontSzCell = 7
+    for ($e = 0; $e -lt 4; $e++) {
+        $list = $epochs[$e]
+        $n = [math]::Max(1, $list.Count)
+        $q = $quadrants[$e]
+        $qx = $chartLeft + $q.x * $halfW
+        $qy = $chartTop + $q.y * $halfH
+        $qw = $halfW - $cellGap * 0.5
+        $qh = $halfH - $cellGap * 0.5
+        $contentH = $qh - $labelH
+        $cols = [math]::Max(1, [math]::Ceiling([math]::Sqrt($n * $qw / $contentH)))
+        $rows = [math]::Max(1, [math]::Ceiling($n / $cols))
+        $rowHeight = ($contentH - ($rows - 1) * $cellGap) / $rows
+        $maxLinesPerCell = [math]::Max(2, [math]::Floor(($rowHeight - $cellPadV) / $lineHeight))
+        $maxFeatureLines = [math]::Max(1, $maxLinesPerCell - 1)
+        $cellW = ($qw - ($cols - 1) * $cellGap) / $cols
+        $charsPerLine = [math]::Max(6, [math]::Min(18, [int]($cellW / 3.8)))
+        $startX = $qx + ($qw - ($cols * $cellW + ($cols - 1) * $cellGap)) / 2
+        $quadDelay = [math]::Round($e * 0.5, 2)
+        $quadOriginX = [math]::Round($qx + $qw/2, 1)
+        $quadOriginY = [math]::Round($qy + $qh/2, 1)
+        [void]$sb.AppendLine('  <g aria-label="' + (EscapeXml($epochLabels[$e])) + '">')
+        [void]$sb.AppendLine('    <g class="growth-quadrant" style="animation-delay:' + $quadDelay + 's; transform-origin:' + $quadOriginX + 'px ' + $quadOriginY + 'px">')
+        [void]$sb.AppendLine('      <rect x="' + [int]$qx + '" y="' + [int]$qy + '" width="' + [int]$qw + '" height="' + [int]$qh + '" fill="url(#epoch' + $e + ')" stroke="' + $epochColors[$e] + '" stroke-width="1" rx="6" opacity="0.7"/>')
+        [void]$sb.AppendLine('      <text x="' + [int]($qx + $qw/2) + '" y="' + [int]($qy + 14) + '" text-anchor="middle" fill="' + $epochColors[$e] + '" font-size="10" font-weight="600" font-family="system-ui,sans-serif">' + (EscapeXml($epochLabels[$e])) + '</text>')
+        [void]$sb.AppendLine('    </g>')
+        $rowY = $qy + $labelH
+        for ($i = 0; $i -lt $list.Count; $i++) {
+            $row = [math]::Floor($i / $cols)
+            $col = $i % $cols
+            $tag = $list[$i].tag
+            $dateStr = $list[$i].published.ToString('dd.MM.yy', [System.Globalization.CultureInfo]::InvariantCulture)
+            $versionLine = 'v' + $tag + ' - ' + $dateStr
+            $featureRaw = $tagToFeature[$tag]
+            if (-not $featureRaw) { $featureRaw = $tag }
+            $lineList = Wrap-FeatureText -text $featureRaw -maxCharsPerLine $charsPerLine -maxLines $maxFeatureLines
+            $lineCount = 1 + $lineList.Count
+            $cellH = [math]::Min($cellPadV + $lineCount * $lineHeight, $rowHeight)
+            $cellX = $startX + $col * ($cellW + $cellGap)
+            $cellY = $rowY + $row * ($rowHeight + $cellGap)
+            if ($cellH -lt $rowHeight) { $cellY = $cellY + ($rowHeight - $cellH) / 2 }
+            $textBlockH = $lineCount * $lineHeight
+            $firstLineY = $cellPadV / 2 + ($cellH - $cellPadV - $textBlockH) / 2 + $lineHeight * 0.85
+            $versionDateY = $firstLineY
+            $featureFirstY = $firstLineY + $lineHeight
+            if ($tagToFeature[$tag]) { $titleAttr = (EscapeXml($tag)) + ': ' + (EscapeXml($tagToFeature[$tag])) } else { $titleAttr = (EscapeXml($tag)) }
+            $cellDelay = [math]::Round($e * 0.55 + $i * 0.062, 2)
+            [void]$sb.AppendLine('    <g class="growth-cell" transform="translate(' + [math]::Round($cellX, 1) + ',' + [math]::Round($cellY, 1) + ')" style="animation-delay:' + $cellDelay + 's" title="' + $titleAttr + '">')
+            [void]$sb.AppendLine('      <rect x="0" y="0" width="' + [math]::Round($cellW, 1) + '" height="' + [math]::Round($cellH, 1) + '" rx="3" fill="' + $p.bg + '" stroke="' + $epochColors[$e] + '" stroke-width="1.2"/>')
+            [void]$sb.AppendLine('      <text x="' + ($cellW/2) + '" y="' + [math]::Round($versionDateY, 1) + '" text-anchor="middle" fill="' + $p.muted + '" font-size="6" font-family="system-ui,sans-serif">' + (EscapeXml($versionLine)) + '</text>')
+            $dy = 0
+            foreach ($lineText in $lineList) {
+                [void]$sb.AppendLine('      <text x="' + ($cellW/2) + '" y="' + [math]::Round($featureFirstY + $dy, 1) + '" text-anchor="middle" fill="' + $p.fg + '" font-size="' + $fontSzCell + '" font-family="system-ui,sans-serif">' + (EscapeXml($lineText)) + '</text>')
+                $dy += $lineHeight
+            }
+            [void]$sb.AppendLine('    </g>')
+        }
+        [void]$sb.AppendLine('  </g>')
+    }
+    [void]$sb.AppendLine('</svg>')
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($path, $sb.ToString(), $utf8)
+}
+
 # ---- Output ----
 if (-not (Test-Path $DistDir)) {
     New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
@@ -247,5 +438,8 @@ if (-not (Test-Path $DistDir)) {
 
 Write-TetrisSvg (Join-Path $DistDir "architecture-tetris.svg") $false
 Write-TetrisSvg (Join-Path $DistDir "architecture-tetris-dark.svg") $true
+Write-GrowthSvg (Join-Path $DistDir "architecture-growth.svg") $false
+Write-GrowthSvg (Join-Path $DistDir "architecture-growth-dark.svg") $true
 
 Write-Host "architecture-tetris.svg, architecture-tetris-dark.svg written (modules: $nModules, releases: $m, cycle: $cycleDurationRounded s)"
+Write-Host "architecture-growth.svg, architecture-growth-dark.svg written (releases: $m)"
