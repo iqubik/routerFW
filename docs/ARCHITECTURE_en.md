@@ -2,7 +2,7 @@
 
 # routerFW — Architecture & Process Flow
 
-> Version: 4.33. Last updated: 2026-02-18.
+> Version: 4.43. Last updated: 2026-02-18.
 
 ---
 
@@ -42,6 +42,10 @@ START
   │
   └─ [8] Architecture mapping  SRC_ARCH auto-fill from SRC_TARGET/SRC_SUBTARGET
 ```
+
+**Localization (step [2]):** UI strings are in dictionaries `system/lang/ru.env` and `system/lang/en.env` (unified pseudo-format: `KEY={C_VAL}text{C_RST}`, no quotes; `#` = comment). Two separate loaders substitute color placeholders (`{C_VAL}`, `{C_RST}`, `{C_ERR}`, etc.) and set `L_*` / `H_*` variables:
+- **_Builder.sh** — `load_lang()`: line-by-line read, placeholder replacement via `${val//\{C_VAL\}/$C_VAL}` etc., `printf -v "$key"` to set variables.
+- **_Builder.bat** — `for /f` loop over the file: `tokens=1,* delims==`, then delayed substitution `!_v:{C_VAL}=%C_VAL%!` etc. (requires `setlocal enabledelayedexpansion`). If the chosen language file is missing, `system/lang/en.env` is used.
 
 ---
 

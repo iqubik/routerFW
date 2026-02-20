@@ -57,7 +57,7 @@ Prompt/context file for AI (e.g. Gemini) working with this repository.
 ## 4. Main menu and indicators
 
 - **Build / Edit / Clean / Wizard:** `[M]` Build (Image or Source per profile), `[E]` Profile editor, `[C]` Clean (maintenance wizard), `[W]` Profile wizard, `[I]` Import IPK (Source), `[K]` Menuconfig (Source).
-- **Resource panel `[F P S X M H | OI OS]`:**
+- **Resource panel `[F P S M H X | OI OS]`:**
   - **F** — `custom_files` not empty.
   - **P** — `custom_packages` not empty.
   - **S** — `src_packages` not empty.

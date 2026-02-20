@@ -47,13 +47,13 @@ The project is deployed via a **unified international unpacker** `_unpacker`. Al
 ---
 
 ### 📊 Profile Indicator System
-The main menu features a "surgical" resource panel **`[F P S M H | OI OS]`** for instant profile assessment:
+The main menu features a "surgical" resource panel **`[F P S M H X | OI OS]`** for instant profile assessment:
 *   **F (Files)** — File overlay detected (`custom_files`).
 *   **P (Packages)** — External `.ipk` packages present.
 *   **S (Source)** — Package source code found (`src_packages`).
-*   **X (Patches)** — **[NEW]** Source code patches detected (`custom_patches`).
-*   **M (Manual Config)** — **[NEW]** Active Menuconfig diff file detected.
-*   **H (Hooks)** — **[NEW]** Automation script `hooks.sh` detected.
+*   **M (Manual Config)** — Active Menuconfig diff file detected.
+*   **H (Hooks)** — Automation script `hooks.sh` detected.
+*   **X (Patches)** — Source code patches detected (`custom_patches/<profile>`).
 *   **OI / OS** — Ready firmware present (Image / Source Builder).
 
 ---
@@ -117,6 +117,7 @@ The **[C] CLEAN** button invokes the granular cleaning wizard:
 | **Hard Reset** | Deletes `src-workdir`, keeping `dl`. | If the Toolchain or Git tree is broken. |
 | **Clean DL** | Deletes the source code archive. | To free up disk space. |
 | **Clean Ccache** | Resets the compiler cache. | When changing architecture or GCC version. |
+| **Clean tmp (Package Index)** | Clears package index cache. | Fixes "stuck" package versions. |
 | **Factory Reset** | Deletes **EVERYTHING** for the profile. | Complete reset to "factory" state. |
 
 ---

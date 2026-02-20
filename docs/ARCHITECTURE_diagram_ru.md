@@ -2,7 +2,7 @@
 
 # routerFW — Диаграммы процессов
 
-> Версия 4.33. Набор диаграмм (русская страница).
+> Версия 4.43. Набор диаграмм (русская страница).
 >
 > Текст: [ARCHITECTURE_ru.md](ARCHITECTURE_ru.md) · EN diagrams: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md)
 
