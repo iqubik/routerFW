@@ -983,7 +983,7 @@ asset:	routerFW_WinDockerBuilder_v15.01.2026_01-41.zip
 - **Профили и шаблоны:**
   - Добавлена поддержка **NanoPi R3S**.
   - Мастера создания профилей (`.sh`/`.ps1`) теперь генерируют расширенные шаблоны с примерами и комментариями.
-- **Документация:** Добавлен `audit.md` (анализ архитектуры) и английская версия лицензии `LICENSE.en`.
+- **Документация:** Добавлен `docs/audit.md` (анализ архитектуры) и английская версия лицензии `LICENSE.en`.
 
 #### Изменено
 - **Рефакторинг:** Логика сборки полностью отделена от Docker-конфигураций для модульности и чистоты кода.
@@ -1013,7 +1013,7 @@ asset:	routerFW_WinDockerBuilder_v15.01.2026_01-41.zip
 - **Profiles & Templates:**
   - Added **NanoPi R3S** support.
   - Profile wizards (`.sh`/`.ps1`) now generate detailed templates with best practices and examples.
-- **Docs & Legal:** Added `audit.md` (architectural review) and `LICENSE.en`.
+- **Docs & Legal:** Added `docs/audit.md` (architectural review) and `LICENSE.en`.
 
 #### Changed
 - **Architectural Refactoring:** Decoupled build logic from Docker Compose files into standalone scripts for better maintainability.

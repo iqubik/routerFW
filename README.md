@@ -367,4 +367,4 @@ SRC_CORES="safe"
 
 ---
 
-Аудит проекта https://github.com/iqubik/routerFW/blob/main/audit.md
+Аудит проекта https://github.com/iqubik/routerFW/blob/main/docs/audit.md
