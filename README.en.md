@@ -65,10 +65,12 @@ An extended knowledge base has been created for the project to help you go from 
 👉 **[OPEN FULL GUIDE (DOCS EN)](docs/index.en.md)**
 
 **Inside you will find:**
-*   **Lessons 1-3:** Basics, configuration setup, and quick start.
-*   **Lesson 4 (Advanced):** Advanced Source mode: implementing third-party programs from source, applying patches, and deep customization.
-*   **Troubleshooting:** Solutions for common compilation and Docker issues.
+*   **Lessons 1–5:** Basics, configuration, Source Build, patches, and advanced customization.
+*   **Lesson 6:** Flashing RAX3000M eMMC (manual GPT, bootenv, overlay troubleshooting).
+*   **Lesson 7 (FAQ):** Troubleshooting and limitations (zapret/nfqws, device tips).
 *   **[Project Architecture & Diagrams](docs/ARCHITECTURE_en.md)** — full flowcharts of all builder processes.
+
+Ready-made images for specific devices: see the 4pda discussion and [Releases](https://github.com/iqubik/routerFW/releases).
 
 ---
 

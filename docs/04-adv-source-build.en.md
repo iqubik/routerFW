@@ -113,7 +113,17 @@ If a build fails or acts strangely, use the **[C] CLEAN** menu in `SOURCE BUILDE
 
 ---
 
-### 💡 7. Life Hack: "Cold Start" (Example: Rax3000M)
+### 📦 7. Local Image Builder After Source (v4.40+)
+
+After a successful source build (**Source Builder**), the builder looks for an Image Builder archive (`*imagebuilder*.tar.zst`) in the output directory and offers to update the profile — to write its path into `IMAGEBUILDER_URL`. If you accept (**Y**), you can then build in **Image Builder** mode in 1–2 minutes, without recompiling the kernel.
+
+**Steps:** build firmware from source → at the end you get «Update profile? [y/N]» → **Y** → switch to **M** (Image Builder) → select the profile and build. Further package and config changes are done via fast IB until you need to change the kernel or defconfig again.
+
+---
+
+### 💡 8. Life Hack: "Cold Start" (Example: Rax3000M)
+
+**Scenario “one Source build — then IB in 1–2 minutes”:** do not pack the Source Builder with every package. In menuconfig include only the needed `kmod-` and a minimal set; at the end of the build enable Image Builder output (in menuconfig), accept updating the profile with the local IB, switch to Image Builder mode (**M**), and then build firmwares with any set of packages and configs in 1–2 minutes. A full source rebuild takes from 10 minutes with cache to 30+ on the first run.
 
 How to build firmware using a complex `defconfig` from a third-party developer:
 

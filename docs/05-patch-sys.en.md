@@ -123,3 +123,6 @@ OpenWrt automatically looks for `.patch` files in `patches-x.x` folders inside `
 *   For Example #2 (native patching), names are important. OpenWrt applies them in alphabetical order.
     *   `0xx-` — Patches from OpenWrt developers.
     *   `9xx-` — Custom user patches (it's recommended to use a prefix like `999-my-fix.patch` so it's applied last).
+
+**Q: I get `mkdir: cannot create directory '/tmp_patches': Permission denied` when building with patches. What should I do?**
+*   This error was fixed in newer builder versions (where patch application runs with correct permissions). Update the builder to the latest version from [Releases](https://github.com/iqubik/routerFW/releases) or the repository.

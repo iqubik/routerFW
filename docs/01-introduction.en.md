@@ -46,6 +46,8 @@ To work with the Builder, you only need two things:
 
 2.  **The Builder itself:** Download the `_unpacker.bat` file from the `README.md` at the root of this project. Place it in an empty folder and run it — it will automatically create all the necessary files and folders.
 
+Ready-made builds (from the forum, keeneticported, etc.) are a "set and forget" option: the firmware is pre-built, but you cannot change the package set or embed your configs into the image. The Builder gives you full control: you build the firmware for yourself — your packages, settings, and updates when you need them.
+
 ## Two Operating Modes
 
 The Builder combines two approaches to firmware assembly:

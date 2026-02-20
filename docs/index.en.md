@@ -26,6 +26,12 @@ This is a series of lessons designed to help you master the Universal Builder, f
 5.  [**Lesson 5: Advanced: Source Code Patching System**](./05-patch-sys.en.md)
     *   *Customizing builds by directly modifying OpenWrt source code using the "mirror overlay" system.*
 
+6.  [**Lesson 6: Flashing RAX3000M eMMC**](./06-rax3000m-emmc-flash.en.md)
+    *   *Manual GPT layout, bootenv, partition writing over SSH, overlay and U-Boot troubleshooting.*
+
+7.  [**Troubleshooting and FAQ**](./07-troubleshooting-faq.en.md)
+    *   *Build limitations (zapret/nfqws), device tips, links to related lessons.*
+
 ## Project Architecture
 
 *   [**Architecture & Process Flow (EN)**](./ARCHITECTURE_en.md) — text diagrams of all build stages.

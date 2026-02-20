@@ -12,6 +12,18 @@
 
 This lesson will demonstrate a professional approach to building, which is necessary for complex cases, such as using OpenWrt forks (like ImmortalWrt) or when specific kernel configurations are required.
 
+### Short Algorithm: 7 Steps
+
+1. **Profile:** create a device profile via Profile Wizard (`.bat` / `.sh` menu).
+2. **Git:** set the repository URL (e.g. immortalwrt-mt798x) and branch in the profile config.
+3. **Base:** place the author’s defconfig into the builder folder as `manual_config`.
+4. **Menuconfig:** run the visual package configuration with one menu option.
+5. **Build:** start the build and get the resulting `.bin`.
+6. **AdvBuild:** add your IPK or source packages — they are built with the firmware (see [Lesson 4](04-adv-source-build.en.md)).
+7. **Hooks:** vermagic hack, patching, extra feeds (see [Lesson 4](04-adv-source-build.en.md) and [Lesson 5](05-patch-sys.en.md)).
+
+Details for each step are below, using the RAX3000M example.
+
 ---
 
 ### When Is This Needed?
@@ -77,6 +89,17 @@ This is the key stage.
 
 Now that you have a fully prepared and correct `.config`, select your profile by its number in the main menu to start the actual build.
 Be patient — the first compilation will take a long time.
+
+### Why Padavanonly for MTK (RAX3000M and similar)
+
+The **padavanonly** repository is used in this lesson for a reason. For MediaTek devices (RAX3000M, Filogic) it provides what vanilla OpenWrt does not:
+
+*   **Proprietary MTK Wi‑Fi drivers:** stable 160 MHz, proper Beamforming and MU-MIMO, unlike the open mt76 stack.
+*   **Hardware offload (HWNAT + WED):** traffic is offloaded from the CPU — the router can do gigabit with 2–5% CPU load.
+*   **Vermagic in the build:** the builder profile includes a hack so you can install `kmod-` packages from official repos without kernel compatibility errors.
+*   **Overlay on eMMC:** the overlay partition mounts correctly on eMMC variants.
+
+For ready-made images for other models or vanilla OpenWrt, see the 4pda discussion and [Releases](https://github.com/iqubik/routerFW/releases); for your own customization, use the builder and the appropriate repository in the profile.
 
 ---
 
