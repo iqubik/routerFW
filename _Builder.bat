@@ -51,12 +51,12 @@ reg query "HKLM\SYSTEM\CurrentControlSet\Control\Nls\Language" /v InstallLanguag
 if not errorlevel 1 set /a "ru_score+=2"
 if not errorlevel 1 echo   %C_GRY%-%C_RST% OS Install Locale     %C_VAL%RU%C_RST% [+2]
 if errorlevel 1     echo   %C_GRY%-%C_RST% OS Install Locale     %C_ERR%EN%C_RST%
-:: 3. Проверка PowerShell: Культура и список языков (4 балла)
-for /f "usebackq tokens=*" %%a in (`powershell -NoProfile -Command "(Get-Culture).Name + (Get-WinUserLanguageList).LanguageTag" 2^>nul`) do set "PS_CHECK=%%a"
+:: 3. Проверка PowerShell: системная локаль (4 балла) — Get-WinSystemLocale, как в sh/WSL, надёжнее чем Get-Culture+Get-WinUserLanguageList
+for /f "usebackq tokens=*" %%a in (`powershell -NoProfile -Command "(Get-WinSystemLocale).Name" 2^>nul`) do set "PS_CHECK=%%a"
 echo !PS_CHECK! | findstr /I "ru" >nul
 if not errorlevel 1 set /a "ru_score+=4"
-if not errorlevel 1 echo   %C_GRY%-%C_RST% Culture and Lang List %C_VAL%RU%C_RST% [+4]
-if errorlevel 1     echo   %C_GRY%-%C_RST% Culture and Lang List %C_ERR%EN%C_RST%
+if not errorlevel 1 echo   %C_GRY%-%C_RST% System Locale (PS)   %C_VAL%RU%C_RST% [+4]
+if errorlevel 1     echo   %C_GRY%-%C_RST% System Locale (PS)   %C_ERR%EN%C_RST%
 :: 4. Проверка кодировки консоли (1 балл)
 chcp | findstr "866" >nul
 if not errorlevel 1 set /a "ru_score+=1"

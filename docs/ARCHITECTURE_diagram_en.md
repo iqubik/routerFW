@@ -2,7 +2,7 @@
 
 # routerFW — Process Diagrams
 
-> Version: 4.33. English diagram set.
+> Version: 4.43. English diagram set.
 >
 > Text: [ARCHITECTURE_en.md](ARCHITECTURE_en.md) · RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md)
 
@@ -16,7 +16,7 @@
 flowchart TD
     START([_Builder.sh / _Builder.bat]) --> TRAP[trap SIGINT/SIGTERM\ncleanup_exit → release_locks ALL, rm .docker_tmp]
     TRAP --> COLORS[ANSI colors\nC_KEY, C_LBL, C_ERR, C_RST...]
-    COLORS --> LANG_DET[Language detector\nLANG +4, locale +3, TZ +2 → SYS_LANG]
+    COLORS --> LANG_DET[Language detector\nLANG +4, locale +3, TZ +2\nWSL: +5 Get-WinSystemLocale → SYS_LANG]
     LANG_DET --> LOAD_LANG[load_lang\nsystem/lang/ru.env or en.env → L_*, H_*]
     LOAD_LANG --> LANG_OUT[Print detector result\nScore, verdict]
     LANG_OUT --> DOCKER_CFG[Docker credentials fix\n.docker_tmp/config.json\nstrip credsStore/credHelpers]

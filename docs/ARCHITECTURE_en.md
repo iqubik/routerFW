@@ -25,7 +25,7 @@ START
   │
   ├─ [1] Ctrl+C trap (cleanup_exit → release_locks ALL → rm .docker_tmp/)
   │
-  ├─ [2] Language Detector (weighted scoring: LANG env +4, locale +3, timezone +2)
+  ├─ [2] Language Detector (weighted scoring: LANG env +4, locale +3, timezone +2; in WSL +5 for Get-WinSystemLocale)
   │        └─ loads system/lang/{ru|en}.env  →  sets L_* / H_* variables
   │
   ├─ [3] Docker check (docker --version, docker-compose / docker compose)

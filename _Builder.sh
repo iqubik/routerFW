@@ -39,6 +39,7 @@ ru_score=0
 L_CHK_ENV="Environment LANG"
 L_CHK_LOCALE="System Locale"
 L_CHK_TZ="Timezone Check"
+L_CHK_WSL="WSL: Windows UI lang"
 
 # 1. Проверка переменной окружения LANG (4 балла)
 if [[ "$LANG" == *"ru"* ]]; then
@@ -71,6 +72,20 @@ elif command -v timedatectl >/dev/null 2>&1; then
     fi
 fi
 [ -z "$L_CHK_TZ_RES" ] && L_CHK_TZ_RES="${C_ERR}EN${C_RST}"
+
+# 4. В WSL: системная локаль Windows (5 баллов) — Get-WinSystemLocale отражает язык системы, в отличие от CurrentUICulture (в WSL даёт en)
+if [ $ru_score -lt 5 ] && grep -qi microsoft /proc/version 2>/dev/null; then
+    _win_locale=""
+    if command -v powershell.exe >/dev/null 2>&1; then
+        _win_locale=$(powershell.exe -NoProfile -NonInteractive -Command '(Get-WinSystemLocale).Name' 2>/dev/null | tr -d '\r\n')
+    fi
+    if [[ "$_win_locale" == *"ru"* ]]; then
+        ((ru_score+=5))
+        L_CHK_WSL_RES="${C_OK}RU${C_RST} [+5]"
+    else
+        L_CHK_WSL_RES="${C_ERR}EN${C_RST}"
+    fi
+fi
 
 # Логика суждения
 if [ $ru_score -ge 5 ]; then SYS_LANG="RU"; fi
@@ -108,6 +123,9 @@ if [ -n "$L_CHK_LOCALE_RES" ]; then
     echo -e "  ${C_GRY}-${C_RST} ${L_CHK_LOCALE}${L_CHK_LOCALE_RES}"
 fi
 echo -e "  ${C_GRY}-${C_RST} ${L_CHK_TZ}${L_CHK_TZ_RES}"
+if [ -n "$L_CHK_WSL_RES" ]; then
+    echo -e "  ${C_GRY}-${C_RST} ${L_CHK_WSL}${L_CHK_WSL_RES}"
+fi
 
 # Финальный вердикт языка
 if [ "$FORCE_LANG" == "AUTO" ]; then

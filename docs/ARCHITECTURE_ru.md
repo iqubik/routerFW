@@ -25,7 +25,7 @@
   │
   ├─ [1] Ловушка Ctrl+C (cleanup_exit → release_locks ALL → rm .docker_tmp/)
   │
-  ├─ [2] Детектор языка (взвешенная оценка: LANG env +4, locale +3, timezone +2)
+  ├─ [2] Детектор языка (взвешенная оценка: LANG env +4, locale +3, timezone +2; в WSL ещё +5 по Get-WinSystemLocale)
   │        └─ загружает system/lang/{ru|en}.env  →  устанавливает переменные L_* / H_*
   │
   ├─ [3] Проверка Docker (docker --version, docker-compose / docker compose)

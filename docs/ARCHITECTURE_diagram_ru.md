@@ -16,7 +16,7 @@
 flowchart TD
     START([_Builder.sh / _Builder.bat]) --> TRAP[trap SIGINT/SIGTERM\ncleanup_exit → release_locks ALL, rm .docker_tmp]
     TRAP --> COLORS[ANSI-цвета\nC_KEY, C_LBL, C_ERR, C_RST...]
-    COLORS --> LANG_DET[Детектор языка\nLANG +4, locale +3, TZ +2 → SYS_LANG]
+    COLORS --> LANG_DET[Детектор языка\nLANG +4, locale +3, TZ +2\nWSL: +5 Get-WinSystemLocale → SYS_LANG]
     LANG_DET --> LOAD_LANG[load_lang\nsystem/lang/ru.env или en.env → L_*, H_*]
     LOAD_LANG --> LANG_OUT[Вывод результата детектора\nScore, verdict]
     LANG_OUT --> DOCKER_CFG[Исправление Docker credentials\n.docker_tmp/config.json\nудаление credsStore/credHelpers]
