@@ -37,6 +37,9 @@ jobs:
       - name: Generate V3 widgets (heatmap, river, bars, stats)
         run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./system/changelog-to-svg-v3.ps1
 
+      - name: Generate architecture tetris (modules + release rhythm)
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./system/architecture-tetris.ps1
+
       - uses: crazy-max/ghaction-github-pages@v3.1.0
         with:
           target_branch: output

@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 160" width="100%" height="160">
+<style>.at-block{ --drop-from:-15px; transform:translateY(var(--drop-from)); animation:atDrop 17.42s linear infinite; } .at-pulse{ transform:scale(1); animation:atPulse 2.5s ease-in-out infinite; } .at-block:hover{ filter:brightness(1.15); } @keyframes atDrop{ 0%{ transform:translateY(var(--drop-from)); } 2.87%{ transform:translateY(0); } 97%{ transform:translateY(0); } 100%{ transform:translateY(var(--drop-from)); } } @keyframes atPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.03); } } .at-date{ opacity:0; animation:atDate 17.42s linear infinite; } @keyframes atDate{ 0%{ opacity:0; } 8%{ opacity:1; } 92%{ opacity:1; } 100%{ opacity:0; } }</style>
+<rect width="800" height="160" fill="#f6f8fa" rx="8"/>
+<text x="400" y="22" fill="#656d76" font-size="11" text-anchor="middle" font-family="system-ui,sans-serif">Тетрис версий: модули архитектуры</text>
+<text x="400" y="34" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">ритм по датам релизов — дата появляется при приземлении блока</text>
+<line x1="24" y1="118" x2="776" y2="118" stroke="#656d76" stroke-width="1" stroke-dasharray="4 2" opacity="0.7"/>
+  <g transform="translate(26,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:0s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">TRAP</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:0.5s">25.12.25</text>
+  </g>
+  <g transform="translate(76,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:0.38s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">START</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:0.88s">27.12.25</text>
+  </g>
+  <g transform="translate(126,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:0.76s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">COLORS</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:1.26s">28.12.25</text>
+  </g>
+  <g transform="translate(176,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:1.06s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">LANG_DET</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:1.56s">29.12.25</text>
+  </g>
+  <g transform="translate(227,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:1.38s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">LOAD_LANG</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:1.88s">29.12.25</text>
+  </g>
+  <g transform="translate(277,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:1.7s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">LANG_OUT</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:2.2s">29.12.25</text>
+  </g>
+  <g transform="translate(327,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:2.21s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">DOCKER_CFG</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:2.71s">02.01.26</text>
+  </g>
+  <g transform="translate(377,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:2.55s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">DOCKER_CHK</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:3.05s">03.01.26</text>
+  </g>
+  <g transform="translate(427,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:2.98s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">EXIT_DOCKER</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:3.48s">05.01.26</text>
+  </g>
+  <g transform="translate(477,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:3.28s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">UNPACK</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:3.78s">05.01.26</text>
+  </g>
+  <g transform="translate(527,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:3.58s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">RUN_UNPACK</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:4.08s">05.01.26</text>
+  </g>
+  <g transform="translate(578,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:3.89s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">INIT_DIRS</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:4.39s">05.01.26</text>
+  </g>
+  <g transform="translate(628,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:4.29s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">PATCH_ARCH</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:4.79s">07.01.26</text>
+  </g>
+  <g transform="translate(678,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:4.65s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">MIGRATE</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:5.15s">08.01.26</text>
+  </g>
+  <g transform="translate(728,100)">
+    <g class="at-block" style="--drop-from:-15px; animation-delay:5s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">MENU_LOOP</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:5.5s">09.01.26</text>
+  </g>
+  <g transform="translate(26,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:5.38s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">MENU</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:5.88s">11.01.26</text>
+  </g>
+  <g transform="translate(76,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:5.75s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">CHOICE</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:6.25s">12.01.26</text>
+  </g>
+  <g transform="translate(126,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:6.1s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">EXIT</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:6.6s">13.01.26</text>
+  </g>
+  <g transform="translate(176,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:6.47s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">SWITCH</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:6.97s">14.01.26</text>
+  </g>
+  <g transform="translate(227,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:6.83s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">E_LIST</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:7.33s">16.01.26</text>
+  </g>
+  <g transform="translate(277,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:7.23s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">E_ID</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:7.73s">17.01.26</text>
+  </g>
+  <g transform="translate(327,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:7.64s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">E_ANALYZE</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:8.14s">19.01.26</text>
+  </g>
+  <g transform="translate(377,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:8s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">E_EDIT</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:8.5s">20.01.26</text>
+  </g>
+  <g transform="translate(427,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:9.2s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">A_CHECK</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:9.7s">05.02.26</text>
+  </g>
+  <g transform="translate(477,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:9.55s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">A_WARN</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:10.05s">06.02.26</text>
+  </g>
+  <g transform="translate(527,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:10.15s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">A_RUN</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:10.65s">11.02.26</text>
+  </g>
+  <g transform="translate(578,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:10.79s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">A_WAIT</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:11.29s">18.02.26</text>
+  </g>
+  <g transform="translate(628,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:11.11s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">K_CHECK</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:11.61s">18.02.26</text>
+  </g>
+  <g transform="translate(678,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:11.43s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">K_LIST</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:11.93s">18.02.26</text>
+  </g>
+  <g transform="translate(728,80)">
+    <g class="at-block" style="--drop-from:-35px; animation-delay:11.73s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">K_ID</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:12.23s">18.02.26</text>
+  </g>
+  <g transform="translate(26,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:12.11s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">K_MC</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:12.61s">25.12.25</text>
+  </g>
+  <g transform="translate(76,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:12.49s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">I_CHECK</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:12.99s">27.12.25</text>
+  </g>
+  <g transform="translate(126,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:12.8s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">I_LIST</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:13.3s">28.12.25</text>
+  </g>
+  <g transform="translate(176,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:13.11s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">I_ID</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:13.61s">29.12.25</text>
+  </g>
+  <g transform="translate(227,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:13.44s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">I_RUN</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:13.94s">29.12.25</text>
+  </g>
+  <g transform="translate(277,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:13.94s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">W_RUN</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:14.44s">29.12.25</text>
+  </g>
+  <g transform="translate(327,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:14.29s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">CLEAN_WIZ</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:14.79s">02.01.26</text>
+  </g>
+  <g transform="translate(377,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:14.71s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">BUILD</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:15.21s">03.01.26</text>
+  </g>
+  <g transform="translate(427,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:15.02s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">ERR</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:15.52s">05.01.26</text>
+  </g>
+  <g transform="translate(477,60)">
+    <g class="at-block" style="--drop-from:-55px; animation-delay:15.32s">
+      <g class="at-pulse">
+        <rect x="0" y="0" width="46" height="18" rx="3" fill="#6b7280" fill-opacity="0.2" stroke="#1f2328" stroke-width="1"/>
+        <text x="23" y="14" text-anchor="middle" fill="#1f2328" font-size="7" font-family="system-ui,sans-serif">BR</text>
+      </g>
+    </g>
+    <text class="at-date" x="23" y="-6" text-anchor="middle" fill="#57606a" font-size="7" font-family="system-ui,sans-serif" style="animation-delay:15.82s">05.01.26</text>
+  </g>
+</svg>

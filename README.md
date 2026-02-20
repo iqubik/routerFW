@@ -365,6 +365,14 @@ SRC_CORES="safe"
   <img alt="Release activity heatmap (weeks)" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/release-heatmap-v3.svg">
 </picture>
 
+Тетрис версий (модули архитектуры, ритм по датам релизов):
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/architecture-tetris-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/architecture-tetris.svg">
+  <img alt="Architecture tetris: modules by release rhythm" src="https://raw.githubusercontent.com/iqubik/routerFW/main/dist/architecture-tetris.svg">
+</picture>
+
 ---
 
 Аудит проекта https://github.com/iqubik/routerFW/blob/main/audit.md

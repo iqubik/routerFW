@@ -34,6 +34,12 @@
 
 ## Архитектура проекта
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../dist/architecture-tetris-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="../dist/architecture-tetris.svg">
+  <img alt="Тетрис версий: модули архитектуры, ритм по датам релизов" src="../dist/architecture-tetris.svg" width="800" height="160">
+</picture>
+
 *   [**Архитектура и поток процессов (RU)**](./ARCHITECTURE_ru.md) — текстовые схемы всех этапов сборки.
 *   [**Architecture & Process Flow (EN)**](./ARCHITECTURE_en.md) — English version.
 *   [**Диаграммы Mermaid**](./ARCHITECTURE_diagram_ru.md) — полные интерактивные блок-схемы: старт, меню, сборка, очистка, menuconfig.
