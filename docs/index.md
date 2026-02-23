@@ -40,10 +40,10 @@
   <img alt="Тетрис версий: модули архитектуры, ритм по датам релизов" src="https://raw.githubusercontent.com/iqubik/routerFW/output/architecture-tetris.svg" width="800" height="160">
 </picture>
 
-*   [**Архитектура и поток процессов (RU)**](./ARCHITECTURE_ru.md) — текстовые схемы всех этапов сборки.
-*   [**Architecture & Process Flow (EN)**](./ARCHITECTURE_en.md) — English version.
+*   [**Архитектура и поток процессов**](./ARCHITECTURE_ru.md) — текстовые схемы всех этапов сборки.
 *   [**Диаграммы Mermaid**](./ARCHITECTURE_diagram_ru.md) — полные интерактивные блок-схемы: старт, меню, сборка, очистка, menuconfig.
+*   [**Карта развития проекта**](./map.md) — эпохи и версии по CHANGELOG, визуализация роста.
 
 ---
 
-Аудит проекта https://github.com/iqubik/routerFW/blob/main/docs/audit.md
+[**Аудит проекта**](audit.md#аудит-проекта-routerfw) — состояние репо, конвенции, риски.

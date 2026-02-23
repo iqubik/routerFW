@@ -1,4 +1,9 @@
 # file: docs/ARCHITECTURE_diagram_ru.md
+<p align="center">
+  <b>🇷🇺 Русский</b> | <a href="ARCHITECTURE_diagram_en.md"><b>🇺🇸 English</b></a>
+</p>
+
+---
 
 # routerFW — Диаграммы процессов
 

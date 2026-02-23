@@ -1,4 +1,9 @@
 # file: docs\ARCHITECTURE_ru.md
+<p align="center">
+  <b>🇷🇺 Русский</b> | <a href="ARCHITECTURE_en.md"><b>🇺🇸 English</b></a>
+</p>
+
+---
 
 # routerFW — Архитектура и поток процессов
 

@@ -105,7 +105,7 @@ BOM: только в части PowerShell-скриптов (например, `
 
 ## 6. Документация и качество
 
-- **Пользовательская:** `README.md` / `README.en.md`, `docs/index.md` / `docs/index.en.md`, уроки 01–05 (RU/EN), руководства по патчам и продвинутому Source Build.
+- **Пользовательская:** `README.md` / `README.en.md`, `docs/index.md` / `docs/index.en.md`, уроки 01–07 (RU/EN), руководства по патчам и продвинутому Source Build.
 - **Архитектура:** `docs/ARCHITECTURE_ru.md`, `docs/ARCHITECTURE_en.md`, диаграммы в `docs/ARCHITECTURE_diagram_*.md`.
 - **Релизы:** `CHANGELOG.md` (тексты по тегам), визуализации в `dist/` (timeline, tree, heatmap, river, bars, stats; светлая/тёмная темы).
 - **Правила для AI:** `.cursor/rules/` — project-overview, toxic-files, ignore-lx-debug, build-system, shell-scripts, batch-scripts, docker, documentation, file-header, profiles.
@@ -247,7 +247,7 @@ The `.docker_tmp/` folder is created for Docker config substitution (without cre
 
 ### 6. Documentation and quality
 
-- **User-facing:** `README.md` / `README.en.md`, `docs/index.md` / `docs/index.en.md`, lessons 01–05 (RU/EN), patch and advanced Source Build guides.
+- **User-facing:** `README.md` / `README.en.md`, `docs/index.md` / `docs/index.en.md`, lessons 01–07 (RU/EN), patch and advanced Source Build guides.
 - **Architecture:** `docs/ARCHITECTURE_ru.md`, `docs/ARCHITECTURE_en.md`, diagrams in `docs/ARCHITECTURE_diagram_*.md`.
 - **Releases:** `CHANGELOG.md` (tag notes), visuals in `dist/` (timeline, tree, heatmap, river, bars, stats; light/dark).
 - **AI rules:** `.cursor/rules/` — project-overview, toxic-files, ignore-lx-debug, build-system, shell-scripts, batch-scripts, docker, documentation, file-header, profiles.

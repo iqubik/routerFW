@@ -40,10 +40,10 @@ This is a series of lessons designed to help you master the Universal Builder, f
   <img alt="Version tetris: architecture modules, rhythm by release dates" src="https://raw.githubusercontent.com/iqubik/routerFW/output/architecture-tetris.svg" width="800" height="160">
 </picture>
 
-*   [**Architecture & Process Flow (EN)**](./ARCHITECTURE_en.md) — text diagrams of all build stages.
-*   [**Архитектура и поток процессов (RU)**](./ARCHITECTURE_ru.md) — Russian version.
+*   [**Architecture & Process Flow**](./ARCHITECTURE_en.md) — text diagrams of all build stages.
 *   [**Mermaid Diagrams**](./ARCHITECTURE_diagram_en.md) — full interactive flowcharts: startup, menu, build, cleanup, menuconfig.
+*   [**Project development map**](./map.en.md) — release eras and versions from CHANGELOG, growth visualization.
 
 ---
 
-Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
+[**Project audit**](audit.md#routerfw-project-audit) — repo state, conventions, risks.

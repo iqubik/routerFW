@@ -1,4 +1,10 @@
 # file: docs\map.md
+<p align="center">
+  <b>🇷🇺 Русский</b> | <a href="map.en.md"><b>🇺🇸 English</b></a>
+</p>
+
+---
+
 # Карта развития проекта routerFW
 
 Составлено по CHANGELOG.md (теги релизов). Дата выгрузки CHANGELOG: 2026-02-20.
