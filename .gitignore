@@ -19,3 +19,7 @@ tester_tmp_*_out.txt
 
 # Docker runtime
 .docker_tmp/
+
+# Test folders
+nw_test
+nl_test

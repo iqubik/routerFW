@@ -2,7 +2,7 @@
 rem file: _Builder.bat
 rem CLI: --lang=RU|EN или -l RU|EN — язык. [ib|src] — режим. build[b], build-all[a|all], edit[e], menuconfig[k], import[i], wizard[w], clean[c], help[-h|--help]. Примеры: --lang=EN build 1, ib build 1.
 
-set "VER_NUM=4.44"
+set "VER_NUM=4.45"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту (пропуск при ROUTERFW_NO_CLS — тестер)
@@ -172,6 +172,8 @@ call :CHECK_DIR "profiles"
 call :CHECK_DIR "custom_files"
 call :CHECK_DIR "custom_patches"
 call :CHECK_DIR "firmware_output"
+call :CHECK_DIR "firmware_output\imagebuilder"
+call :CHECK_DIR "firmware_output\sourcebuilder"
 call :CHECK_DIR "custom_packages"
 call :CHECK_DIR "src_packages"
 
@@ -323,11 +325,13 @@ for %%f in (profiles\*.conf) do (
     set "profile[!count!]=%%~nxf"
     set "p_id=%%~nf"
     
-    :: Авто-создание структуры
+    :: Авто-создание структуры (паритет с _Builder.sh: firmware_output/imagebuilder, firmware_output/sourcebuilder)
     if not exist "custom_files\!p_id!" mkdir "custom_files\!p_id!" >nul
     if not exist "custom_patches\!p_id!" mkdir "custom_patches\!p_id!" >nul
     if not exist "custom_packages\!p_id!" mkdir "custom_packages\!p_id!" >nul
     if not exist "src_packages\!p_id!" mkdir "src_packages\!p_id!" >nul
+    if not exist "firmware_output\imagebuilder\!p_id!" mkdir "firmware_output\imagebuilder\!p_id!" >nul
+    if not exist "firmware_output\sourcebuilder\!p_id!" mkdir "firmware_output\sourcebuilder\!p_id!" >nul
     call :CREATE_PERMS_SCRIPT "!p_id!"    
     :: Извлекаем имя БЕЗ расширения для отображения в меню
     set "fname_display=%%~nf"

@@ -13,13 +13,14 @@ C_RST='\033[0m'
 
 clear
 echo -e "${C_LBL}========================================${C_RST}"
-echo -e "  OpenWrt Packer (v2.1 MT Linux)"
+echo -e "  OpenWrt Packer (v2.2 MT Linux)"
 echo -e "${C_LBL}========================================${C_RST}"
 echo ""
 
 # --- 1. Список файлов для упаковки ---
 # Синхронизировано с .bat версией
 FILES=(
+# --- Основные файлы ---
     "system/openssl.cnf"
     "system/docker-compose.yaml"
     "system/docker-compose-src.yaml"
@@ -35,20 +36,26 @@ FILES=(
     "system/lang/en.env"
     "scripts/show_pkgs.sh"
     "_Builder.sh"
+# --- Документация ---
     "README.md"
     "README.en.md"
     "docs/01-introduction.md"
-    "docs/02-digital-twin.md"
-    "docs/03-source-build.md"
-    "docs/04-adv-source-build.md"
-    "docs/index.md"
     "docs/01-introduction.en.md"
+    "docs/02-digital-twin.md"
     "docs/02-digital-twin.en.md"
+    "docs/03-source-build.md"
     "docs/03-source-build.en.md"
+    "docs/04-adv-source-build.md"
     "docs/04-adv-source-build.en.md"
     "docs/05-patch-sys.md"
     "docs/05-patch-sys.en.md"
+    "docs/06-rax3000m-emmc-flash.md"
+    "docs/06-rax3000m-emmc-flash.en.md"
+    "docs/07-troubleshooting-faq.md"
+    "docs/07-troubleshooting-faq.en.md"
+    "docs/index.md"
     "docs/index.en.md"
+# --- ЗАЩИЩЕННЫЕ ОБЪЕКТЫ ---
     "scripts/etc/uci-defaults/99-permissions.sh"
     "scripts/diag.sh"
     "scripts/hooks.sh"

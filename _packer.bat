@@ -13,14 +13,14 @@ if "%~1"==":WORKER" goto :WORKER
 
 cls
 echo ========================================
-echo  OpenWrt Universal Packer (v2.1 MT)
+echo  OpenWrt Universal Packer (v2.2 MT)
 echo ========================================
 echo.
 
 :: === 1. Определяем список общих файлов ===
 set "IDX=0"
 
-:: Функция добавления в список
+:: --- Основные файлы ---
 call :ADD_FILE "system/openssl.cnf"
 call :ADD_FILE "system/docker-compose.yaml"
 call :ADD_FILE "system/docker-compose-src.yaml"
@@ -36,21 +36,25 @@ call :ADD_FILE "system/lang/ru.env"
 call :ADD_FILE "system/lang/en.env"
 call :ADD_FILE "scripts/show_pkgs.sh"
 call :ADD_FILE "_Builder.bat"
+:: --- Документация ---
 call :ADD_FILE "README.md"
 call :ADD_FILE "README.en.md"
 call :ADD_FILE "docs\01-introduction.md"
-call :ADD_FILE "docs\02-digital-twin.md"
-call :ADD_FILE "docs\03-source-build.md"
-call :ADD_FILE "docs\04-adv-source-build.md"
-call :ADD_FILE "docs\index.md"
 call :ADD_FILE "docs\01-introduction.en.md"
+call :ADD_FILE "docs\02-digital-twin.md"
 call :ADD_FILE "docs\02-digital-twin.en.md"
+call :ADD_FILE "docs\03-source-build.md"
 call :ADD_FILE "docs\03-source-build.en.md"
+call :ADD_FILE "docs\04-adv-source-build.md"
 call :ADD_FILE "docs\04-adv-source-build.en.md"
 call :ADD_FILE "docs\05-patch-sys.md"
 call :ADD_FILE "docs\05-patch-sys.en.md"
+call :ADD_FILE "docs\06-rax3000m-emmc-flash.md"
+call :ADD_FILE "docs\06-rax3000m-emmc-flash.en.md"
+call :ADD_FILE "docs\07-troubleshooting-faq.md"
+call :ADD_FILE "docs\07-troubleshooting-faq.en.md"
+call :ADD_FILE "docs\index.md"
 call :ADD_FILE "docs\index.en.md"
-
 :: --- ЗАЩИЩЕННЫЕ ОБЪЕКТЫ ---
 call :ADD_FILE "scripts\etc\uci-defaults\99-permissions.sh"
 call :ADD_FILE "scripts\diag.sh"
