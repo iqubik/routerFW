@@ -2,7 +2,7 @@
 rem file: _Builder.bat
 rem CLI: --lang=RU|EN или -l RU|EN — язык. [ib|src] — режим. build[b], build-all[a|all], edit[e], menuconfig[k], import[i], wizard[w], clean[c], help[-h|--help]. Примеры: --lang=EN build 1, ib build 1.
 
-set "VER_NUM=4.45"
+set "VER_NUM=4.46"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту (пропуск при ROUTERFW_NO_CLS — тестер)
@@ -270,6 +270,8 @@ if not "!p1!"=="" (
     if /i "!c1!"=="c"         set "CLI_CMD=CLEAN"     & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="state"      set "CLI_CMD=STATE"    & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="s"         set "CLI_CMD=STATE"    & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
+    if /i "!c1!"=="check-all"  set "CLI_CMD=CHECKSUM_ALL" & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
+    if /i "!c1!"=="check"      set "CLI_CMD=CHECKSUM"     & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="help"       set "CLI_CMD=HELP"     & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="-h"         set "CLI_CMD=HELP"     & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="--help"     set "CLI_CMD=HELP"     & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
@@ -998,12 +1000,14 @@ if "%CLI_CMD%"=="EDIT" goto CLI_EDIT
 if "%CLI_CMD%"=="MENUCONFIG" goto CLI_MENUCONFIG
 if "%CLI_CMD%"=="IMPORT" goto CLI_IMPORT
 if "%CLI_CMD%"=="CLEAN" goto CLI_CLEAN
+if "%CLI_CMD%"=="CHECKSUM_ALL" goto CLI_CHECKSUM_ALL
+if "%CLI_CMD%"=="CHECKSUM" goto CLI_CHECKSUM
 echo !L_CLI_ERR_UNKNOWN_CMD!!CLI_CMD!!C_RST!
 exit /b 1
 
 :CLI_HELP
 echo.
-echo !C_LBL!!L_CLI_HELP_HEAD!!C_RST!
+echo !C_LBL!!L_CLI_HELP_VER!!VER_NUM! !L_CLI_HELP_HEAD!!C_RST!
 echo.
 echo !C_GRY!!L_CLI_LANG_KEY!!C_RST!
 echo !C_GRY!!L_CLI_MODE_PREFIX!!C_RST!
@@ -1016,6 +1020,8 @@ echo   import, i             ^<id^>                 %L_CLI_DESC_IMPORT%
 echo   wizard, w                                  %L_CLI_DESC_WIZARD%
 echo   clean, c              [1-6/1-3] [id/A]     %L_CLI_DESC_CLEAN%
 echo   state, s                                   %L_CLI_DESC_STATE%
+echo   check-all                                  %L_CLI_DESC_CHKSUM_ALL%
+echo   check                 ^<id^>                 %L_CLI_DESC_CHKSUM%
 echo   help, -h, --help                           %L_CLI_DESC_HELP%
 echo.
 echo !C_GRY!!L_CLI_HELP_FOOT!!C_RST!
@@ -1062,6 +1068,65 @@ echo    !C_GRY!─────────────────────�
 echo    !L_LEGEND_IND!
 echo    !C_GRY!!L_LEGEND_TEXT!!C_RST!
 echo.
+exit /b 0
+
+:: --- Checksum (MD5) — формат как в unpacker ---
+:ADD_CHECKSUM_TO_FILE
+set "CHK_FILE=%~1"
+if not exist "!CHK_FILE!" exit /b 1
+set "CHK_STAGED=%TEMP%\builder_chksum_%RANDOM%.tmp"
+set "CHK_PATH=!CHK_FILE:\=\\!"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$path='!CHK_PATH!'; $staged='!CHK_STAGED:\=\\!'; $enc=[System.Text.Encoding]::UTF8; $content=[IO.File]::ReadAllText($path,$enc); $eol=if($content -match \"`r`n\"){\"`r`n\"}else{\"`n\"}; $lines=($content -split \"`r?`n\"); $last=$lines[-1]; if($last -match 'checksum:MD5=[0-9a-fA-F]{32}'){$lines=$lines[0..($lines.Length-2)]; if($lines.Length -gt 0 -and [string]::IsNullOrWhiteSpace($lines[-1])){$lines=$lines[0..($lines.Length-2)]}}; $cleaned=($lines -join $eol); [IO.File]::WriteAllText($staged,$cleaned,$enc)" >nul 2>&1
+if not exist "!CHK_STAGED!" exit /b 1
+set "CHK_HASH="
+for /f "skip=1 tokens=1" %%H in ('certutil -hashfile "!CHK_STAGED!" MD5 2^>nul') do set "CHK_HASH=%%H" & goto :CHK_HASH_DONE
+:CHK_HASH_DONE
+if not defined CHK_HASH set "CHK_HASH=d41d8cd98f00b204e9800998ecf8427e"
+set "CHK_PREFIX=#"
+for %%F in ("!CHK_FILE!") do set "CHK_EXT=%%~xF"
+if /i "!CHK_EXT!"==".bat" set "CHK_PREFIX=::"
+if /i "!CHK_EXT!"==".cmd" set "CHK_PREFIX=::"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$staged='!CHK_STAGED:\=\\!'; $enc=[System.Text.Encoding]::UTF8; $txt=[IO.File]::ReadAllText($staged,$enc); $eol=if($txt -match \"`r`n\"){\"`r`n\"}else{\"`n\"}; $hash='!CHK_HASH!'.ToLower(); $prefix='!CHK_PREFIX!'; $line=$eol+$prefix+\" checksum:MD5=\"+$hash+$eol; [IO.File]::AppendAllText($staged,$line,$enc)" >nul 2>&1
+copy /y "!CHK_STAGED!" "!CHK_FILE!" >nul 2>&1
+del /q "!CHK_STAGED!" 2>nul
+exit /b 0
+
+:CLI_CHECKSUM_ALL
+if not exist "_unpacker.bat" (
+    echo !C_ERR!!L_CHKSUM_ERR_NO_UNPACKER!!C_RST!
+    exit /b 1
+)
+set "CHK_N=0"
+for /f "tokens=*" %%F in ('findstr "BEGIN_B64_" _unpacker.bat 2^>nul') do (
+    set "line=%%F"
+    set "line=!line:*BEGIN_B64_ =!"
+    for /f "tokens=* delims= " %%a in ("!line!") do set "line=%%a"
+    if exist "!line!" (
+        call :ADD_CHECKSUM_TO_FILE "!line!"
+        if not errorlevel 1 set /a CHK_N+=1
+    )
+)
+echo !C_OK!!L_CHKSUM_DONE! !CHK_N!!C_RST!
+exit /b 0
+
+:CLI_CHECKSUM
+if "!CLI_ARG1!"=="" echo !L_CLI_ERR_PROFILE_REQUIRED! & exit /b 1
+set "cli_trim=!CLI_ARG1: =!"
+if "!cli_trim!"=="" echo !L_CLI_ERR_PROFILE_REQUIRED! & exit /b 1
+call :CLI_RESOLVE_PROFILE
+if not defined SELECTED_CONF exit /b 1
+set "CHK_TARGET=profiles\!SELECTED_CONF!"
+if not exist "!CHK_TARGET!" (
+    echo !C_ERR!!L_CHKSUM_ERR_FILE! !CHK_TARGET!!C_RST!
+    exit /b 1
+)
+call :ADD_CHECKSUM_TO_FILE "!CHK_TARGET!"
+set "CHK_HASH="
+for /f "tokens=*" %%a in ('findstr "checksum:MD5=" "!CHK_TARGET!" 2^>nul') do set "CHK_HASH=%%a"
+set "CHK_HASH=!CHK_HASH:*checksum:MD5=!"
+echo !C_OK!!L_CHKSUM_PROFILE_OK!!C_RST! !C_VAL!!CHK_TARGET!!C_RST! !C_GRY!MD5=!CHK_HASH!!C_RST!
 exit /b 0
 
 :CLI_RESOLVE_PROFILE
