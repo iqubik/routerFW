@@ -7,7 +7,7 @@
 
 # routerFW — Process Diagrams
 
-> Version: 4.44. English diagram set.
+> Version: 4.45. English diagram set.
 >
 > Text: [ARCHITECTURE_en.md](ARCHITECTURE_en.md) · RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md)
 
@@ -30,7 +30,7 @@ flowchart TD
     DOCKER_CHK --> |yes| UNPACK{_unpacker.sh\npresent?}
     UNPACK --> |yes| RUN_UNPACK[bash _unpacker.sh]
     UNPACK --> |no| INIT_DIRS
-    RUN_UNPACK --> INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches]
+    RUN_UNPACK --> INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches\n+ imagebuilder/, sourcebuilder/\n+ imagebuilder/<id>, sourcebuilder/<id> — both platforms 4.45]
     INIT_DIRS --> PATCH_ARCH[patch_architectures\nSRC_ARCH from SRC_TARGET/SUBTARGET]
     PATCH_ARCH --> MIGRATE[migrate_profile_vars\nPKGS→IMAGE_PKGS\nEXTRA_IMAGE_NAME→IMAGE_EXTRA_NAME]
     MIGRATE --> MENU_LOOP[while true: draw menu]
@@ -78,7 +78,7 @@ flowchart TD
     I_ID --> I_RUN[import_ipk: .sh p_id p_arch / .ps1 -ProfileID -TargetArch\ncustom_packages → src_packages]
     I_RUN --> MENU
 
-    CHOICE --> |W| W_RUN[create_profile.sh / .ps1\nwizard → new profiles/name.conf]
+    CHOICE --> |W| W_RUN[create_profile.sh / .ps1\nwizard → new profiles/name.conf\n exit: 0]
     W_RUN --> MENU
 
     CHOICE --> |C| CLEAN_WIZ[Cleanup Wizard\nsee diagram 4]
@@ -119,6 +119,8 @@ To choose mode in one command, use the `ib`/`src` prefix. Mode toggle (key **M**
 **Positional:** `_Builder.bat 2` is treated as `build 2` (default mode — IB). Commands are case-insensitive.
 
 **Examples:** `_Builder.bat build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat edit myrouter`, `_Builder.bat --help`
+
+**CLI test harnesses:** `tester.bat` / `tester.sh` run builders with args and check exit codes/output; safe checks only (no builds, clean, or menuconfig). Logs in `.gitignore`.
 
 ---
 

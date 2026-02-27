@@ -7,7 +7,7 @@
 
 # routerFW — Диаграммы процессов
 
-> Версия 4.44. Набор диаграмм (русская страница).
+> Версия 4.45. Набор диаграмм (русская страница).
 >
 > Текст: [ARCHITECTURE_ru.md](ARCHITECTURE_ru.md) · EN diagrams: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md)
 
@@ -30,7 +30,7 @@ flowchart TD
     DOCKER_CHK --> |да| UNPACK{_unpacker.sh\nесть?}
     UNPACK --> |да| RUN_UNPACK[bash _unpacker.sh]
     UNPACK --> |нет| INIT_DIRS
-    RUN_UNPACK --> INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches]
+    RUN_UNPACK --> INIT_DIRS[check_dir\nprofiles, custom_files, firmware_output\ncustom_packages, src_packages, custom_patches\n+ imagebuilder/, sourcebuilder/\n+ imagebuilder/<id>, sourcebuilder/<id> — обе платформы 4.45]
     INIT_DIRS --> PATCH_ARCH[patch_architectures\nSRC_ARCH из SRC_TARGET/SUBTARGET]
     PATCH_ARCH --> MIGRATE[migrate_profile_vars\nPKGS→IMAGE_PKGS\nEXTRA_IMAGE_NAME→IMAGE_EXTRA_NAME]
     MIGRATE --> MENU_LOOP[while true: отрисовка меню]
@@ -78,7 +78,7 @@ flowchart TD
     I_ID --> I_RUN[import_ipk: .sh p_id p_arch / .ps1 -ProfileID -TargetArch\ncustom_packages → src_packages]
     I_RUN --> MENU
 
-    CHOICE --> |W| W_RUN[create_profile.sh / .ps1\nмастер → новый profiles/name.conf]
+    CHOICE --> |W| W_RUN[create_profile.sh / .ps1\nмастер → новый profiles/name.conf\n выход: 0]
     W_RUN --> MENU
 
     CHOICE --> |C| CLEAN_WIZ[Cleanup Wizard\nсм. диаграмму 4]
@@ -121,6 +121,8 @@ flowchart TD
 **Позиционный вызов:** `_Builder.bat 2` трактуется как `build 2` (режим по умолчанию — IB). Регистр команд не учитывается.
 
 **Примеры:** `_Builder.bat build 1`, `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build-all`, `_Builder.bat clean 2 3`, `_Builder.bat --help`
+
+**Тестовые оболочки CLI:** `tester.bat` / `tester.sh` запускают билдеры с аргументами и проверяют коды выхода и вывод; только безопасные проверки (без сборок, очистки и menuconfig). Логи в `.gitignore`.
 
 ---
 
