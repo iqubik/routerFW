@@ -1,0 +1,11 @@
+# EditorConfig: окончания строк по типу файла (совпадает с .gitattributes)
+# https://editorconfig.org
+
+root = true
+
+# Windows-скрипты — CRLF (как в .gitattributes: *.bat -text)
+[*.{bat,ps1,cmd}]
+end_of_line = crlf
+
+# Остальные текстовые файлы — по умолчанию LF (как в проекте)
+# Явные правила для типов с eol=lf в .gitattributes можно добавить при необходимости
