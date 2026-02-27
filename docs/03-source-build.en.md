@@ -106,3 +106,4 @@ For ready-made images for other models or vanilla OpenWrt, see the 4pda discussi
 **Summary:** You have mastered the most reliable method for building complex and custom firmwares, which ensures all dependencies and source author recommendations are taken into account. This method is significantly more reliable than simply editing `SRC_EXTRA_CONFIG`.
 
 In the next advanced lesson, we will show you how to embed your own files into SourceBuild and how to work with build files and VerMagic.
+# checksum:MD5=a446e4280c68ad9b83f15235c2babdbc

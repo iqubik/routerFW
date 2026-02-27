@@ -273,3 +273,4 @@ footer
 echo "Done. Report: $LOG"
 echo "========================================================================================="
 cat "/tmp/diag_${HOST}.md"
+# checksum:MD5=a8fce61c8d478440f3d9ff75c6779c8e

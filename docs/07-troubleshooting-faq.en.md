@@ -55,3 +55,4 @@ On some builds (e.g. Padavanonly), Wi‑Fi readiness can be improved: if you set
 *   RAX3000M eMMC installation and overlay/U-Boot issues — [Lesson 6](06-rax3000m-emmc-flash.en.md).
 
 Back to [lessons index](index.en.md).
+# checksum:MD5=f3818381f61d1bdb66959335791eb0f5

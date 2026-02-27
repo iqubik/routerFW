@@ -207,3 +207,4 @@ dd if=/dev/mmcblk0p2 bs=2M count=1 | sha256sum
 *   **Готовые образы и сборки:** см. обсуждение на 4pda и [Releases](https://github.com/iqubik/routerFW/releases). Для кастомизации используйте [RouterFW Builder](https://github.com/iqubik/routerFW) и [Урок 3](03-source-build.md).
 
 Вернуться к [оглавлению уроков](index.md).
+# checksum:MD5=32e9d09d87d24f29e8451be84fb80d0e

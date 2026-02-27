@@ -12,3 +12,4 @@ opkg list-upgradable | cut -f 1 -d ' ' | xargs -r opkg upgrade
 
 echo ""
 echo "Обновление пакетов завершено."
+# checksum:MD5=260ae10b0344325169c7e1c46629c91f

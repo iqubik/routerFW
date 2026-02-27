@@ -133,3 +133,4 @@ How to build firmware using a complex `defconfig` from a third-party developer:
     `firmware_output\sourcebuilder\%ID%\manual_config`
 4.  **Expand**: Run **Menuconfig** again. The system detects the minimalist file (e.g., 11KB) and **automatically expands it** into a full `.config` (~400KB), resolving all dependencies.
 5.  **Finalize**: Upon exit, select **Y** to update the profile. The Builder will compress the settings back into a clean diff and save them into your `.conf`.
+# checksum:MD5=aab3192801545dfb0a79f8c11b1a38a9

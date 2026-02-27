@@ -8,3 +8,4 @@
 [ -d /root/.ssh ] && chmod 700 /root/.ssh
 [ -f /root/.ssh/id_rsa ] && chmod 600 /root/.ssh/id_rsa
 exit 0
+# checksum:MD5=30db05ffa34c04acfea77f74798553d9

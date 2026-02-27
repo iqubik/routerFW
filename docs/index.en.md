@@ -47,3 +47,4 @@ This is a series of lessons designed to help you master the Universal Builder, f
 ---
 
 [**Project audit**](audit.md#routerfw-project-audit) — repo state, conventions, risks.
+# checksum:MD5=507f62b17aa49ec905e107b662c0dd0d

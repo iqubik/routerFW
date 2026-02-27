@@ -399,3 +399,4 @@ Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse b
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
+# checksum:MD5=5995892936a09ab3d3682108cb9d439c

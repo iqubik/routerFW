@@ -7,3 +7,4 @@ RUN apt-get update && apt-get install -y \
 	&& rm -rf /var/lib/apt/lists/*
 COPY system/openssl.cnf /etc/ssl/openssl.cnf
 WORKDIR /builder_workspace
+# checksum:MD5=d4476ad28bb7fc5cda39c5d43e83fae1

@@ -67,3 +67,4 @@ This can be compared to tailoring clothes from scratch. The process is long, but
 ---
 
 In the next lesson, we will move on to practice and create your first "cemented" backup.
+# checksum:MD5=f0de1a2a6d6b2718beca658d93e9bad6

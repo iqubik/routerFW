@@ -52,3 +52,4 @@ volumes:
   src-dl-cache:
   src-workdir:
   src-ccache:
+# checksum:MD5=faaea133fefeaef20f5b465f4520b753

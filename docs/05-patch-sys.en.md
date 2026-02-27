@@ -126,3 +126,4 @@ OpenWrt automatically looks for `.patch` files in `patches-x.x` folders inside `
 
 **Q: I get `mkdir: cannot create directory '/tmp_patches': Permission denied` when building with patches. What should I do?**
 *   This error was fixed in newer builder versions (where patch application runs with correct permissions). Update the builder to the latest version from [Releases](https://github.com/iqubik/routerFW/releases) or the repository.
+# checksum:MD5=4825415fca73c3e367cead9cb6ee23c4
