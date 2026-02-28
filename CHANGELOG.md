@@ -1,7 +1,7 @@
 # RouterFW — тексты релизов (по тегам)
 
 Выгружено из репозитория по тегам через `gh release view`.
-Дата выгрузки: 2026-02-24 22:24:15.
+Дата выгрузки: 2026-02-28 03:49:06.
 
 ---
 
@@ -1916,3 +1916,86 @@ asset:	routerFW_WinDockerBuilder_v24.02.2026_22-07.zip
 * 4.44 by @iqubik in https://github.com/iqubik/routerFW/pull/27
 
 **Full Changelog**: https://github.com/iqubik/routerFW/compare/4.43...4.44
+
+
+## ========== TAG: 4.45 ==========
+
+title:	4.45
+tag:	4.45
+draft:	false
+prerelease:	false
+immutable:	false
+author:	iqubik
+created:	2026-02-26T18:05:45Z
+published:	2026-02-26T18:22:32Z
+url:	https://github.com/iqubik/routerFW/releases/tag/4.45
+asset:	routerFW_LinuxDockerBuilder_v26.02.2026_21-05.tar.gz
+asset:	routerFW_WinDockerBuilder_v26.02.2026_21-00.zip
+--
+# RouterFW — Релиз 4.45 / Release 4.45
+
+**Версия / Version:** 4.45  
+**Период изменений / Changes since:** тег 4.44 → текущее состояние (tag 4.44 → HEAD)
+
+---
+
+## Русский
+
+### Что нового
+
+- **Версия билдера.** Обновление номера версии до 4.45 в `_Builder.bat` и `_Builder.sh`.
+
+- **Структура выходных папок (Windows).** В `_Builder.bat` добавлена инициализация подкаталогов `firmware_output\imagebuilder` и `firmware_output\sourcebuilder` при старте, а также автосоздание для каждого профиля папок `firmware_output\imagebuilder\<profile>` и `firmware_output\sourcebuilder\<profile>` — паритет с поведением `_Builder.sh`.
+
+- **Меню очистки, мастера и menuconfig (Windows).** В экранах «Очистка», «Мастер создания профиля» и «Menuconfig» заголовки оформлены через отдельную переменную `MENU_SEP` и цвет `C_KEY` для разделителя — корректное отображение при включённом `setlocal enabledelayedexpansion` (исправление отображения `L_SEPARATOR_EQ` и подстановки `!L_*!`).
+
+- **Мастер создания профиля: выход по «0».** В `create_profile.ps1` и `create_profile.sh` выход из мастера изменён с клавиши **Q** на **0**: меньше путаницы с нумерацией пунктов, единообразие (0 = выход). Версии мастера: PowerShell 2.6, Bash 2.60.
+
+- **Скрипт выгрузки релизов.** В `system/get-git.ps1` перед формированием CHANGELOG добавлен `git fetch --tags`, чтобы учитывать теги с remote (актуальные релизы при запуске в CI).
+
+- **Визуализация релизов (GitHub Actions).** В workflow `release-visualizer.yml` шаг генерации «змейки» контрибуций (Platane/snk) перенесён после шагов, создающих каталог `dist/` и timeline/tree SVG, чтобы целевая директория существовала. В `system/changelog-to-svg.ps1` добавлено автосоздание каталога `dist/` при отсутствии.
+
+- **Документация: FAQ по ограничениям сборки.** В `docs/07-troubleshooting-faq.md` и `docs/07-troubleshooting-faq.en.md` добавлен подпункт «Sysupgrade/factory не собираются; в выводе только initramfs и „чужие“ образы»: типичная ситуация для устройств с флешем 8 MB (образ превышает лимит, `mktplinkfw` не создаёт образ, make не падает). Описаны отладка через `make target/linux/install`, рекомендации по сокращению набора пакетов и проверке однопрофильной сборки.
+
+- **Профиль TP-Link TL-WR1043ND v2.** Профиль `tplink_tl_wr1043nd_v2_24105_ow_full.conf` приведён к минимальному набору под 8 MB: luci-light, wpad-openssl, убраны тяжёлые пакеты и лишние CONFIG_* в SRC_EXTRA_CONFIG; удалён тестовый профиль `tplink_tl_wr1043nd_v2_24105_ow_full_test.conf`.
+
+- **Упаковщики.** `_packer.bat` и `_packer.sh` обновлены до версии 2.2 MT: в список включаются `docs/06-rax3000m-emmc-flash.md|.en.md` и `docs/07-troubleshooting-faq.md|.en.md`; порядок документов приведён к единому виду.
+
+- **Игноры и тестовые среды.** В `.gitignore` добавлены каталоги `nw_test` и `nl_test`. В `.cursorignore` убраны исключения `firmware_output/`, `debug.md`, `.docker_tmp/` (актуализация под текущее использование репозитория).
+
+- **Очистка.** Удалены резервные копии профилей в `profiles/bck/` (rax3000m_emmc_test_new_bck*.conf). Обновлён CHANGELOG.md (дата выгрузки, правка пути `docs/audit.md` → `audit.md`, блок релиза 4.44).
+
+---
+
+## English
+
+### What's New
+
+- **Builder version.** Version number updated to 4.45 in `_Builder.bat` and `_Builder.sh`.
+
+- **Output folder structure (Windows).** In `_Builder.bat`, startup now ensures `firmware_output\imagebuilder` and `firmware_output\sourcebuilder` exist, and auto-creates per-profile directories `firmware_output\imagebuilder\<profile>` and `firmware_output\sourcebuilder\<profile>` — matching `_Builder.sh` behaviour.
+
+- **Clean menu, wizard, and menuconfig (Windows).** On the Clean, Profile Wizard, and Menuconfig screens, headers use a dedicated `MENU_SEP` variable and `C_KEY` color for the separator — correct display with `setlocal enabledelayedexpansion` (fixes `L_SEPARATOR_EQ` and `!L_*!` expansion).
+
+- **Profile wizard: exit with “0”.** In `create_profile.ps1` and `create_profile.sh`, exit key changed from **Q** to **0**: less confusion with numbered options and consistent “0 = exit”. Wizard versions: PowerShell 2.6, Bash 2.60.
+
+- **Release export script.** In `system/get-git.ps1`, `git fetch --tags` is run before building CHANGELOG so that tags from remote are up to date (relevant for CI runs).
+
+- **Release visualization (GitHub Actions).** In workflow `release-visualizer.yml`, the contribution snake step (Platane/snk) was moved after the steps that create the `dist/` directory and timeline/tree SVGs, so the target directory exists. In `system/changelog-to-svg.ps1`, `dist/` is created automatically if missing.
+
+- **Documentation: build limits FAQ.** In `docs/07-troubleshooting-faq.md` and `docs/07-troubleshooting-faq.en.md`, a new subsection “Sysupgrade/factory not built; only initramfs and other devices' images in output” was added: typical for 8 MB flash (image exceeds device limit, `mktplinkfw` does not create the image, make does not fail). Describes debugging via `make target/linux/install`, tips for reducing package set, and verifying single-profile builds.
+
+- **TP-Link TL-WR1043ND v2 profile.** Profile `tplink_tl_wr1043nd_v2_24105_ow_full.conf` was trimmed to a minimal set for 8 MB: luci-light, wpad-openssl, heavy packages and extra CONFIG_* in SRC_EXTRA_CONFIG removed; test profile `tplink_tl_wr1043nd_v2_24105_ow_full_test.conf` removed.
+
+- **Packagers.** `_packer.bat` and `_packer.sh` updated to version 2.2 MT: include `docs/06-rax3000m-emmc-flash.md|.en.md` and `docs/07-troubleshooting-faq.md|.en.md`; document order aligned between both scripts.
+
+- **Ignores and test envs.** `.gitignore` now includes `nw_test` and `nl_test`. `.cursorignore` updated: removed exclusions for `firmware_output/`, `debug.md`, `.docker_tmp/` to match current repo usage.
+
+- **Cleanup.** Removed backup profiles in `profiles/bck/` (rax3000m_emmc_test_new_bck*.conf). CHANGELOG.md updated (export date, `docs/audit.md` → `audit.md` path fix, 4.44 release block).
+
+---
+
+*Release notes for GitHub — summary of changes from tag 4.44 to 4.45.*
+
+
+**Full Changelog**: https://github.com/iqubik/routerFW/compare/4.44...4.45
