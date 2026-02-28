@@ -2,7 +2,9 @@
 # file: _packer.sh
 PACKER_VER="2.6"
 # Multi-threaded Base64 Resource Storage (checksum). Версия: PACKER_VER
-
+./_Builder.sh check-all
+echo -e "${C_LBL}========================================${C_RST}"
+read -p "Press Enter to start packing (v${PACKER_VER} SH MT)..."
 # Гарантируем работу в папке скрипта
 cd "$(dirname "$0")"
 

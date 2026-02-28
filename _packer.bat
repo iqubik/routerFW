@@ -7,6 +7,11 @@ chcp 65001 >nul
 :: Проверка аргумента для запуска рабочего потока (WORKER)
 if "%~1"==":WORKER" goto :WORKER
 
+CALL _Builder.bat check-all
+echo =========================================
+echo [INFO] Ready to start packing (v%PACKER_VER%) Press any key...
+pause
+
 :: =========================================================
 ::  Упаковщик общих ресурсов (Multi-Threaded Fixed), v%PACKER_VER%
 :: =========================================================
