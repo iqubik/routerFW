@@ -409,4 +409,4 @@ SRC_CORES="safe"
 ---
 
 Аудит проекта https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=b8f25786d85985a9858bf91e681115c5
+# checksum:MD5=88ef8ad025e20ab015038aed2750ec4f
