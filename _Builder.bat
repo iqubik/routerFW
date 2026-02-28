@@ -1023,7 +1023,7 @@ echo   wizard, w                                  %L_CLI_DESC_WIZARD%
 echo   clean, c              [1-6/1-3] [id/A]     %L_CLI_DESC_CLEAN%
 echo   state, s                                   %L_CLI_DESC_STATE%
 echo   check-all                                  %L_CLI_DESC_CHKSUM_ALL%
-echo   check-clear           ^<id^> / all           Clear MD5 checksums
+echo   check-clear           ^<id^> / all           %L_CLI_DESC_CHKSUM_CLEAR%
 echo   check                 ^<id^>                 %L_CLI_DESC_CHKSUM%
 echo   help, -h, --help                           %L_CLI_DESC_HELP%
 echo.

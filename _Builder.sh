@@ -1088,10 +1088,10 @@ dispatch_cli() {
             printf "  %-20s %-22s %s\n" "menuconfig, k" "<id>" "$L_CLI_DESC_MENUCONFIG"
             printf "  %-20s %-22s %s\n" "import, i" "<id>" "$L_CLI_DESC_IMPORT"
             printf "  %-20s %-22s %s\n" "wizard, w" "" "$L_CLI_DESC_WIZARD"
-            printf "  %-20s %-22s %s\n" "clean, c" "[1-6/1-3] [id/A]" "$L_CLI_DESC_CLEAN"
+            printf "  %-20s %-22s %s\n" "clean, c" "[1-6/1-3] [id/All]" "$L_CLI_DESC_CLEAN"
             printf "  %-20s %-22s %s\n" "state, s" "" "$L_CLI_DESC_STATE"
             printf "  %-20s %-22s %s\n" "check-all" "" "$L_CLI_DESC_CHKSUM_ALL"
-            printf "  %-20s %-22s %s\n" "check-clear" "" "Clear MD5 checksums from all files"
+            printf "  %-20s %-22s %s\n" "check-clear" "[id/All]" "$L_CLI_DESC_CHKSUM_CLEAR"
             printf "  %-20s %-22s %s\n" "check" "<id>" "$L_CLI_DESC_CHKSUM"
             printf "  %-20s %-22s %s\n" "help, -h, --help" "" "$L_CLI_DESC_HELP"
             echo ""
@@ -1699,4 +1699,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=89e0ab94c08866045211b4a2ef75fd45
+# checksum:MD5=f242800c0fa8961b4e8562af2edfa532
