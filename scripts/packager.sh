@@ -58,3 +58,4 @@ echo "Выводим полный в $OUT_FULL"
 # 2. Формируем краткий список
 awk -v RS="" '!/Auto-Installed: yes/ {print $2}' "$INPUT_FILE" > "$OUT_LITE"
 echo "Выводим краткий в $OUT_LITE"
+# checksum:MD5=9e6e8977e3a7a72f6abfdec16ee82c2e

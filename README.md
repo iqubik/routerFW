@@ -82,6 +82,8 @@
 | `wizard` | `w` | — | Мастер создания профиля |
 | `clean` | `c` | [тип] [цель] | Очистка (тип 1–6 SRC / 1–3 IMG, 9=prune) |
 | `state` | `s` | — | Таблица профилей с флагами (F,P,S,M,H,X,OI,OS) |
+| `check` | — | `<id>` | Добавить/обновить checksum в profiles/ID.conf |
+| `check-all` | — | — | Добавить/обновить checksum:MD5 во все файлы из unpacker |
 | `help` | `-h`, `--help` | — | Справка по ключам и выход |
 
 **Позиционный вызов:** `_Builder.bat 2` = сборка профиля №2 (режим по умолчанию — IB). Регистр команд не учитывается.
@@ -406,3 +408,4 @@ SRC_CORES="safe"
 ---
 
 Аудит проекта https://github.com/iqubik/routerFW/blob/main/docs/audit.md
+# checksum:MD5=9853ee10fd9a62789d80aac73322eceb

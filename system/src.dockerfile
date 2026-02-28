@@ -31,3 +31,4 @@ ENV OPENSSL_CONF=/home/build/openssl.cnf
 
 # На всякий случай настраиваем git safe directory глобально
 RUN git config --global --add safe.directory '*'
+# checksum:MD5=212080ed518515a262002f8b9f41b1bd

@@ -144,3 +144,4 @@ To ensure the new firmware contains all the programs you've installed (AdGuard, 
 3.  Wait for completion.
 
 **Done!** Now, in the `firmware_output` folder, lies a firmware in which all your packages and settings are "cemented-in." After installing this firmware, the router will immediately work the way you are used to.
+# checksum:MD5=ca80553921c64b5c9165421e199815e9

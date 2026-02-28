@@ -510,3 +510,4 @@ CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalS
         Read-Host "Press Enter to retry..."
     }
 } # <-- Закрывает While
+# checksum:MD5=5d277150e7c396b272b1c3a9af2c1888

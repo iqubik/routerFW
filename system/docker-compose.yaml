@@ -39,3 +39,4 @@ services:
 volumes:
   imagebuilder-cache:
   ipk-cache:
+# checksum:MD5=3f95879910854e4f3ba92510936b335a

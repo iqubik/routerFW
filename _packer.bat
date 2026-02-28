@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-set "PACKER_VER=2.3"
+set "PACKER_VER=2.4"
 cls
 chcp 65001 >nul
 
@@ -122,8 +122,8 @@ for /L %%i in (1,1,%IDX%) do (
     echo.
     echo :: Создаем флаг ^(если папки нет - создаем^)
     echo if not exist "profiles" md "profiles" 2^>nul
-    echo if not exist "profiles\personal.flag" ^(
-    echo     echo Initial setup done ^> "profiles\personal.flag"
+    echo if not exist "profiles\personal.flag" ^(    
+    echo ^<nul set /p "=Initial setup done." ^> "profiles\personal.flag"
     echo     echo [INFO] Created flag profiles\personal.flag
     echo ^)
     echo.
@@ -234,9 +234,9 @@ set "W_STAGED=%W_DIR%\%W_ID%.staged"
 set "W_OUT=%W_DIR%\%W_ID%.chunk"
 set "W_RDY=%W_DIR%\%W_ID%.ready"
 
-rem Подготовка staged: убрать последнюю строку если checksum, сохранить EOL файла, затем дописать строку с MD5 (версионирование для updater)
+rem 1. Подготовка staged: Удаляем старые хеши и лишние пустые строки
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$path='%W_FILE:\=\\%'; $staged='%W_STAGED:\=\\%'; $enc=[System.Text.Encoding]::UTF8; $content=[IO.File]::ReadAllText($path,$enc); $eol=if($content -match \"`r`n\"){\"`r`n\"}else{\"`n\"}; $lines=($content -split \"`r?`n\"); $last=$lines[-1]; if($last -match 'checksum:MD5=[0-9a-fA-F]{32}'){$lines=$lines[0..($lines.Length-2)]}; $cleaned=($lines -join $eol); [IO.File]::WriteAllText($staged,$cleaned,$enc)" >nul 2>&1
+  "$path='%W_FILE:\=\\%'; $staged='%W_STAGED:\=\\%'; $enc=[System.Text.UTF8Encoding]::new($false); $content=[IO.File]::ReadAllText($path,$enc).TrimEnd([char]13,[char]10); $eol=if($content -match \"`r`n\"){\"`r`n\"}else{\"`n\"}; $lines=@($content -split \"`r?`n\"); while($lines.Count -gt 0){$last=($lines[-1] -replace \"`r$\",''); if([string]::IsNullOrWhiteSpace($last)){$lines=$lines[0..($lines.Count-2)]}elseif($last -match '^\s*(::|#)?\s*checksum:MD5=[0-9a-fA-F]{32}\s*$'){$lines=$lines[0..($lines.Count-2)]; if($lines.Count -gt 0 -and [string]::IsNullOrWhiteSpace(($lines[-1] -replace \"`r$\",''))){$lines=$lines[0..($lines.Count-2)]}}else{break}}; $cleaned=($lines -join $eol)+$eol; [IO.File]::WriteAllText($staged,$cleaned,$enc)" >nul 2>&1
 
 if not exist "%W_STAGED%" (
     echo :: ERROR_PACKING_FILE: %W_FILE% > "%W_OUT%"
@@ -244,34 +244,32 @@ if not exist "%W_STAGED%" (
     exit
 )
 
-rem MD5 от «чистого» содержимого (certutil выводит две строки, берём вторую)
+rem 2. Считаем MD5 от подготовленного файла
 set "W_HASH="
 for /f "skip=1 tokens=1" %%H in ('certutil -hashfile "%W_STAGED%" MD5 2^>nul') do set "W_HASH=%%H" & goto :HASH_DONE
 :HASH_DONE
 if not defined W_HASH set "W_HASH=d41d8cd98f00b204e9800998ecf8427e"
 
-rem Префикс комментария: :: для .bat/.cmd, иначе #
+rem 3. Определяем префикс
 set "W_PREFIX=#"
 for %%F in ("%W_FILE%") do set "W_EXT=%%~xF"
 if /i "%W_EXT%"==".bat" set "W_PREFIX=::"
 if /i "%W_EXT%"==".cmd" set "W_PREFIX=::"
 
-rem Дописываем в staged строку checksum:MD5=<hash> (тот же EOL, что у файла)
+rem 4. Дописываем checksum
+rem Важно: $eol в начале НЕ добавляем (чтобы не было пустой строки),
+rem так как файл после шага 1 гарантированно заканчивается одним переносом.
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$staged='%W_STAGED:\=\\%'; $enc=[System.Text.Encoding]::UTF8; $txt=[IO.File]::ReadAllText($staged,$enc); $eol=if($txt -match \"`r`n\"){\"`r`n\"}else{\"`n\"}; $hash='%W_HASH%'.ToLower(); $prefix='%W_PREFIX%'; $line=$eol+$prefix+\" checksum:MD5=\"+$hash+$eol; [IO.File]::AppendAllText($staged,$line,$enc)" >nul 2>&1
+  "$staged='%W_STAGED:\=\\%'; $enc=[System.Text.UTF8Encoding]::new($false); $txt=[IO.File]::ReadAllText($staged,$enc); $eol=if($txt -match \"`r`n\"){\"`r`n\"}else{\"`n\"}; $hash='%W_HASH%'.ToLower(); $prefix='%W_PREFIX%'; $line=$prefix+\" checksum:MD5=\"+$hash; [IO.File]::AppendAllText($staged,$line,$enc)" >nul 2>&1
 
-rem Кодируем staged (файл с уже добавленной строкой checksum)
+rem 5. Кодируем и подчищаем
 certutil -f -encode "%W_STAGED%" "%W_TMP%" >nul 2>&1
-
-rem Если certutil не создал файл — пустой чанк
 if not exist "%W_TMP%" (
     echo :: ERROR_PACKING_FILE: %W_FILE% > "%W_OUT%"
     del /q "%W_STAGED%" 2>nul
     echo done > "%W_RDY%"
     exit
 )
-
-rem Формируем блок
 (
     echo.
     echo :: BEGIN_B64_ %W_FILE%
@@ -279,10 +277,7 @@ rem Формируем блок
     echo :: END_B64_ %W_FILE%
 ) > "%W_OUT%"
 
-rem Удаляем временные файлы
 del /q "%W_TMP%" 2>nul
 del /q "%W_STAGED%" 2>nul
-
-rem Создаем файл-флаг готовности
 echo done > "%W_RDY%"
 exit

@@ -55,3 +55,4 @@ make target/linux/install -j1 V=s 2>&1 | tee /tmp/image_build.log
 *   Установка на RAX3000M eMMC и проблемы overlay/U-Boot — [Урок 6](06-rax3000m-emmc-flash.md).
 
 Вернуться к [оглавлению уроков](index.md).
+# checksum:MD5=91fc24b48bb83e2f43c314242c6023c7

@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.45"
+VER_NUM="4.46"
 
 # Bootstrap — dict not yet available
 # Функция очистки при прерывании (Ctrl+C). Вызывается по SIGINT/SIGTERM в любой момент,
@@ -356,6 +356,93 @@ build_routine() {
 
     # === ВОЗВРАЩАЕМ РЕАЛЬНЫЙ СТАТУС ===
     return $build_status    
+}
+
+# --- Checksum (MD5) — формат как в unpacker ---
+checksum_comment_prefix() {
+    local path="$1"
+    local ext="${path##*.}"
+    [[ "$ext" == "bat" || "$ext" == "cmd" ]] && echo "::" || echo "#"
+}
+
+add_checksum_to_file() {
+    local file="$1"
+    [ ! -f "$file" ] && { echo -e "${C_ERR}[SKIP] $file not found${C_RST}"; return 1; }
+    local staged
+    staged=$(mktemp)
+    
+    # Точная копия логики из _packer.sh и .bat (PowerShell) с помощью awk.
+    # Гарантирует правильные окончания строк и решает проблему "прилипания".
+    awk '
+    BEGIN { has_cr = 0 }
+    {
+        if (NR == 1 && /\r$/) has_cr = 1;
+        sub(/\r$/, "");
+        lines[NR] = $0;
+    }
+    END {
+        last = NR;
+        while (last > 0) {
+            if (lines[last] ~ /^[ \t]*$/) {
+                last--;
+            } else if (lines[last] ~ /^[ \t]*(::|#)?[ \t]*checksum:MD5=[0-9a-fA-F]{32}[ \t]*$/) {
+                last--;
+            } else {
+                break;
+            }
+        }
+        eol = has_cr ? "\r\n" : "\n";
+        for (i = 1; i <= last; i++) {
+            printf "%s%s", lines[i], eol;
+        }
+    }' "$file" > "$staged"
+
+    local hash
+    hash=$(md5sum < "$staged" | cut -d' ' -f1)
+    hash="${hash,,}"
+    local prefix
+    prefix=$(checksum_comment_prefix "$file")    
+    
+    # Файл теперь гарантированно заканчивается переносом строки (EOL),
+    # поэтому printf безопасно начнет запись с новой строки.
+    printf '%s checksum:MD5=%s' "$prefix" "$hash" >> "$staged"
+    mv "$staged" "$file"
+}
+
+extract_files_from_unpacker() {
+    local unpacker=""
+    [ -f "_unpacker.sh" ] && unpacker="_unpacker.sh"
+    [ -z "$unpacker" ] && return 1
+    grep "BEGIN_B64_" "$unpacker" 2>/dev/null | sed 's/.*BEGIN_B64_ //' | tr -d '\r'
+}
+
+do_checksum_all() {
+    local unpacker=""
+    [ -f "_unpacker.sh" ] && unpacker="_unpacker.sh"
+    if [ -z "$unpacker" ]; then
+        echo -e "${C_ERR}$L_CHKSUM_ERR_NO_UNPACKER${C_RST}"
+        return 1
+    fi
+    local files
+    files=($(extract_files_from_unpacker))
+    [ ${#files[@]} -eq 0 ] && { echo -e "${C_ERR}$L_CHKSUM_ERR_EMPTY${C_RST}"; return 1; }
+    echo -e "${C_LBL}[CHECKSUM]${C_RST} ${L_CHKSUM_ALL_START}"
+    local n=0
+    for f in "${files[@]}"; do
+        [ -f "$f" ] && add_checksum_to_file "$f" && ((n++))
+    done
+    echo -e "${C_OK}$L_CHKSUM_DONE $n${C_RST}"
+}
+
+do_checksum_profile() {
+    local conf_file="$1"
+    local p_id="${conf_file%.conf}"
+    local target="profiles/$conf_file"
+    [ ! -f "$target" ] && { echo -e "${C_ERR}$L_CHKSUM_ERR_FILE $target${C_RST}"; return 1; }
+    add_checksum_to_file "$target"
+    local hash
+    hash=$(grep "checksum:MD5=" "$target" | tail -1 | sed 's/.*checksum:MD5=//' | tr -d '\r')
+    echo -e "${C_OK}$L_CHKSUM_PROFILE_OK${C_RST} ${C_VAL}$target${C_RST} ${C_GRY}MD5=$hash${C_RST}"
 }
 
 run_menuconfig() {
@@ -872,6 +959,8 @@ if [ -n "$p1" ]; then
         WIZARD|W)        CLI_CMD="WIZARD";   CLI_ARG1="$c2"; CLI_ARG2="$c3" ;;
         CLEAN|C)         CLI_CMD="CLEAN";     CLI_ARG1="$c2"; CLI_ARG2="$c3" ;;
         STATE|S)         CLI_CMD="STATE";    CLI_ARG1="$c2"; CLI_ARG2="$c3" ;;
+        CHECK-ALL)       CLI_CMD="CHECKSUM_ALL"; CLI_ARG1="$c2"; CLI_ARG2="$c3" ;;
+        CHECK)           CLI_CMD="CHECKSUM"; CLI_ARG1="$c2"; CLI_ARG2="$c3" ;;
         HELP|-H|--HELP)  CLI_CMD="HELP";     CLI_ARG1="$c2"; CLI_ARG2="$c3" ;;
         *)               CLI_CMD="BUILD";     CLI_ARG1="$c1"; CLI_ARG2="$c2" ;;  # позиционный вызов
     esac
@@ -909,7 +998,7 @@ dispatch_cli() {
     case "$CLI_CMD" in
         HELP)
             echo ""
-            echo -e "${C_LBL}${L_CLI_HELP_HEAD/"_Builder.bat"/"$script_name"}${C_RST}"
+            echo -e "${C_LBL}${L_CLI_HELP_VER}${VER_NUM} ${L_CLI_HELP_HEAD/"_Builder.bat"/"$script_name"}${C_RST}"
             echo ""
             echo -e "${C_GRY}${L_CLI_LANG_KEY}${C_RST}"
             echo -e "${C_GRY}${L_CLI_MODE_PREFIX}${C_RST}"
@@ -922,6 +1011,8 @@ dispatch_cli() {
             printf "  %-20s %-22s %s\n" "wizard, w" "" "$L_CLI_DESC_WIZARD"
             printf "  %-20s %-22s %s\n" "clean, c" "[1-6/1-3] [id/A]" "$L_CLI_DESC_CLEAN"
             printf "  %-20s %-22s %s\n" "state, s" "" "$L_CLI_DESC_STATE"
+            printf "  %-20s %-22s %s\n" "check-all" "" "$L_CLI_DESC_CHKSUM_ALL"
+            printf "  %-20s %-22s %s\n" "check" "<id>" "$L_CLI_DESC_CHKSUM"
             printf "  %-20s %-22s %s\n" "help, -h, --help" "" "$L_CLI_DESC_HELP"
             echo ""
             echo -e "${C_GRY}${L_CLI_HELP_FOOT/"_Builder.bat"/"$script_name"}${C_RST}"
@@ -968,6 +1059,15 @@ dispatch_cli() {
             ;;
         WIZARD)
             [ -f "system/create_profile.sh" ] && bash "system/create_profile.sh" || echo "$L_ERR_WIZ"
+            exit 0
+            ;;
+        CHECKSUM_ALL)
+            do_checksum_all
+            exit 0
+            ;;
+        CHECKSUM)
+            resolve_profile_by_id "$CLI_ARG1" || exit 1
+            do_checksum_profile "$SELECTED_CONF"
             exit 0
             ;;
         BUILD)
@@ -1514,3 +1614,4 @@ while true; do
             ;;
     esac
 done
+# checksum:MD5=33b239de81f7727eb7f77ad12c91b2c4

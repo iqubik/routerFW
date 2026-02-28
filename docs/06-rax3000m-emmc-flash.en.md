@@ -207,3 +207,4 @@ dd if=/dev/mmcblk0p2 bs=2M count=1 | sha256sum
 *   **Ready-made images and builds:** see the 4pda discussion and [Releases](https://github.com/iqubik/routerFW/releases). For customization use [RouterFW Builder](https://github.com/iqubik/routerFW) and [Lesson 3](03-source-build.en.md).
 
 Back to [lessons index](index.en.md).
+# checksum:MD5=1ddb96bda7e52f4c7c51c03118f835ad

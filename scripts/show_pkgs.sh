@@ -46,3 +46,4 @@ echo "-----------------------end---------------------------------------"
 
 # Очистка
 rm "$TMP_MANUAL" "$TMP_ROM" /tmp/pkgs_diff.txt 2>/dev/null
+# checksum:MD5=e307e585965ae4c95383902778c0edee
