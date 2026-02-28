@@ -107,7 +107,6 @@ decode_file() {
     
     # Создаем папку
     mkdir -p "$(dirname "$target")"
-    echo "[UNPACK] Recover: $target"
     
     # Извлекаем Base64 блок между маркерами
     # Используем awk для точного парсинга текущего файла ($0)
@@ -118,6 +117,11 @@ decode_file() {
     if [[ "$target" == *.sh ]]; then
         chmod +x "$target"
     fi
+    
+    # Выводим сообщение с MD5 хешем
+    local file_hash
+    file_hash=$(md5sum "$target" 2>/dev/null | cut -d' ' -f1)
+    echo "[UNPACK] Recover: $target - md5($file_hash)"
 }
 
 EOF
