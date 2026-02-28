@@ -2,7 +2,7 @@
 rem file: _Builder.bat
 rem CLI: --lang=RU|EN или -l RU|EN — язык. [ib|src] — режим. build[b], build-all[a|all], edit[e], menuconfig[k], import[i], wizard[w], clean[c], help[-h|--help]. Примеры: --lang=EN build 1, ib build 1.
 
-set "VER_NUM=4.47"
+set "VER_NUM=4.48"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту (пропуск при ROUTERFW_NO_CLS — тестер)
@@ -1650,4 +1650,4 @@ if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJZYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJZYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJZYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
 exit /b
-:: checksum:MD5=a1640beb7764d4b48a5e7d9d43382da3
+:: checksum:MD5=6ea102b6ed9bed6f34bd551580cfcfe2

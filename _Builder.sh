@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.47"
+VER_NUM="4.48"
 
 # Bootstrap — dict not yet available
 # Функция очистки при прерывании (Ctrl+C). Вызывается по SIGINT/SIGTERM в любой момент,
@@ -1699,4 +1699,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=09d13b6a2660cac2f6e8ed98e2c1c2f5
+# checksum:MD5=89e0ab94c08866045211b4a2ef75fd45
