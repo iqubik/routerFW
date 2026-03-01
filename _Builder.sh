@@ -368,6 +368,12 @@ checksum_comment_prefix() {
 add_checksum_to_file() {
     local file="$1"
     [ ! -f "$file" ] && { echo -e "${C_ERR}[SKIP] $file not found${C_RST}"; return 1; }
+
+    # Извлекаем старый хэш перед обновлением
+    local old_hash
+    old_hash=$(grep -E '^\s*(#|::)?\s*checksum:MD5=[0-9a-fA-F]{32}\s*$' "$file" | tail -1 | sed 's/.*checksum:MD5=//' | tr -d ' \r')
+    [ -z "$old_hash" ] && old_hash=""
+
     local staged
     staged=$(mktemp)
     
@@ -407,7 +413,14 @@ add_checksum_to_file() {
     # поэтому printf безопасно начнет запись с новой строки.
     printf '%s checksum:MD5=%s' "$prefix" "$hash" >> "$staged"
     mv "$staged" "$file"
-    echo -e "  ${C_GRY}-${C_RST} File: ${C_VAL}${file}${C_RST} ${C_GRY}MD5=${C_KEY}${hash}${C_RST}"
+
+    # Сравниваем старый и новый хэш
+    local changed_marker=""
+    if [ -n "$old_hash" ] && [ "$old_hash" != "$hash" ]; then
+        changed_marker=" ${C_ERR}(CHANGED)${C_RST}"
+        CHECKSUM_CHANGED_COUNT=$((CHECKSUM_CHANGED_COUNT + 1))
+    fi
+    echo -e "  ${C_GRY}-${C_RST} File: ${C_VAL}${file}${C_RST} ${C_GRY}MD5=${C_KEY}${hash}${C_RST}${changed_marker}"
 }
 
 extract_files_from_unpacker() {
@@ -428,11 +441,21 @@ do_checksum_all() {
     files=($(extract_files_from_unpacker))
     [ ${#files[@]} -eq 0 ] && { echo -e "${C_ERR}$L_CHKSUM_ERR_EMPTY${C_RST}"; return 1; }
     echo -e "${C_LBL}[CHECKSUM]${C_RST} ${L_CHKSUM_ALL_START}"
+    
+    # Инициализируем счётчик изменённых сумм
+    CHECKSUM_CHANGED_COUNT=0
     local n=0
+    
     for f in "${files[@]}"; do
         [ -f "$f" ] && add_checksum_to_file "$f" && ((n++))
     done
-    echo -e "${C_OK}$L_CHKSUM_DONE $n${C_RST}"
+    
+    # Выводим итог с количеством изменений
+    if [ $CHECKSUM_CHANGED_COUNT -gt 0 ]; then
+        echo -e "${C_OK}$L_CHKSUM_DONE $n${C_RST} ${C_ERR}Изменилось сумм: $CHECKSUM_CHANGED_COUNT${C_RST}"
+    else
+        echo -e "${C_OK}$L_CHKSUM_DONE $n${C_RST}"
+    fi
 }
 
 do_checksum_profile() {

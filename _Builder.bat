@@ -1077,6 +1077,17 @@ exit /b 0
 :ADD_CHECKSUM_TO_FILE
 set "CHK_FILE=%~1"
 if not exist "!CHK_FILE!" exit /b 1
+
+:: Извлекаем старый хэш перед обновлением
+set "CHK_OLD_HASH="
+for /f "tokens=*" %%a in ('findstr /R /C:"checksum:MD5=[0-9a-fA-F][0-9a-fA-F]*$" "!CHK_FILE!" 2^>nul') do (
+    set "CHK_OLD_LINE=%%a"
+)
+if defined CHK_OLD_LINE (
+    for /f "tokens=2 delims==" %%b in ("!CHK_OLD_LINE!") do set "CHK_OLD_HASH=%%b"
+)
+if defined CHK_OLD_HASH set "CHK_OLD_HASH=!CHK_OLD_HASH: =!"
+
 set "CHK_STAGED=%TEMP%\builder_chksum_%RANDOM%.tmp"
 set "CHK_PATH=!CHK_FILE:\=\\!"
 :: FIX: Добавлено +$eol к $cleaned, чтобы восстановить финальный перенос строки (как делает sed в sh)
@@ -1095,7 +1106,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$path='!CHK_PATH!'; $staged='!CHK_STAGED:\=\\!'; $isPs1=[bool]($path -match '\.ps1$'); $enc=[System.Text.UTF8Encoding]::new($isPs1); $txt=[IO.File]::ReadAllText($staged,$enc); $hash='!CHK_HASH!'.ToLower(); $prefix='!CHK_PREFIX!'; $line=$prefix+\" checksum:MD5=\"+$hash; [IO.File]::AppendAllText($staged,$line,$enc)" >nul 2>&1
 copy /y "!CHK_STAGED!" "!CHK_FILE!" >nul 2>&1
 del /q "!CHK_STAGED!" 2>nul
-echo   %C_GRY%-%C_RST% File: %C_VAL%!CHK_FILE!%C_RST% %C_GRY%MD5=%C_KEY%!CHK_HASH!%C_RST%
+
+:: Сравниваем старый и новый хэш
+set "CHK_CHANGED="
+if defined CHK_OLD_HASH (
+    if /i not "!CHK_OLD_HASH!"=="!CHK_HASH!" (
+        set "CHK_CHANGED=1"
+        set /a CHK_CHANGED_COUNT+=1
+    )
+)
+if defined CHK_CHANGED (
+    echo   %C_GRY%-%C_RST% File: %C_VAL%!CHK_FILE!%C_RST% %C_GRY%MD5=%C_KEY%!CHK_HASH!%C_RST% %C_ERR%(CHANGED)%C_RST%
+) else (
+    echo   %C_GRY%-%C_RST% File: %C_VAL%!CHK_FILE!%C_RST% %C_GRY%MD5=%C_KEY%!CHK_HASH!%C_RST%
+)
 exit /b 0
 
 :CLEAR_CHECKSUM_FROM_FILE
@@ -1117,6 +1141,7 @@ if not exist "_unpacker.bat" (
     exit /b 1
 )
 set "CHK_N=0"
+set "CHK_CHANGED_COUNT=0"
 echo %C_LBL%[CHECKSUM]%C_RST% %L_CHKSUM_ALL_START%
 for /f "tokens=*" %%F in ('findstr "BEGIN_B64_" _unpacker.bat 2^>nul') do (
     set "line=%%F"
@@ -1127,7 +1152,11 @@ for /f "tokens=*" %%F in ('findstr "BEGIN_B64_" _unpacker.bat 2^>nul') do (
         if not errorlevel 1 set /a CHK_N+=1
     )
 )
-echo !C_OK!!L_CHKSUM_DONE! !CHK_N!!C_RST!
+if !CHK_CHANGED_COUNT! gtr 0 (
+    echo !C_OK!!L_CHKSUM_DONE! !CHK_N!!C_RST! %C_ERR%Изменилось сумм: !CHK_CHANGED_COUNT!%C_RST%
+) else (
+    echo !C_OK!!L_CHKSUM_DONE! !CHK_N!!C_RST!
+)
 exit /b 0
 
 :CLI_CHECKSUM
