@@ -3,7 +3,7 @@
     OpenWrt/ImmortalWrt Universal Profile Creator.
     file: system\create_profile.ps1
 .VERSION
-    2.6 (0 to exit)
+    2.7 (0 to exit)
 .DESCRIPTION
     Скрипт-мастер (Wizard) для создания конфигурационных файлов профилей сборки.
     Поддерживает:
@@ -473,6 +473,7 @@ SRC_TARGET="$($GlobalState.Target)"
 SRC_SUBTARGET="$($GlobalState.Subtarget)"
 SRC_ARCH="$arch"
 SRC_PACKAGES="`$IMAGE_PKGS"
+# Number of cores, "safe" (all-1), or "debug" for single-core verbose build
 SRC_CORES="safe"
 
 ## SPACE SAVING (For 4MB / 8MB flash devices)
@@ -510,4 +511,4 @@ CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalS
         Read-Host "Press Enter to retry..."
     }
 } # <-- Закрывает While
-# checksum:MD5=e33ef8d588ec4e821c965328be26ec01
+# checksum:MD5=e34a2d3334de531c5d42da96ccdc2794

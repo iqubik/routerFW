@@ -77,7 +77,8 @@ SRC_PACKAGES="$COMMON_LIST"
 SRC_ARCH="aarch64_cortex-a53"
 
 # Resource and Hardware Settings (Source Builder)
-SRC_CORES="safe"       # Use all CPU cores except one (N-1) to keep the OS responsive
+# Number of cores: "safe", "debug", or a number
+SRC_CORES="safe"
 SRC_EXTRA_CONFIG="
 CONFIG_TARGET_KERNEL_PARTSIZE=64
 CONFIG_TARGET_ROOTFS_PARTSIZE=256
@@ -144,4 +145,4 @@ To ensure the new firmware contains all the programs you've installed (AdGuard, 
 3.  Wait for completion.
 
 **Done!** Now, in the `firmware_output` folder, lies a firmware in which all your packages and settings are "cemented-in." After installing this firmware, the router will immediately work the way you are used to.
-# checksum:MD5=ca80553921c64b5c9165421e199815e9
+# checksum:MD5=4fc128945c27e8ea787b4eb5e5d3a34e

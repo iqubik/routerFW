@@ -34,7 +34,7 @@ SRC_BRANCH="openwrt-24.10"             # Git branch
 SRC_TARGET="mediatek"                   # OpenWrt target
 SRC_SUBTARGET="filogic"                # OpenWrt subtarget
 SRC_ARCH="aarch64_cortex-a53"          # Package architecture
-SRC_CORES="safe"                        # Compilation threads: "safe" (max-1) or number
+SRC_CORES="safe"                        # Compilation threads: "safe" (max-1), number, or "debug" (verbose single-thread)
 SRC_PACKAGES="$BASE_PKGS $EXTRA_PKGS"  # Package list for Source Builder
 SRC_EXTRA_CONFIG='CONFIG_...'          # Multiline Kconfig (single-quoted heredoc style)
 ```

@@ -146,7 +146,7 @@ flowchart TD
     IB_CHOWN --> BR_END([return])
 
     OLD_SRC & NEW_SRC --> SB[src_builder.sh\nvolumes: workdir, dl-cache, ccache\npatches, overlay_files]
-    SB --> SB_STEPS[chown, git fetch/reset\nfeeds, patches\nhooks.sh or VERMAGIC rollback\n.config, overlay → files\nmake download, make -jN]
+    SB --> SB_STEPS[chown, git, feeds, patches\nhooks.sh/rollback, .config, overlay\nmake download, then build:\n-j1 V=s (if SRC_CORES=debug)\n-jN (parallel, w/ debug retry on fail)]
     SB_STEPS --> SB_OUT[Copy to\nfirmware_output/sourcebuilder/<id>/<ts>]
     SB_OUT --> SB_CHOWN[alpine chown\nHOST_OUTPUT_DIR]
     SB_CHOWN --> SB_OK{Build\nsuccess?}

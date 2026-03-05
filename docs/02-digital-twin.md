@@ -75,7 +75,8 @@ SRC_SUBTARGET="mt7621"
 SRC_PACKAGES="$COMMON_LIST"
 
 # Настройки ресурсов и железа (Source Builder)
-SRC_CORES="safe"       # Использовать все ядра CPU кроме одного (N-1)
+# Количество ядер: "safe", "debug" или число
+SRC_CORES="safe"
 SRC_EXTRA_CONFIG="
 CONFIG_TARGET_KERNEL_PARTSIZE=64
 CONFIG_TARGET_ROOTFS_PARTSIZE=256
@@ -142,4 +143,4 @@ CONFIG_TARGET_ROOTFS_PARTSIZE=256
 3.  Дождитесь завершения.
 
 **Готово!** Теперь в папке `firmware_output` лежит прошивка, в которую "вцементированы" все ваши пакеты и настройки. После установки этой прошивки роутер сразу будет работать так, как вы привыкли.
-# checksum:MD5=3a2ed612eed3420f05dda184c6154264
+# checksum:MD5=9a1985262cca3e8c05402fff6089467f

@@ -96,6 +96,7 @@ Control CPU load via the `SRC_CORES` variable in your `.conf` file:
 *   **`SRC_CORES="safe"` (Recommended)**: Uses `N-1` cores. The system remains responsive for web browsing while building.
 *   **Not specified (Default)**: Uses **all** available CPU cores (`N`) for maximum speed.
 *   **`SRC_CORES="4"`**: Strictly limits the build to 4 threads (useful for laptop thermal management).
+*   **`SRC_CORES="debug"`**: Forces a single-threaded, verbose build (`make -j1 V=s`), which is essential for diagnosing build failures.
 
 ---
 
@@ -133,4 +134,4 @@ How to build firmware using a complex `defconfig` from a third-party developer:
     `firmware_output\sourcebuilder\%ID%\manual_config`
 4.  **Expand**: Run **Menuconfig** again. The system detects the minimalist file (e.g., 11KB) and **automatically expands it** into a full `.config` (~400KB), resolving all dependencies.
 5.  **Finalize**: Upon exit, select **Y** to update the profile. The Builder will compress the settings back into a clean diff and save them into your `.conf`.
-# checksum:MD5=aab3192801545dfb0a79f8c11b1a38a9
+# checksum:MD5=9b2e4c6742dbe358dc18a37964e258c9

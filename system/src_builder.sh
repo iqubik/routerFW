@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v1.9
+# file: system/src_builder.sh v2.0
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -235,13 +235,30 @@ make download || make download V=s
 
 SYS_CORES=$(nproc)
 BUILD_JOBS=$SYS_CORES
-[[ "$SRC_CORES" =~ ^[0-9]+$ ]] && BUILD_JOBS=$SRC_CORES
-[[ "$SRC_CORES" == "safe" ]] && BUILD_JOBS=$((SYS_CORES - 1))
+MAKE_ARGS="-j$BUILD_JOBS"
 
-echo "[BUILD] Attempt 1: Building with -j$BUILD_JOBS..."
-if ! make -j$BUILD_JOBS; then
-    echo -e "\n${RED}[BUILD ERROR] Parallel build failed! Starting Attempt 2: -j1 V=s (Debug mode)...${NC}\n"
-    make -j1 V=s
+if [[ "$SRC_CORES" == "debug" ]]; then
+    MAKE_ARGS="-j1 V=s"
+    echo "[BUILD] Debug mode requested. Using: $MAKE_ARGS"
+elif [[ "$SRC_CORES" == "safe" ]]; then
+    BUILD_JOBS=$((SYS_CORES > 1 ? SYS_CORES - 1 : 1))
+    MAKE_ARGS="-j$BUILD_JOBS"
+elif [[ "$SRC_CORES" =~ ^[0-9]+$ ]]; then
+    MAKE_ARGS="-j$SRC_CORES"
+fi
+
+echo "[BUILD] Starting build with args: $MAKE_ARGS"
+if ! make $MAKE_ARGS; then
+    if [[ "$SRC_CORES" != "debug" ]]; then
+        echo -e "\n${RED}[BUILD ERROR] Parallel build failed! Starting Attempt 2: -j1 V=s (Debug mode)...${NC}\n"
+        if ! make -j1 V=s; then
+            echo -e "\n${RED}[BUILD FAILED] Debug build failed.${NC}\n"
+            exit 1
+        fi
+    else
+        echo -e "\n${RED}[BUILD FAILED] Initial debug build failed.${NC}\n"
+        exit 1
+    fi
 fi
 
 # 6. СОХРАНЕНИЕ
@@ -262,4 +279,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=2adcbe1440c01742d59bc9682af02966
+# checksum:MD5=3bf492c93358f559c87011d66bc1efe6

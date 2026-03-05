@@ -3,7 +3,7 @@
 # file: system/create_profile.sh
 # =========================================================
 #  OpenWrt/ImmortalWrt Universal Profile Creator
-#  Bash Version 2.60 (0 to exit)
+#  Bash Version 2.70 (0 to exit)
 # =========================================================
 
 # --- ЦВЕТА ---
@@ -360,6 +360,7 @@ SRC_TARGET="$TARGET"
 SRC_SUBTARGET="$SUBTARGET"
 SRC_ARCH="$ARCH"
 SRC_PACKAGES="\$IMAGE_PKGS"
+# Number of cores, "safe" (all-1), or "debug" for single-core verbose build
 SRC_CORES="safe"
 
 ## SPACE SAVING (For 4MB / 8MB flash devices)
@@ -392,4 +393,4 @@ EOF
             ;;
     esac
 done
-# checksum:MD5=fb74df4b2f329e612d61a538550af969
+# checksum:MD5=934ecc9c344232002a5d51fa4d4364cf

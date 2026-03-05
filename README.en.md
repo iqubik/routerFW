@@ -214,6 +214,7 @@ CPU load settings in the profile file (`.conf`):
 *   **`SRC_CORES="safe"`** — uses all cores minus one ($N-1$). The system remains responsive.
 *   **Not set (default)** — uses all available cores ($N$). Maximum speed.
 *   **`SRC_CORES="4"`** — a fixed number of build threads.
+*   **`SRC_CORES="debug"`** — forces a single-threaded build with full verbosity (`make -j1 V=s`), ideal for troubleshooting.
 
 ```bash
 # Example: leave one core free
@@ -402,4 +403,4 @@ Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse b
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=f8c2c8af1364fc7a5f364426ec7b94f9
+# checksum:MD5=47fb70a77330edb7af9a7ef362696ae2

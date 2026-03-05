@@ -1,13 +1,13 @@
 # GEMINI.md — Project context for routerFW
 
 Prompt/context file for AI (e.g. Gemini) working with this repository.  
-**Builder version:** 4.43 · **Repo:** https://github.com/iqubik/routerFW (branch `main`) · **License:** GPL-3.0
+**Builder version:** 4.45 · **Repo:** https://github.com/iqubik/routerFW (branch `main`) · **License:** GPL-3.0
 
 ---
 
 ## 1. Project overview
 
-**OpenWrtFW Builder** is a cross-platform framework for building custom OpenWrt firmware via Docker. It runs on **Windows** (`_Builder.bat`) and **Linux** (`_Builder.sh`), providing an interactive menu, profile variable migration, and feature parity within platform limits.
+**OpenWrtFW Builder** is a cross-platform framework for building custom OpenWrt firmware via Docker. It runs on **Windows** (`_Builder.bat`) and **Linux** (`_Builder.sh`), providing both an interactive menu and a full command-line interface (CLI) for automation. It supports profile variable migration and aims for feature parity within platform limits.
 
 **Two build modes:**
 
@@ -24,9 +24,9 @@ Prompt/context file for AI (e.g. Gemini) working with this repository.
 
 | Path | Purpose |
 |------|----------|
-| `_Builder.bat` / `_Builder.sh` | Main entry points: menu, orchestration, profile migration. |
+| `_Builder.bat` / `_Builder.sh` | Main entry points: interactive menu, CLI, orchestration, profile migration. |
 | `system/` | Core: `ib_builder.sh`, `src_builder.sh`, Dockerfiles, docker-compose, profile wizards, `import_ipk`, localization. |
-| `system/lang/` | Localization: `ru.env`, `en.env` (pseudo-format `KEY={C_VAL}value{C_RST}`, no quotes). Loaders substitute `{C_*}` with ANSI codes. |
+| `system/lang/` | Localization: `ru.env`, `en.env`. See section on Localization below. |
 | `profiles/*.conf` | Universal build configs (shared by Image and Source). |
 | `custom_files/<profile>/` | File overlay → firmware root. **Private** (gitignored); may contain keys/configs. |
 | `custom_packages/<profile>/` | Third-party `.ipk` for Image Builder and Source import. **Private.** |
@@ -35,9 +35,9 @@ Prompt/context file for AI (e.g. Gemini) working with this repository.
 | `firmware_output/` | Built images, logs, `manual_config`. **Gitignored** (can be 10+ GB). |
 | `scripts/` | `hooks.sh`, `diag.sh`, `packager.sh`, `upgrade.sh`, `show_pkgs.sh`; `etc/uci-defaults/99-permissions.sh`. |
 | `docs/` | User guides (RU/EN), lessons 1–5, architecture, diagrams (`ARCHITECTURE_*.md`, `ARCHITECTURE_diagram_*.md`). |
-| `dist/` | Release SVG visuals (timeline, tree, heatmap, river, bars, stats; light/dark). |
 | `_packer.bat` / `_packer.sh` | Pack repo into self-extracting `_unpacker`. |
 | `_unpacker.bat` / `_unpacker.sh` | **Toxic:** large Base64 payload. Do not open in AI or heavy editors. |
+| `tester.bat` / `tester.sh` | CLI test harnesses for non-destructive checks of the command-line interface. |
 
 **Docker:** Image Builder → `system/docker-compose.yaml`; Source Builder → `system/docker-compose-src.yaml`. Caches use volumes: SDK, packages, `src-workdir`, `src-dl-cache`, `src-ccache` (CCache, 20 GB limit).
 
@@ -47,85 +47,85 @@ Prompt/context file for AI (e.g. Gemini) working with this repository.
 
 ## 3. Profile configuration (`.conf`)
 
-- **Naming:** Image Builder uses `IMAGE_*` (`IMAGE_PKGS`, `IMAGE_EXTRA_NAME`, `IMAGEBUILDER_URL`, etc.). Source Builder uses `SRC_*` (`SRC_REPO`, `SRC_BRANCH`, `SRC_TARGET`, `SRC_SUBTARGET`, `SRC_PACKAGES`, `SRC_EXTRA_CONFIG`, `SRC_CORES`, etc.). Shared: `ROOTFS_SIZE`, `KERNEL_SIZE`, `COMMON_LIST`.
-- **Migration:** On startup, `_Builder` migrates legacy names (`PKGS` → `IMAGE_PKGS`, `EXTRA_IMAGE_NAME` → `IMAGE_EXTRA_NAME`). `ib_builder.sh` has fallback `${IMAGE_PKGS:-$PKGS}`.
-- **Packages:** `COMMON_LIST` — space-separated; prefix with `-` to remove (e.g. `-dnsmasq dnsmasq-full`).
-- **Local Image Builder (v4.40+):** `IMAGEBUILDER_URL` can point to a local `.tar.zst` (e.g. in `firmware_output`). After a successful Source build, the builder may offer to set this in the profile.
+- **Naming:** Image Builder uses `IMAGE_*` (`IMAGE_PKGS`, `IMAGE_EXTRA_NAME`, `IMAGEBUILDER_URL`). Source Builder uses `SRC_*` (`SRC_REPO`, `SRC_BRANCH`, `SRC_TARGET`, `SRC_SUBTARGET`, `SRC_PACKAGES`, `SRC_EXTRA_CONFIG`, `SRC_CORES`). Shared: `ROOTFS_SIZE`, `KERNEL_SIZE`, `COMMON_LIST`.
+- **`SRC_CORES` options**: Can be a specific number (e.g., `4`), `"safe"` (uses all available cores minus one), or `"debug"` (forces a single-threaded, verbose build with `make -j1 V=s`).
+- **Migration:** On startup, `_Builder` automatically migrates legacy names (`PKGS` → `IMAGE_PKGS`, `EXTRA_IMAGE_NAME` → `IMAGE_EXTRA_NAME`). `ib_builder.sh` has fallback compatibility for safety.
+- **Packages:** Package lists are space-separated. Prefix with `-` to remove a default package (e.g. `-dnsmasq dnsmasq-full`).
+- **Local Image Builder:** After a successful Source build, the builder finds the generated `*imagebuilder*.tar.zst` and offers to update `IMAGEBUILDER_URL` in the profile to point to this local file, enabling fast local rebuilds.
 
 ---
 
-## 4. Main menu and indicators
+## 4. Interface: Menu and CLI
 
-- **Build / Edit / Clean / Wizard:** `[M]` Build (Image or Source per profile), `[E]` Profile editor, `[C]` Clean (maintenance wizard), `[W]` Profile wizard, `[I]` Import IPK (Source), `[K]` Menuconfig (Source).
-- **Resource panel `[F P S M H X | OI OS]`:**
-  - **F** — `custom_files` not empty.
-  - **P** — `custom_packages` not empty.
-  - **S** — `src_packages` not empty.
-  - **X** — `custom_patches` present.
-  - **M** — `manual_config` exists in output.
-  - **H** — `hooks.sh` in `custom_files/<profile>/`.
-  - **OI** — Image Builder output present; **OS** — Source Builder output present.
-- **Linux only:** `[A]` Build all — parallel build of all profiles, logs in `firmware_output/.build_logs_<timestamp>/`. Menu commands are case-insensitive. Ctrl+C triggers cleanup (stop containers, remove `.docker_tmp`). Exit asks for confirmation.
+The builder can be used via an interactive menu or a command-line interface for automation.
 
----
+### 4.1. Interactive Menu & Indicators
 
-## 5. Maintenance (Clean wizard)
+- **Commands:** `[M]` Build Mode Toggle, `[E]` Edit Profile, `[C]` Clean Wizard, `[W]` Profile Wizard, `[I]` Import IPK (Source), `[K]` Menuconfig (Source). Selecting a profile by number starts a build.
+- **Resource Panel `[F P S M H X | OI OS]`:**
+  - **F**: `custom_files` exists.
+  - **P**: `custom_packages` exists.
+  - **S**: `src_packages` exists.
+  - **X**: `custom_patches` exists.
+  - **M**: `manual_config` exists (from `menuconfig`).
+  - **H**: `hooks.sh` in `custom_files`.
+  - **OI** / **OS**: Image Builder / Source Builder output exists.
 
-`[C] CLEAN` offers: **Soft Clean** (`make clean`), **Hard Reset** (remove `src-workdir`, keep `dl`), **Clean DL** (remove source archive), **Clean Ccache**, **Factory Reset** (full reset for the profile).
+### 4.2. Command-Line Interface (CLI)
 
----
+Run `_Builder.bat` or `./_Builder.sh` with arguments to bypass the menu.
 
-## 6. Documentation (`docs/`)
+- **Build Mode:** Prefix commands with `ib` (or `image`) for Image Builder and `src` (or `source`) for Source Builder. **Image Builder is the default.**
+- **Language:** Use `--lang=RU` / `--lang=EN` or `-l RU` / `-l EN` anywhere to force language.
 
-- **Lessons 1–3:** Introduction, digital twin / backup, source build cold start.
-- **Lesson 4:** Advanced Source: hooks, Vermagic Hack, Binary-to-Source IPK import, feeds.
-- **Lesson 5:** Source code patching system (mirror overlay in `custom_patches`).
-- **Architecture:** `docs/ARCHITECTURE_ru.md`, `docs/ARCHITECTURE_en.md`, `docs/ARCHITECTURE_diagram_*.md`.
-- **Index:** `docs/index.md` (RU), `docs/index.en.md` (EN).
-
----
-
-## 7. Conventions and constraints
-
-- **Line endings:** `.gitattributes` defines EOL: CRLF for `*.bat`, `*.ps1`, `*.md`; LF for `*.sh`, `*.conf`, `*.yaml`, `system/lang/*.env`, etc. Binary/LFS for archives and images.
-- **Encoding:** UTF-8; BOM only in selected PowerShell scripts for Cyrillic on Windows (`create_profile.ps1`, `import_ipk.ps1`, etc.).
-- **Localization:** All UI strings in `system/lang/ru.env` and `en.env`. Keys `L_*` (messages), `H_*` (table headers). Fallback to `en.env` if language file missing.
-- **Private dirs:** Do not read or edit `custom_files/`, `custom_packages/`, `src_packages/`, `custom_patches/`, `firmware_output/` unless the user explicitly asks.
+| Command | Aliases | Arguments | Example |
+|---|---|---|---|
+| `build` | `b` | `<id>` or `<name>` | `./_Builder.sh src build 1` (Builds profile 1 in Source mode) |
+| `build-all`| `a`, `all` | - | `_Builder.bat build-all` (Builds all profiles in default IB mode) |
+| `edit` | `e` | `[id]` | `./_Builder.sh edit 1` (Opens profile 1 in $EDITOR) |
+| `menuconfig`| `k` | `<id>` | `./_Builder.sh src menuconfig 1` (Runs menuconfig for profile 1) |
+| `import` | `i` | `<id>` | `./_Builder.sh src import 1` (Imports IPKs for profile 1) |
+| `wizard` | `w` | - | `./_Builder.sh wizard` (Starts the new profile wizard) |
+| `clean` | `c` | `<type> <target>` | `_Builder.bat clean 2 A` (Cleans `src-workdir` for ALL profiles) |
+| `state` | `s` | - | `./_Builder.sh state` (Prints the profile status table and exits) |
+| `check` | - | `<id>` | `./_Builder.sh check 1` (Adds/updates checksum in profile 1) |
+| `help` | `-h` | - | `./_Builder.sh --help` (Shows CLI help and exits) |
 
 ---
 
-## 8. Reliability and automation
+## 5. Linux (`_Builder.sh`) Specifics
 
-- **Image Builder:** Atomic downloads, shared locks for SDK download, smart cache.
-- **Source Builder:** Self-heal when `hooks.sh` is removed — rollback patches, clear kernel cache and CCache. Containers are stopped/removed before build to avoid file locks (WSL/Windows).
-- **Profile wizard:** Creates `.conf` with correct `IMAGE_*` / `SRC_*` names; validates and protects from overwrite.
-- **Unpacker:** First run creates `profiles/personal.flag`; later runs do not overwrite existing user profiles.
-
----
-
-## 9. Utility scripts (`scripts/`)
-
-- **`hooks.sh`:** Template for Source build: Vermagic Hack, git-safe patching, Wi-Fi uci-defaults. Copy to `custom_files/<profile>/`. When removed, Source Builder runs full cleanup.
-- **`packager.sh`**, **`show_pkgs.sh`:** On a live router — list user-installed packages for `COMMON_LIST`.
-- **`diag.sh`:** On router — diagnostic report (Markdown) for troubleshooting.
-- **`upgrade.sh`:** On router — bulk `opkg` update.
-- **`scripts/etc/uci-defaults/99-permissions.sh`:** First-boot permissions (e.g. SSH keys); included in firmware by the builder.
+The Linux script has advanced features not present in the Windows version:
+- **Parallel Builds:** `[A]` (or `build-all`) runs all profile builds in parallel, logging to `firmware_output/.build_logs/`.
+- **Ctrl+C Trap:** Gracefully stops all Docker containers and cleans up temporary files on exit.
+- **Docker Credentials Fix:** On start, it copies `~/.docker/config.json` to a temporary location but removes `credsStore` to prevent conflicts with headless runs, while preserving proxy settings.
+- **Case-Insensitive Menu:** Commands `M, E, A, K`, etc., are case-insensitive.
 
 ---
 
-## 10. Packer / unpacker (distribution)
+## 6. Conventions and Constraints
 
-- **Packer** (`_packer.bat` / `_packer.sh`): Builds `_unpacker` from a file list; each file is Base64-encoded and appended to the unpacker script.
-- **Unpacker** (`_unpacker.bat` / `_packer.sh`): Decodes and writes files; if `profiles/personal.flag` exists, does not overwrite existing profiles.
-- **Rule:** Never read or grep `_unpacker.bat` / `_unpacker.sh`. Modify distribution only via the packer scripts.
+- **Line Endings:** `.gitattributes` strictly enforces EOL: **CRLF** for `*.bat`, `*.ps1`, `*.md`; **LF** for `*.sh`, `*.conf`, `*.yaml`, `system/lang/*.env`, etc.
+- **Encoding:** UTF-8. A BOM is used only in specific PowerShell scripts (`create_profile.ps1`, `import_ipk.ps1`) for Cyrillic compatibility on Windows.
+- **Localization:** UI strings are in `system/lang/ru.env` and `en.env`. They use a special pseudo-format `L_KEY={C_VAL}value{C_RST}` (no quotes, with color placeholders) which is parsed by custom loaders in both `.bat` and `.sh` scripts.
+- **Private Dirs:** **NEVER** read or edit `custom_files/`, `custom_packages/`, `src_packages/`, `custom_patches/`. They are user-private and may contain sensitive data. Treat them as a black box.
+- **Toxic Files:** **NEVER** read `_unpacker.bat` or `_unpacker.sh`. They contain huge Base64 payloads.
+- **Test Dirs:** **IGNORE** `nl_test/` and `nw_test/`. They are temporary unpacking directories for testing and not a source of truth.
 
 ---
 
-## 11. Docker and caching
+## 7. Utility Scripts (`scripts/`)
 
-- **Image Builder:** `system/dockerfile` (modern), `system/dockerfile.legacy` (Ubuntu 18.04). Compose: `imagebuilder-cache`, `ipk-cache`.
-- **Source Builder:** `system/src.dockerfile`, `system/src.dockerfile.legacy`. Compose: `src-workdir`, `src-dl-cache`, `src-ccache` (20 GB). Modern image Ubuntu 22.04/24.04; legacy for older OpenWrt (e.g. Python 2).
-- **Context:** `.dockerignore` excludes `firmware_output/`, `custom_files/`, `.git/`, etc. to keep build context small.
-- **Linux:** `_Builder.sh` may copy `~/.docker/config.json` to `.docker_tmp/` (without credsStore) for headless use; `--build` on run for up-to-date image.
+- **`hooks.sh`:** Template for Source build actions (e.g., Vermagic Hack). Copied to `custom_files/<profile>/` to be active.
+- **`packager.sh`**, **`show_pkgs.sh`:** Run on a live router to list user-installed packages.
+- **`diag.sh`:** Runs on a router to create a diagnostic report.
+- **`upgrade.sh`:** Runs on a router to perform a bulk `opkg` update.
 
-Use this document as the primary context when analyzing or modifying the routerFW repository.
+---
+## 8. Docker and Caching
+
+- **Images:** Modern images are based on Ubuntu 22.04/24.04, with legacy Ubuntu 18.04 images for older OpenWrt versions.
+- **Volumes:** Caching is heavily used to speed up builds.
+  - Image Builder: `imagebuilder-cache` (SDKs), `ipk-cache` (packages).
+  - Source Builder: `src-workdir` (source code), `src-dl-cache` (downloaded archives), `src-ccache` (compiler cache, 20 GB).
+- **Build Context:** `.dockerignore` is critical to exclude `firmware_output/`, private directories, and `.git/` to keep the Docker build context small and fast.
