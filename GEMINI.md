@@ -1,7 +1,7 @@
 # GEMINI.md — Project context for routerFW
 
 Prompt/context file for AI (e.g. Gemini) working with this repository.  
-**Builder version:** 4.45 · **Repo:** https://github.com/iqubik/routerFW (branch `main`) · **License:** GPL-3.0
+**Builder version:** 4.49 · **Repo:** https://github.com/iqubik/routerFW (branch `main`) · **License:** GPL-3.0
 
 ---
 
@@ -109,7 +109,7 @@ The Linux script has advanced features not present in the Windows version:
 - **Encoding:** UTF-8. A BOM is used only in specific PowerShell scripts (`create_profile.ps1`, `import_ipk.ps1`) for Cyrillic compatibility on Windows.
 - **Localization:** UI strings are in `system/lang/ru.env` and `en.env`. They use a special pseudo-format `L_KEY={C_VAL}value{C_RST}` (no quotes, with color placeholders) which is parsed by custom loaders in both `.bat` and `.sh` scripts.
 - **Private Dirs:** **NEVER** read or edit `custom_files/`, `custom_packages/`, `src_packages/`, `custom_patches/`. They are user-private and may contain sensitive data. Treat them as a black box.
-- **Toxic Files:** **NEVER** read `_unpacker.bat` or `_unpacker.sh`. They contain huge Base64 payloads.
+- **Toxic Files:** **NEVER** read `_unpacker.bat` or `_unpacker.sh`. They contain huge Base64 payloads. `CHANGELOG.md` is also considered toxic due to its large volume and should not be read without explicit instruction.
 - **Test Dirs:** **IGNORE** `nl_test/` and `nw_test/`. They are temporary unpacking directories for testing and not a source of truth.
 
 ---
