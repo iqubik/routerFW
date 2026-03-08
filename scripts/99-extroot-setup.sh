@@ -1,12 +1,13 @@
 #!/bin/sh
-# Professional Extroot Setup Script for OpenWrt v1.2 (Audited & Debuggable)
-# Добавлено расширенное логирование для отладки
+# Professional Extroot Setup Script for OpenWrt v1.3 (Audited & Debuggable)
+# Добавлена переменная для версионирования и улучшено логирование
 
 # === CONFIGURATION ===
 DISK="/dev/mmcblk0"
 PART_ROOT="${DISK}p6"
 PART_SWAP="${DISK}p7"
 SWAP_SIZE_GB="2"
+VERSION="1.3"
 # =====================
 
 fail() {
@@ -18,7 +19,7 @@ info() {
     echo -e "\033[0;32m[INFO] $1\033[0m"
 }
 
-info "--- Запуск Professional Extroot Script v1.2 ---"
+info "--- Запуск Professional Extroot Script v${VERSION} ---"
 info "Целевой диск: ${DISK}"
 
 # 1. Проверка зависимостей
