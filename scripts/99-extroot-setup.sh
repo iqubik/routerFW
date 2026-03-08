@@ -1,40 +1,72 @@
 #!/bin/sh
-# Professional Extroot Setup Script for OpenWrt v2.3 (Audited & Debuggable)
-# Финальная версия: fstab копируется в текущий оверлей с флагом -f.
+# Extroot Setup Script for OpenWrt
+# (Оптимизировано для uci-defaults)
+#
+# АРХИТЕКТУРА:
+# Этот скрипт реализует надежную 3-х уровневую разметку для систем с большим накопителем:
+# 1. Системный раздел (p6): Небольшой (4ГБ) раздел ext4 для extroot (overlay).
+#    Он хранит конфигурацию системы и установленные пакеты, изолируя их от данных пользователя.
+# 2. Раздел данных (p7): Большой раздел ext4, занимающий основную часть оставшегося места.
+#    Монтируется в /mnt/data и служит центральным хранилищем для "тяжелых" приложений,
+#    таких как Docker, торренты и т.д.
+# 3. Раздел подкачки (p8): Выделенный раздел для swap.
+#
+# КЛЮЧЕВЫЕ ОСОБЕННОСТИ:
+# - Полная автоматизация: Рассчитан на однократный запуск ("fire-and-forget") на чистой системе.
+# - Идемпотентность: Может быть запущен многократно без ошибок; он обнаружит
+#   уже настроенную систему и корректно завершит работу.
+# - Надежные инструменты: Использует `sgdisk` для надежной неинтерактивной разметки GPT и
+#   `cat <<EOF` для предсказуемой генерации файлов конфигурации.
+# - Готовность к первой загрузке: Решает "проблему первой загрузки", создавая конфиги
+#   на новом разделе extroot И копируя их в работающую систему.
+# - Оптимизация для Docker: Предоставляет Docker выделенный раздел ext4 для его root-директории,
+#   предотвращая конфликт "overlay on overlay".
 
-# === CONFIGURATION ===
+# === КОНФИГУРАЦИЯ ===
+# Целевое блочное устройство для установки.
 DISK="/dev/mmcblk0"
-PART_ROOT="${DISK}p6"
-PART_SWAP="${DISK}p7"
+# Размер системного раздела extroot. 4ГБ - щедрый размер для пакетов и конфигов.
+EXTROOT_SIZE_GB="4"
+# Размер раздела подкачки.
 SWAP_SIZE_GB="2"
-VERSION="2.4"
+# Версия скрипта для логирования и отслеживания.
+VERSION="2.17"
+
+# Имена разделов определены для ясности и простоты обслуживания.
+PART_ROOT="${DISK}p6"
+PART_DATA="${DISK}p7"
+PART_SWAP="${DISK}p8"
 # =====================
 
-fail() {
-    echo -e "\033[0;31m[ERROR] $1\033[0m" >&2
-    exit 1
-}
-
-info() {
-    echo -e "\033[0;32m[INFO] $1\033[0m"
-}
+# --- Вспомогательные функции ---
+fail() { echo -e "\033[0;31m[ERROR] $1\033[0m" >&2; exit 1; }
+info() { echo -e "\033[0;32m[INFO] $1\033[0m"; }
+# --- Конец вспомогательных функций ---
 
 info "--- Запуск Professional Extroot Script v${VERSION} ---"
 info "Целевой диск: ${DISK}"
+info "Архитектура: p6 (Extroot, ${EXTROOT_SIZE_GB}GB), p7 (Data), p8 (Swap, ${SWAP_SIZE_GB}GB)"
 
-# 1. Проверка зависимостей
-info "[Этап 1/4] Проверка зависимостей..."
-PKGS=""
-# blkid: нужен для поиска разделов по UUID - самый надежный способ.
-command -v blkid >/dev/null || PKGS="$PKGS blkid"
-# block-mount: критически важен, именно он обрабатывает /etc/config/fstab при загрузке.
-if ! opkg list-installed | grep -q block-mount; then
-    PKGS="$PKGS block-mount"
+# === ПРОВЕРКА НА ПОВТОРНЫЙ ЗАПУСК (КРИТИЧНО ДЛЯ UCI-DEFAULTS) ===
+CURRENT_OVERLAY_DEV=$(mount | grep 'on /overlay ' | awk '{print $1}')
+if [ "$CURRENT_OVERLAY_DEV" = "$PART_ROOT" ]; then
+    info "--> Extroot уже активен на ${PART_ROOT}."
+    info "--> Скрипт uci-defaults свою задачу выполнил. Завершение работы."
+    # Возвращаем 0, чтобы OpenWrt удалил скрипт из /etc/uci-defaults/
+    exit 0
 fi
-# gptfdisk: содержит sgdisk, утилиту для неинтерактивного управления GPT. Ключ к надежности.
+# ===============================================================
+
+#
+# [ЭТАП 1/5] ПРОВЕРКА ЗАВИСИМОСТЕЙ
+#
+info "[Этап 1/5] Проверка зависимостей..."
+PKGS=""
+command -v blkid >/dev/null || PKGS="$PKGS blkid"
+if ! opkg list-installed | grep -q block-mount; then PKGS="$PKGS block-mount"; fi
 command -v sgdisk >/dev/null || PKGS="$PKGS gptfdisk"
-# parted: содержит partprobe для перечитывания таблицы разделов без перезагрузки.
 command -v partprobe >/dev/null || PKGS="$PKGS parted"
+if ! opkg list-installed | grep -q transmission-daemon; then PKGS="$PKGS transmission-daemon"; fi
 
 if [ -n "$PKGS" ]; then
     info "--> Установка недостающих пакетов: $PKGS"
@@ -43,148 +75,193 @@ if [ -n "$PKGS" ]; then
 else
     info "--> Все зависимости на месте."
 fi
-info "[Этап 1/4] Зависимости в порядке."
+info "[Этап 1/5] Зависимости в порядке."
 
-# 2. Разметка диска (метод sgdisk)
-# Мы используем sgdisk вместо fdisk, так как он предназначен для скриптов:
-# - Неинтерактивный: не задает неожиданных вопросов.
-# - Надежный: атомарно выполняет операции с GPT, умеет исправлять ошибки.
-# - Идемпотентный: команды можно безопасно выполнять повторно.
-info "[Этап 2/4] Проверка/создание разделов..."
+#
+# [ЭТАП 2/5] РАЗМЕТКА ДИСКА
+#
+info "[Этап 2/5] Проверка/создание разделов..."
 if ! [ -b "$PART_SWAP" ]; then
-    info "--> Раздел ${PART_SWAP} не найден. Требуется разметка."
+    info "--> Раздел ${PART_SWAP} не найден. Требуется полная переразметка."
     info "--> НАЧАЛО РАЗМЕТКИ ДИСКА (метод sgdisk)..."
     
-    # --- Расчет геометрии диска ---
     DISK_NAME=${DISK##*/}
     TOTAL_SECTORS=$(cat /sys/class/block/${DISK_NAME}/size)
     SECTOR_SIZE=$(cat /sys/class/block/${DISK_NAME}/queue/hw_sector_size 2>/dev/null || echo 512)
+    ROOT_START_SECTOR=1048576
+    EXTROOT_SECTORS=$(awk "BEGIN {print int($EXTROOT_SIZE_GB * 1024 * 1024 * 1024 / $SECTOR_SIZE)}")
+    ROOT_END_SECTOR=$(awk "BEGIN {print $ROOT_START_SECTOR + $EXTROOT_SECTORS - 1}")
+    DATA_START_SECTOR=$(awk "BEGIN {print $ROOT_END_SECTOR + 1}")
     SWAP_SECTORS=$(awk "BEGIN {print int($SWAP_SIZE_GB * 1024 * 1024 * 1024 / $SECTOR_SIZE)}")
-    SWAP_START=$(awk "BEGIN {print $TOTAL_SECTORS - $SWAP_SECTORS}")
-    ROOT_END=$(awk "BEGIN {print $SWAP_START - 1}")
-    # Начало раздела extroot (ROOT_START) жестко задано, т.к. оно следует сразу
-    # за системными разделами и является константой для данной модели устройства.
-    ROOT_START=1048576
+    SWAP_START_SECTOR=$(awk "BEGIN {print $TOTAL_SECTORS - $SWAP_SECTORS}")
+    DATA_END_SECTOR=$(awk "BEGIN {print $SWAP_START_SECTOR - 1}")
+    info "--> Геометрия диска (секторы): p6(${ROOT_START_SECTOR}-${ROOT_END_SECTOR}), p7(${DATA_START_SECTOR}-${DATA_END_SECTOR}), p8(${SWAP_START_SECTOR}-конец)"
 
-    info "--> Геометрия диска: RootStart=${ROOT_START}, RootEnd=${ROOT_END}, SwapStart=${SWAP_START}"
-
-    # --- Выполнение разметки ---
-    # Удаляем старые разделы для чистоты. Ошибки игнорируем (> /dev/null 2>&1),
-    # так как на чистой системе этих разделов и не будет.
-    info "--> Удаление старых разделов p6 и p7 (если существуют)..."
+    info "--> Удаление старых разделов p6, p7, p8 (если существуют)..."
+    sgdisk --delete=8 "$DISK" >/dev/null 2>&1
     sgdisk --delete=7 "$DISK" >/dev/null 2>&1
     sgdisk --delete=6 "$DISK" >/dev/null 2>&1
 
-    # Создаем раздел для extroot:
-    # --new=<номер>:<начало>:<конец>
-    # --change-name=<номер>:<имя>
-    info "--> Создание раздела extroot (p6)..."
-    sgdisk --new=6:${ROOT_START}:${ROOT_END} --change-name=6:extroot "$DISK" || fail "Не удалось создать раздел p6"
-    
-    # Создаем раздел для swap:
-    # 0 в качестве конца означает "использовать все оставшееся место".
-    # --typecode=<номер>:<GUID_типа> (8200 - стандартный код для Linux swap).
-    info "--> Создание раздела swap (p7)..."
-    sgdisk --new=7:${SWAP_START}:0 --change-name=7:swap --typecode=7:8200 "$DISK" || fail "Не удалось создать раздел p7"
+    info "--> Создание раздела p6 (extroot)..."
+    sgdisk --new=6:${ROOT_START_SECTOR}:${ROOT_END_SECTOR} --change-name=6:extroot "$DISK" || fail "Не удалось создать раздел p6"
+    info "--> Создание раздела p7 (data)..."
+    sgdisk --new=7:${DATA_START_SECTOR}:${DATA_END_SECTOR} --change-name=7:data "$DISK" || fail "Не удалось создать раздел p7"
+    info "--> Создание раздела p8 (swap)..."
+    sgdisk --new=8:${SWAP_START_SECTOR}:0 --change-name=8:swap --typecode=8:8200 "$DISK" || fail "Не удалось создать раздел p8"
     
     info "--> РАЗМЕТКА ДИСКА ЗАВЕРШЕНА."
     info "--> Обновление таблицы разделов в ядре с помощью partprobe..."
     partprobe "$DISK" || fail "Не удалось обновить таблицу разделов в ядре"
-    sleep 2 # Даем ядру время обработать изменения
+    sleep 3 # Даем ядру время на обработку изменений.
 else
     info "--> Разделы уже существуют. Пропускаем разметку."
 fi
-info "[Этап 2/4] Разделы в порядке."
+info "[Этап 2/5] Разделы в порядке."
 
+#
+# [ЭТАП 3/5] ПРОВЕРКА И ФОРМАТИРОВАНИЕ ФАЙЛОВЫХ СИСТЕМ
+#
+info "[Этап 3/5] Проверка/форматирование файловых систем..."
+MNT_TEST="/mnt/test_mount"
+mkdir -p "$MNT_TEST"
 
-# 3. Форматирование
-info "[Этап 3/4] Проверка/форматирование файловых систем..."
-if ! blkid "$PART_ROOT" | grep -q 'TYPE="ext4"'; then
-    info "--> Раздел ${PART_ROOT} не отформатирован. Форматирование в ext4..."
-    mkfs.ext4 -F -L emmc_data "$PART_ROOT" || fail "Ошибка форматирования ext4"
-    info "--> Форматирование ${PART_ROOT} завершено."
+# Проверка и форматирование Extroot (p6)
+info "--> Проверка ${PART_ROOT}..."
+if ! mount -t ext4 -o ro "$PART_ROOT" "$MNT_TEST" >/dev/null 2>&1; then
+    info "--> ${PART_ROOT} не монтируется или поврежден. Принудительное форматирование в ext4..."
+    umount "$PART_ROOT" >/dev/null 2>&1 # Страховочный umount против automount
+    mkfs.ext4 -F -L extroot "$PART_ROOT" || fail "Ошибка форматирования ext4 для ${PART_ROOT}"
 else
-    info "--> Раздел ${PART_ROOT} уже отформатирован в ext4."
+    info "--> ${PART_ROOT} в порядке."
+    umount "$MNT_TEST"
 fi
 
+# Проверка и форматирование Data (p7)
+info "--> Проверка ${PART_DATA}..."
+if ! mount -t ext4 -o ro "$PART_DATA" "$MNT_TEST" >/dev/null 2>&1; then
+    info "--> ${PART_DATA} не монтируется или поврежден. Принудительное форматирование в ext4..."
+    umount "$PART_DATA" >/dev/null 2>&1 # Страховочный umount против automount
+    mkfs.ext4 -F -L data "$PART_DATA" || fail "Ошибка форматирования ext4 для ${PART_DATA}"
+else
+    info "--> ${PART_DATA} в порядке."
+    umount "$MNT_TEST"
+fi
+
+# Проверка и форматирование Swap (p8).
 if ! blkid "$PART_SWAP" | grep -q 'TYPE="swap"'; then
-    info "--> Раздел ${PART_SWAP} не отформатирован. Создание swap..."
-    mkswap "$PART_SWAP" || fail "Ошибка создания swap"
-    info "--> Создание swap на ${PART_SWAP} завершено."
+    info "--> Создание swap на ${PART_SWAP}..."
+    mkswap "$PART_SWAP" || fail "Ошибка создания swap на ${PART_SWAP}"
 else
-    info "--> Раздел ${PART_SWAP} уже является swap."
+    info "--> Swap раздел ${PART_SWAP} в порядке."
 fi
-info "[Этап 3/4] Файловые системы в порядке."
 
+info "--> Очистка временной папки монтирования..."
+rm -rf "$MNT_TEST"
+info "[Этап 3/5] Файловые системы в порядке."
 
-# 4. Настройка Extroot
-info "[Этап 4/4] Проверка/настройка Extroot..."
-CURRENT_OVERLAY_DEV=$(mount | grep 'on /overlay ' | awk '{print $1}')
+#
+# [ЭТАП 4/5] НАСТРОЙКА СИСТЕМЫ
+#
+info "[Этап 4/5] Настройка extroot..."
+MNT_EXTROOT="/mnt/new_extroot"
 
-if [ "$CURRENT_OVERLAY_DEV" != "$PART_ROOT" ]; then
-    info "--> Extroot не активен на ${PART_ROOT}. Запуск финальной настройки..."
+for part in "$PART_ROOT" "$PART_DATA" "$PART_SWAP"; do
+    i=0; while [ $i -lt 10 ]; do [ -b "$part" ] && break; sleep 1; i=$((i+1)); done
+    [ -b "$part" ] || fail "Раздел $part так и не появился."
+done
 
-    # Ждем появления устройства, если partprobe отработал с задержкой
-    i=0
-    while [ $i -lt 10 ]; do
-        [ -b "$PART_ROOT" ] && break
-        sleep 1
-        i=$((i+1))
-    done
-    [ -b "$PART_ROOT" ] || fail "Раздел $PART_ROOT так и не появился в системе."
+UUID_ROOT=$(blkid -o value -s UUID "$PART_ROOT")
+UUID_DATA=$(blkid -o value -s UUID "$PART_DATA")
+info "--> UUID Extroot (p6): ${UUID_ROOT}"
+info "--> UUID Data (p7):    ${UUID_DATA}"
 
-    UUID_ROOT=$(blkid -o value -s UUID "$PART_ROOT")
-    [ -z "$UUID_ROOT" ] && fail "Не удалось получить UUID для $PART_ROOT"
-    info "--> UUID для ${PART_ROOT} найден: ${UUID_ROOT}"
-    
-    MNT="/mnt/new_extroot"
-    mkdir -p "$MNT"
-    info "--> Монтирование ${PART_ROOT} в ${MNT}..."
-    mount "$PART_ROOT" "$MNT" || fail "Не удалось смонтировать $PART_ROOT"
+mkdir -p "$MNT_EXTROOT"
+info "--> Монтирование ${PART_ROOT} в ${MNT_EXTROOT}..."
+mount "$PART_ROOT" "$MNT_EXTROOT" || fail "Не удалось смонтировать $PART_ROOT"
 
-    info "--> Копирование данных из /overlay в ${MNT}..."
-    tar -C /overlay -cvf - . | tar -C "$MNT" -xf -
+info "--> Копирование данных из /overlay в ${MNT_EXTROOT}..."
+tar -C /overlay -cvf - . | tar -C "$MNT_EXTROOT" -xf -
 
-    # --- Создание чистого fstab ---
-    info "--> Создание чистого fstab на новом разделе..."
-    FSTAB_PATH="$MNT/upper/etc/config/fstab"
+# === ИСПРАВЛЕНИЕ "ПАПОК-ПРИЗРАКОВ" ===
+info "--> Полная очистка системной папки /mnt внутри нового extroot..."
+# Чистим именно внутри upper, так как это станет твоим новым корнем после ребута
+rm -rf "$MNT_EXTROOT/upper/mnt" && mkdir -p "$MNT_EXTROOT/upper/mnt"
+# На всякий случай чистим и корень раздела (вне overlay)
+rm -rf "$MNT_EXTROOT/mnt" && mkdir -p "$MNT_EXTROOT/mnt"
+# =====================================
 
-    # Генерируем новый, чистый fstab с помощью here-document.
+    info "--> Генерация fstab на новом extroot..."
+    FSTAB_PATH="$MNT_EXTROOT/upper/etc/config/fstab"
     cat > "$FSTAB_PATH" <<EOF
 config global
 	option anon_swap '0'
 	option anon_mount '0'
 	option auto_swap '1'
 	option auto_mount '1'
-	option delay_root '10'
+	option delay_root '5'
 	option check_fs '1'
-
+config mount
+	option target '/rom'
+	option uuid '3d1747c3-d71d815e-fecac4ae-7494d1e2'
+	option enabled '0'
 config mount
 	option target '/overlay'
 	option uuid '$UUID_ROOT'
 	option enabled '1'
-
+config mount
+	option target '/mnt/data'
+	option uuid '$UUID_DATA'
+	option enabled '1'
 config swap
 	option device '$PART_SWAP'
 	option enabled '1'
 EOF
 
-    # === КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ ===
-    # Копируем созданный fstab в текущий оверлей, чтобы первая загрузка
-    # увидела все инструкции (и extroot, и swap).
-    info "--> Копирование нового fstab в текущую систему для первой загрузки..."
-    cp -f "$FSTAB_PATH" /etc/config/fstab || fail "Не удалось скопировать fstab в /etc/config/"
+info "--> Копирование fstab в текущую систему..."
+cp -f "$FSTAB_PATH" /etc/config/fstab || fail "Не удалось скопировать fstab"
+info "--> Отмонтирование и финальная очистка текущей системы..."
+umount -l "$MNT_EXTROOT" 2>/dev/null
+rm -rf "$MNT_EXTROOT"
+rm -rf "$MNT_TEST"
 
-    info "--> Отмонтирование ${MNT}..."
-    umount "$MNT"
-    
-    info "--> Настройка завершена успешно. Финальная перезагрузка для активации."
-    reboot    
-    exit 0
-else
-    info "--> Extroot уже активен на ${PART_ROOT}. Никаких действий не требуется."
+# Удаляем мусор automount текущей сессии, игнорируя ошибки, если папки заняты
+rm -rf /mnt/mmcblk0p* 2>/dev/null
+info "--> Текущая система очищена. Подготовка к перезагрузке..."
+
+#
+# [ЭТАП 5/5] НАСТРОЙКА ПАПКИ ЗАГРУЗОК И ССЫЛКИ
+#
+info "[Этап 5/5] Настройка папки загрузок и ссылки /mnt/down..."
+
+# 1. Убеждаемся, что раздел данных смонтирован.
+info "[Этап 5/5] Настройка папки загрузок..."
+mkdir -p /mnt/data
+if ! mount | grep -q 'on /mnt/data'; then
+    info "--> /mnt/data не смонтирован, монтирую..."
+    mount "$PART_DATA" /mnt/data || fail "Не удалось смонтировать /mnt/data"
 fi
-info "[Этап 4/4] Extroot в порядке."
 
-info "--- Скрипт настройки Extroot завершил работу. ---"
+# 2. Создаем целевые директории на разделе данных.
+mkdir -p /mnt/data/docker
+mkdir -p /mnt/data/downloads
+
+# 3. Настраиваем права для Transmission на ЦЕЛЕВОЙ директории.
+info "--> Настройка прав для /mnt/data/downloads..."
+chown -R transmission:transmission /mnt/data/downloads
+chmod -R g+rw /mnt/data/downloads
+
+# 4. Принудительно создаем симлинк и чистим хвосты automount.
+info "--> Принудительное создание симлинка /mnt/down..."
+rm -rf /mnt/down
+# Убираем папку, которую мог создать automount вместо нашего раздела
+[ -d "/mnt/mmcblk0p7" ] && rm -rf /mnt/mmcblk0p7 
+ln -sfn /mnt/data/downloads /mnt/down
+
+info "[Этап 5/5] Настройка папки загрузок завершена."
+
+# Отправляем команду перезагрузки в фон, чтобы скрипт успел вернуть код 0
+# и система могла корректно удалить его из /etc/uci-defaults/
+info "--- Скрипт настройки Extroot v${VERSION} завершил работу. ---"
+info "--- Требуется перезагрузка для применения всех изменений. 3s ---"
+(sleep 3 && reboot) &
 exit 0
