@@ -1,5 +1,6 @@
 #!/bin/sh
 # Extroot Setup Script for OpenWrt
+VERSION="2.21"
 # (Оптимизировано для uci-defaults)
 #
 # АРХИТЕКТУРА:
@@ -29,8 +30,6 @@ DISK="/dev/mmcblk0"
 EXTROOT_SIZE_GB="4"
 # Размер раздела подкачки.
 SWAP_SIZE_GB="2"
-# Версия скрипта для логирования и отслеживания.
-VERSION="2.20"
 
 # Имена разделов определены для ясности и простоты обслуживания.
 PART_ROOT="${DISK}p6"
@@ -162,7 +161,7 @@ info "[Этап 3/5] Файловые системы в порядке."
 #
 # [ЭТАП 4/5] НАСТРОЙКА ПАПКИ ЗАГРУЗОК И ССЫЛКИ (ДО СОЗДАНИЯ СЛЕПКА)
 #
-info "[Этап 4/5] Настройка структуры папок и ссылки /mnt/down..."
+info "[Этап 4/5] Настройка структуры папок..."
 
 # 1. Убеждаемся, что раздел данных смонтирован.
 mkdir -p /mnt/data
@@ -181,12 +180,10 @@ info "--> Настройка прав для /mnt/data/downloads..."
 chown -R transmission:transmission /mnt/data/downloads
 chmod -R g+rw /mnt/data/downloads
 
-# 4. Принудительно создаем симлинк и чистим хвосты automount.
-info "--> Принудительное создание симлинка /mnt/down..."
-rm -rf /mnt/down
+# 4. Чистим хвосты automount.
+info "--> Чистим хвосты automount...."
 # Убираем папку, которую мог создать automount вместо нашего раздела, чтобы не мешала
 [ -d "/mnt/mmcblk0p7" ] && rm -rf /mnt/mmcblk0p7 
-ln -sfn /mnt/data/downloads /mnt/down
 
 info "[Этап 4/5] Настройка папки загрузок завершена."
 
@@ -211,7 +208,6 @@ info "--> Монтирование ${PART_ROOT} в ${MNT_EXTROOT}..."
 mount "$PART_ROOT" "$MNT_EXTROOT" || fail "Не удалось смонтировать $PART_ROOT"
 
 info "--> Копирование данных из /overlay в ${MNT_EXTROOT}..."
-# Теперь tar скопирует УЖЕ созданный симлинк /mnt/down и точку /mnt/data!
 tar -C /overlay -cvf - . | tar -C "$MNT_EXTROOT" -xf -
 
 # === ИСПРАВЛЕНИЕ "ПАПОК-ПРИЗРАКОВ", ВРЕМЕННЫХ ПУТЕЙ И ФИКСАЦИЯ СИМЛИНКА ===
@@ -223,10 +219,6 @@ rm -rf "$MNT_EXTROOT/mnt/mmcblk"* 2>/dev/null
 # Удаляем саму временную папку монтирования, которая попала в копию из текущего /overlay
 rm -rf "$MNT_EXTROOT/upper/mnt/new_extroot" 2>/dev/null
 rm -rf "$MNT_EXTROOT/mnt/new_extroot" 2>/dev/null
-
-info "--> ЖЕЛЕЗОБЕТОННАЯ фиксация симлинка внутри нового extroot..."
-rm -rf "$MNT_EXTROOT/upper/mnt/down"
-ln -sfn /mnt/data/downloads "$MNT_EXTROOT/upper/mnt/down"
 # ========================================================================
 
 info "--> Генерация fstab на новом extroot..."
