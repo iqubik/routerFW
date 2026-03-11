@@ -450,9 +450,9 @@ goto MENU
 :EDIT_PROFILE
 if not defined ROUTERFW_NO_CLS cls
 :: Используем зеленый цвет (%C_VAL%) для заголовка
-echo %C_KEY%!L_SEPARATOR_EQ!%C_RST%
+echo !C_KEY!!L_SEPARATOR!!C_RST!
 echo  %C_VAL%%L_EDIT_TITLE%%C_RST%
-echo %C_KEY%!L_SEPARATOR_EQ!%C_RST%
+echo !C_KEY!!L_SEPARATOR!!C_RST!
 echo.
 echo  %L_SEL_PROF%:
 echo.
@@ -496,8 +496,11 @@ echo  - %L_ST_OUTI%:   !S_OUT_I!
 echo !L_SEPARATOR!
 echo.
 set "open_f=N"
+set "enter_c=N"
 echo %C_VAL%[%L_ACTION%]%C_RST% %L_OPEN_FILE% %C_VAL%!SEL_CONF!%C_RST% !L_IN_EDITOR!
 set /p open_f=%C_LBL%%L_OPEN_EXPL% [%C_KEY%y%C_LBL%/%C_KEY%N%C_LBL%]: %C_RST%
+set /p enter_c=%C_LBL%%L_ENTER_CONTAINER% !C_VAL!!SEL_ID!%C_RST%^?[%C_KEY%y%C_LBL%/%C_KEY%N%C_LBL%]: %C_RST%
+
 
 :: 1. Открываем файл конфигурации (всегда)
 start notepad "profiles\!SEL_CONF!"
@@ -512,6 +515,55 @@ if /i "!open_f!"=="Y" (
     if exist "firmware_output\imagebuilder\!SEL_ID!" start explorer "firmware_output\imagebuilder\!SEL_ID!"
 )
 
+:: 3. Вход в контейнер (перепрыгиваем логику, если ответ N)
+if /i not "!enter_c!"=="Y" goto EDIT_DONE
+
+set "TARGET_VAL="
+set "IS_LEGACY="
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "!TARGET_VAR!"`) do (
+    set "VAL=%%a"
+    set "VAL=!VAL:"=!"
+    for /f "tokens=* delims= " %%b in ("!VAL!") do set "TARGET_VAL=%%b"
+)
+
+:: Безопасная проверка версии без конвейеров
+if not "!TARGET_VAL:/19.=!" == "!TARGET_VAL!" set "IS_LEGACY=1"
+if not "!TARGET_VAL:/18.=!" == "!TARGET_VAL!" set "IS_LEGACY=1"
+if not "!TARGET_VAL:/17.=!" == "!TARGET_VAL!" set "IS_LEGACY=1"
+if not "!TARGET_VAL:19.07=!" == "!TARGET_VAL!" set "IS_LEGACY=1"
+if not "!TARGET_VAL:18.06=!" == "!TARGET_VAL!" set "IS_LEGACY=1"
+
+:: Задаем обязательные переменные окружения, чтобы docker-compose смог смонтировать папки
+set "SELECTED_CONF=!SEL_CONF!"
+set "HOST_FILES_DIR=./custom_files/!SEL_ID!"
+
+if "!BUILD_MODE!"=="SOURCE" (
+    set "PROJ_NAME=srcbuild_!SEL_ID!"
+    set "COMPOSE_ARG=-f system/docker-compose-src.yaml"
+    if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-src-oldwrt") else (set "SERVICE_NAME=builder-src-openwrt")
+    set "HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/!SEL_ID!"
+    set "HOST_PKGS_DIR=./src_packages/!SEL_ID!"
+    set "HOST_PATCHES_DIR=./custom_patches/!SEL_ID!"
+) else (
+    set "PROJ_NAME=build_!SEL_ID!"
+    set "COMPOSE_ARG=-f system/docker-compose.yaml"
+    if DEFINED IS_LEGACY (set "SERVICE_NAME=builder-oldwrt") else (set "SERVICE_NAME=builder-openwrt")
+    set "HOST_OUTPUT_DIR=./firmware_output/imagebuilder/!SEL_ID!"
+    set "HOST_PKGS_DIR=./custom_packages/!SEL_ID!"
+)
+
+echo.
+echo !L_INFO! Entering container for %C_VAL%!PROJ_NAME!%C_RST% [%C_LBL%!SERVICE_NAME!%C_RST%]...
+echo   !C_GRY!💡 Tip: Type !C_KEY!mc!C_GRY! inside to launch Midnight Commander!C_RST!
+
+:: Разделяем логику входа. Для SOURCE полностью имитируем окружение из src_builder.sh
+if "!BUILD_MODE!"=="SOURCE" (
+    docker-compose !COMPOSE_ARG! -p !PROJ_NAME! run --rm -it !SERVICE_NAME! /bin/bash -c "if [ -d /home/build/openwrt/.git ] && [ x$(stat -c %%U /ccache 2>/dev/null) = xbuild ]; then echo '[INIT] Permissions OK'; else echo '[INIT] Fixing permissions...'; chown -R build:build /home/build/openwrt /ccache 2>/dev/null || true; fi && sudo -E -u build bash -c 'export HOME=/home/build; git config --global --add safe.directory \"*\"; cd /home/build/openwrt 2>/dev/null || cd /home/build; exec bash'"
+) else (
+    docker-compose !COMPOSE_ARG! -p !PROJ_NAME! run --rm -it !SERVICE_NAME! /bin/bash
+)
+
+:EDIT_DONE
 echo %L_FINISHED%
 timeout /t 2 >nul
 if defined CLI_CMD exit /b 0
@@ -1709,4 +1761,4 @@ if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJlYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
 exit /b
-:: checksum:MD5=57c52bf3ba24a6d381af755d6f2e93e4
+:: checksum:MD5=e3f2b9c25f470b7301579863bce72681
