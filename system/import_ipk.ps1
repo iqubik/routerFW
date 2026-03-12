@@ -195,7 +195,7 @@ endef
 
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
-	[ -f ./data.tar.gz ] && cp ./data.tar.gz $(PKG_BUILD_DIR)/ || true
+	[ -f ./data.tar.gz ] && cp ./data.tar.gz $(PKG_BUILD_DIR)/ || true ; \
 	[ -f ./data.apk ] && cp ./data.apk $(PKG_BUILD_DIR)/ || true
 endef
 

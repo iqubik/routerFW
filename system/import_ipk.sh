@@ -109,8 +109,8 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
             done
         fi
         
-        if[ -f "$TEMP_DIR/unpack/.post-install" ]; then
-            POSTINST_CONTENT=$(sed 's/^#!.*//' "$TEMP_DIR/unpack/.post-install" | sed 's/\$/\$\$/g')
+        if [ -f "$TEMP_DIR/unpack/.post-install" ]; then
+            POSTINST_CONTENT=$(sed 's/^#!.*//' "$TEMP_DIR/unpack/.post-install" | sed 's/\$/\\$\\$/g')
         fi
     else
         # 2b. Распаковка IPK
@@ -120,7 +120,7 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
             cd "$TEMP_DIR/unpack" && ar x "../../../$IPK_PATH" && cd - > /dev/null
         fi
 
-        if[ -f "$TEMP_DIR/unpack/control.tar.gz" ]; then
+        if [ -f "$TEMP_DIR/unpack/control.tar.gz" ]; then
             tar -xf "$TEMP_DIR/unpack/control.tar.gz" -C "$TEMP_DIR/control_data"
         else
             echo -e "    ${C_RED}[!] control.tar.gz not found inside IPK.${C_RST}"
@@ -146,8 +146,8 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
             done
         fi
 
-        if[ -f "$TEMP_DIR/control_data/postinst" ]; then
-            POSTINST_CONTENT=$(sed 's/^#!.*//' "$TEMP_DIR/control_data/postinst" | sed 's/\$/\$\$/g')
+        if [ -f "$TEMP_DIR/control_data/postinst" ]; then
+            POSTINST_CONTENT=$(sed 's/^#!.*//' "$TEMP_DIR/control_data/postinst" | sed 's/\$/\\$\\$/g')
         fi
     fi
 
@@ -158,7 +158,7 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
     [ -z "$PKG_VERSION" ] && PKG_VERSION="binary"
 
     # 6. ВАЛИДАЦИЯ АРХИТЕКТУРЫ
-    if[ "$PKG_ARCH" == "all" ]; then
+    if [ "$PKG_ARCH" == "all" ]; then
         echo -e "    Architecture: all (Universal) - ${C_GRN}OK${C_RST}"
     elif [ -n "$TARGET_ARCH" ]; then
         if [ "$PKG_ARCH" == "$TARGET_ARCH" ]; then
@@ -200,7 +200,7 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
     if [ "$IS_APK" = true ]; then
         cp "$IPK_PATH" "$TARGET_PKG_DIR/data.apk"
     else
-        if[ -f "$TEMP_DIR/unpack/data.tar.gz" ]; then
+        if [ -f "$TEMP_DIR/unpack/data.tar.gz" ]; then
             cp "$TEMP_DIR/unpack/data.tar.gz" "$TARGET_PKG_DIR/data.tar.gz"
         else
             echo -e "    ${C_RED}[!] Error: data.tar.gz not found!${C_RST}"
@@ -229,8 +229,8 @@ define Package/\$(PKG_NAME)
 endef
 
 define Build/Prepare
-	mkdir -p \$(PKG_BUILD_DIR)
-	[ -f ./data.tar.gz ] && cp ./data.tar.gz \$(PKG_BUILD_DIR)/ || true[ -f ./data.apk ] && cp ./data.apk \$(PKG_BUILD_DIR)/ || true
+	mkdir -p \$(PKG_BUILD_DIR)[ -f ./data.tar.gz ] && cp ./data.tar.gz \$(PKG_BUILD_DIR)/ || true ; \
+	[ -f ./data.apk ] && cp ./data.apk \$(PKG_BUILD_DIR)/ || true
 endef
 
 define Build/Compile
@@ -239,9 +239,9 @@ endef
 
 define Package/\$(PKG_NAME)/install
 	mkdir -p \$(1)
-	if[ -f \$(PKG_BUILD_DIR)/data.tar.gz ]; then \\
-		tar -xf \$(PKG_BUILD_DIR)/data.tar.gz -C \$(1); \\
-	elif[ -f \$(PKG_BUILD_DIR)/data.apk ]; then \\
+    if [ -f \$(PKG_BUILD_DIR)/data.tar.gz ]; then \
+		tar -xf \$(PKG_BUILD_DIR)/data.tar.gz -C \$(1); \
+	elif [ -f \$(PKG_BUILD_DIR)/data.apk ]; then \
 		tar -xf \$(PKG_BUILD_DIR)/data.apk -C \$(1) --exclude=.PKGINFO --exclude=.SIGN.* --exclude=.post-install --exclude=.pre-install; \\
 	fi
 	[ -d \$(1)/etc/init.d ] && chmod +x \$(1)/etc/init.d/* || true
