@@ -1,11 +1,14 @@
 # file : system/import_ipk.ps1
-# Скрипт импорта IPK v2.8 (Smart APK Fallback)
+# Скрипт импорта IPK (APK support)
+
 param (
     [Parameter(Mandatory=$false)]
     [string]$ProfileID = "",
     [Parameter(Mandatory=$false)]
     [string]$TargetArch = ""  # Подхватывается из батника (SRC_ARCH)
 )
+
+$ScriptVersion = "2.9"
 
 # --- ИНИЦИАЛИЗАЦИЯ ПУТЕЙ ---
 if ($ProfileID -ne "") {
@@ -21,7 +24,7 @@ $overwriteAll = $false
 $importedCount = 0
 
 Write-Host "`n==========================================================" -ForegroundColor Cyan
-Write-Host "  IPK IMPORT WIZARD v2.8 [$TargetArch][Source Mode]" -ForegroundColor Cyan
+Write-Host "  IPK IMPORT WIZARD v$ScriptVersion [$TargetArch][Source Mode]" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "[CONTEXT] " -NoNewline -ForegroundColor Cyan
 Write-Host "Profile: " -NoNewline -ForegroundColor Gray
@@ -114,7 +117,18 @@ foreach ($ipk in $ipkFiles) {
     } else {
         # 2b. Распаковка IPK
         tar -xf "$ipkDir\$($ipk.Name)" -C "$tempDir\unpack" 2>$null
-        if (Test-Path "$tempDir\unpack\control.tar.gz") { tar -xf "$tempDir\unpack\control.tar.gz" -C "$tempDir\control_data" 2>$null }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "    [!] Failed to extract data from $($ipk.Name). The file might be corrupted." -ForegroundColor Red
+            continue
+        }
+        
+        if (Test-Path "$tempDir\unpack\control.tar.gz") {
+            tar -xf "$tempDir\unpack\control.tar.gz" -C "$tempDir\control_data" 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "    [!] Failed to extract control.tar.gz from $($ipk.Name)." -ForegroundColor Red
+                continue
+            }
+        }
         
         # 3. Парсинг файла control
         if (Test-Path "$tempDir\control_data\control") {
@@ -188,12 +202,18 @@ foreach ($ipk in $ipkFiles) {
 
     # 6. Обработка Post-Install
     if ($postinst) {
-        # Убираем лишние шебанги (#!/bin/sh), если они есть внутри импортируемого кода
-        $postinst = $postinst -replace '(?m)^#!/.+$', ''        
-        # Экранируем знак доллара для Makefile (превращаем $ в $$)
-        $postinst = $postinst -replace '\$', '$$$$'         
-        # Убираем лишние пустые строки в начале и конце
-        $postinst = $postinst.Trim()
+        # Если в скрипте уже есть стандартный вызов, нам не нужно его дублировать
+        if ($postinst -match "default_postinst") {
+            $postinst = ""
+        } else {
+            # В противном случае, обрабатываем как кастомный скрипт
+            # Убираем лишние шебанги (#!/bin/sh), если они есть
+            $postinst = $postinst -replace '(?m)^#!/.+$', ''
+            # Экранируем знак доллара для Makefile (превращаем $ в $$)
+            $postinst = $postinst -replace '\$', '$$'
+            # Убираем лишние пустые строки в начале и конце
+            $postinst = $postinst.Trim()
+        }
     }
 
     # 7. Логика перезаписи
@@ -258,7 +278,7 @@ define Package/$(PKG_NAME)/install
 	if [ -f $(PKG_BUILD_DIR)/data.tar.gz ]; then \
 		tar -xf $(PKG_BUILD_DIR)/data.tar.gz -C $(1); \
 	elif [ -f $(PKG_BUILD_DIR)/data.apk ]; then \
-		apk add --root $(1) --initdb --allow-untrusted $(PKG_BUILD_DIR)/data.apk; \
+		apk add --root $(1) --initdb --no-network --no-scripts --allow-untrusted $(PKG_BUILD_DIR)/data.apk; \
 	fi
 	# Принудительная правка прав для скриптов и бинарников
 	[ -d $(1)/etc/init.d ] && chmod +x $(1)/etc/init.d/* || true
@@ -271,6 +291,10 @@ define Package/$(PKG_NAME)/postinst
 #!/bin/sh
 # Проверка: если мы находимся в процессе сборки (INSTROOT), не запускаем сервисы
 if [ -z "$$IPKG_INSTROOT" ]; then
+[ "$$IPKG_NO_SCRIPT" = "1" ] && exit 0
+[ -s "$$IPKG_INSTROOT/lib/functions.sh" ] || exit 0
+. "$$IPKG_INSTROOT/lib/functions.sh"
+default_postinst $$0 $$@
 {2}
 	:
 fi
