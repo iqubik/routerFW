@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.7
+# file: system/ib_builder.sh v1.8
 set -e
 
 # Цвета для логов
@@ -78,8 +78,8 @@ else
     tar -xJf "$CACHE_FILE" --strip-components=1 || error "Failed to extract XZ archive"
 fi
 
-# Проверка, что распаковка прошла успешно (есть ключевой файл)
-[ -f "repositories.conf" ] || error "Extraction failed: repositories.conf not found!"
+# Проверка, что распаковка прошла успешно (поддержка opkg и apk)
+[ -f "repositories.conf" ] || [ -f "repositories" ] ||[ -f "Makefile" ] || error "Extraction failed: Build root not found!"
 
 # --- 3. ПОДГОТОВКА ОКРУЖЕНИЯ ---
 if [ -f /openssl.cnf ]; then
@@ -88,7 +88,10 @@ if [ -f /openssl.cnf ]; then
     cp /openssl.cnf /builder/shared-workdir/build/staging_dir/host/etc/ssl/openssl.cnf 2>/dev/null || true
 fi
 
-[ -d /input_packages ] && cp /input_packages/*.ipk packages/ 2>/dev/null || true
+if [ -d /input_packages ]; then
+    cp /input_packages/*.ipk packages/ 2>/dev/null || true
+    cp /input_packages/*.apk packages/ 2>/dev/null || true
+fi
 export SOURCE_DATE_EPOCH=$(date +%s)
 
 # === ИЗМЕНЕНИЕ РАЗМЕРА РАЗДЕЛОВ ===
@@ -119,14 +122,26 @@ fi
 
 if [ -n "$CUSTOM_REPOS" ]; then
     log "Adding custom repositories..."
-    sed -i '/fantastic_/d' repositories.conf
-    # Разбираем переменную: поддерживаем и переносы строк, и пробелы
-    echo "$CUSTOM_REPOS" | sed 's# src/gz#\nsrc/gz#g' | while read -r line; do
-        # Пропускаем пустые строки и комментарии
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        # Убираем слеш в конце URL (fix //Packages.gz)
-        echo "${line%/}" >> repositories.conf
-    done
+    if [ -f "repositories.conf" ]; then
+        # Legacy OPKG (OpenWrt 24.x и старее)
+        sed -i '/fantastic_/d' repositories.conf 2>/dev/null || true
+        echo "$CUSTOM_REPOS" | sed 's# src/gz#\nsrc/gz#g' | while read -r line; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            echo "${line%/}" >> repositories.conf
+        done
+    elif [ -f "repositories" ]; then
+        # New APK (OpenWrt 25.x и новее)
+        echo "$CUSTOM_REPOS" | sed 's# src/gz#\nsrc/gz#g' | while read -r line; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            # Если в профиле остался старый opkg-синтаксис (начинается с src/), берем только URL (3-е слово)
+            if echo "$line" | grep -q "^src/"; then
+                url=$(echo "$line" | awk '{print $3}')
+                [ -n "$url" ] && echo "${url%/}" >> repositories
+            else
+                echo "${line%/}" >> repositories
+            fi
+        done
+    fi
 fi
 
 # === ПОДГОТОВКА OVERLAY ===
@@ -189,4 +204,4 @@ echo -e "\n============================================================"
 echo -e "=== Build completed in ${ELAPSED}s."
 echo -e "=== Artifacts: firmware_output/$REL_PATH/$TIMESTAMP"
 echo -e "============================================================\n"
-# checksum:MD5=fc77272062dc1c031befba7ded537557
+# checksum:MD5=47015c3e7834257e78d55060baa068d8
