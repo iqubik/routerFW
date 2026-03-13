@@ -73,7 +73,7 @@ flowchart TD
 
     CHOICE --> |I| I_CHECK{SOURCE?}
     I_CHECK --> |нет| MENU
-    I_CHECK --> |да| I_LIST[Импорт IPK: список профилей]
+    I_CHECK --> |да| I_LIST[Импорт IPK/APK: список профилей]
     I_LIST --> I_ID{ID}
     I_ID --> I_RUN[import_ipk: .sh p_id p_arch / .ps1 -ProfileID -TargetArch\ncustom_packages → src_packages]
     I_RUN --> MENU
@@ -110,7 +110,7 @@ flowchart TD
 | `build-all` | `a`, `all` | — | Массовая сборка (режим: префикс ib/src или по умолчанию IB) |
 | `edit` | `e` | [id] | Редактор профиля (без id — интерактивный выбор по списку) |
 | `menuconfig` | `k` | \<id\> | Menuconfig (только SOURCE) |
-| `import` | `i` | \<id\> | Импорт IPK (только SOURCE) |
+| `import` | `i` | \<id\> | Импорт IPK/APK (только SOURCE) |
 | `wizard` | `w` | — | Мастер создания профиля |
 | `clean` | `c` | [тип] [цель] | Очистка: тип 1–6 (SRC) или 1–3 (IMG), 9=prune; цель — номер или A |
 | `state` | `s` | — | Таблица профилей с флагами (F,P,S,M,H,X,OI,OS) |
@@ -198,7 +198,7 @@ flowchart TD
     EXEC --> |SRC 5| SRC_TMP[docker run\nrm -rf tmp/]
     EXEC --> |SRC 6| SRC_FULL[workdir+dl+ccache\nrm firmware_output/sourcebuilder/id]
     EXEC --> |IMG 1| IMG_SDK[cleanup_logic\nimagebuilder-cache]
-    EXEC --> |IMG 2| IMG_IPK[cleanup_logic\nipk-cache]
+    EXEC --> |IMG 2| IMG_IPK[cleanup_logic\nipk/apk-cache]
     EXEC --> |IMG 3| IMG_FULL[оба кэша\nrm firmware_output/imagebuilder/id]
 
     SRC_SOFT & SRC_WORK & SRC_DL & SRC_CC & SRC_TMP & SRC_FULL --> DONE[Press Enter]

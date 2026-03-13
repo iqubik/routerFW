@@ -73,7 +73,7 @@ flowchart TD
 
     CHOICE --> |I| I_CHECK{SOURCE?}
     I_CHECK --> |no| MENU
-    I_CHECK --> |yes| I_LIST[Import IPK: list profiles]
+    I_CHECK --> |yes| I_LIST[Import IPK/APK: list profiles]
     I_LIST --> I_ID{ID}
     I_ID --> I_RUN[import_ipk: .sh p_id p_arch / .ps1 -ProfileID -TargetArch\ncustom_packages → src_packages]
     I_RUN --> MENU
@@ -110,7 +110,7 @@ To choose mode in one command, use the `ib`/`src` prefix. Mode toggle (key **M**
 | `build-all` | `a`, `all` | — | Build all (mode: prefix ib/src or default IB) |
 | `edit` | `e` | [id] | Profile editor (no id = interactive choice from list) |
 | `menuconfig` | `k` | \<id\> | Menuconfig (SOURCE only) |
-| `import` | `i` | \<id\> | Import IPK (SOURCE only) |
+| `import` | `i` | \<id\> | Import IPK/APK (SOURCE only) |
 | `wizard` | `w` | — | Profile creation wizard |
 | `clean` | `c` | [type] [target] | Clean: type 1–6 (SRC) or 1–3 (IMG), 9=prune; target = number or A |
 | `state` | `s` | — | Profile table with flags (F,P,S,M,H,X,OI,OS) |
@@ -196,7 +196,7 @@ flowchart TD
     EXEC --> |SRC 5| SRC_TMP[docker run\nrm -rf tmp/]
     EXEC --> |SRC 6| SRC_FULL[workdir+dl+ccache\nrm firmware_output/sourcebuilder/id]
     EXEC --> |IMG 1| IMG_SDK[cleanup_logic\nimagebuilder-cache]
-    EXEC --> |IMG 2| IMG_IPK[cleanup_logic\nipk-cache]
+    EXEC --> |IMG 2| IMG_IPK[cleanup_logic\nipk/apk-cache]
     EXEC --> |IMG 3| IMG_FULL[both caches\nrm firmware_output/imagebuilder/id]
 
     SRC_SOFT & SRC_WORK & SRC_DL & SRC_CC & SRC_TMP & SRC_FULL --> DONE[Press Enter]

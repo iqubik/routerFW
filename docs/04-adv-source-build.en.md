@@ -8,7 +8,7 @@
 
 # Lesson 4: Advanced Source Mode: Sync, Hooks, and Indicators (v4.33)
 
-**Lesson Goal:** Master professional `Source Builder` tools: automatic settings synchronization, resource monitoring, advanced kernel patching via hooks, and the "Binary-to-Source" IPK import mechanism.
+**Lesson Goal:** Master professional `Source Builder` tools: automatic settings synchronization, resource monitoring, advanced kernel patching via hooks, and the "Binary-to-Source" IPK/APK import mechanism.
 
 ---
 
@@ -39,14 +39,14 @@ Version **4.33** implements a seamless synchronization cycle between the interac
 
 ---
 
-### 📦 3. Binary-to-Source IPK Import
+### 📦 3. Binary-to-Source IPK/APK Import
 
-**The Problem:** You have a proprietary program (e.g., modem drivers) as an `.ipk` package, but you don't have its source code. 
-**The Solution:** The "Binary-to-Source" mechanism allows you to "wrap" an `.ipk` into a package that `Source Builder` treats as source code.
+**The Problem:** You have a proprietary program (e.g., modem drivers) as an `.ipk` (or `.apk` for OpenWrt 25.x+) package, but you don't have its source code. 
+**The Solution:** The "Binary-to-Source" mechanism allows you to "wrap" an `.ipk`/`.apk` into a package that `Source Builder` treats as source code.
 
 #### A. Workflow:
-1.  **Placement**: Put `.ipk` files in `custom_packages/%ID%/`.
-2.  **Launch**: Select **[I] (Import IPK)** from the main menu.
+1.  **Placement**: Put `.ipk`/`.apk` files in `custom_packages/%ID%/`.
+2.  **Launch**: Select **[I] (Import IPK/APK)** from the main menu.
 3.  **Processing**: The `system/import_ipk.ps1` script performs the following:
     *   **Unpacking**: Extracts metadata (`control`) and data (`data.tar.gz`).
     *   **Architecture Check**: Compares the package architecture with your profile's `SRC_TARGET` (e.g., `aarch64_cortex-a53`).

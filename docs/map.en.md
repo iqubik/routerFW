@@ -21,7 +21,7 @@ Based on CHANGELOG.md (release tags). CHANGELOG export date: 2026-02-20.
 |-------|---------------|----------------|----------------|
 | **I** | 1.0           | 2025-12-25     | First full-featured builder (Image Builder) |
 | **II**| 2.0 – 2.51    | 2025-12-27 – 29 | Source Builder, universal profiles, hooks, Vermagic, unpacker |
-| **III**| 3.2 – 3.9   | 2026-01-02 – 09 | Unified _Builder, wizards, IPK pipeline, RU/EN, system/ isolation |
+| **III**| 3.2 – 3.9   | 2026-01-02 – 09 | Unified _Builder, wizards, IPK/APK pipeline, RU/EN, system/ isolation |
 | **IV**| 4.0 – 4.43    | 2026-01-11 – 02-18 | Linux (Bash), localization, patches, local IB, variable migration, unified dictionaries |
 
 ---
@@ -47,7 +47,7 @@ Based on CHANGELOG.md (release tags). CHANGELOG export date: 2026-02-20.
 - **3.51:** Profile Wizard v2 — ImmortalWrt, mirrors (KyaruCloud), Z/Q navigation, State Machine.
 - **3.54:** Wizard v2.2 — smart input, auto-naming, overwrite protection.
 - **3.6:** Refactor — all system code in `system/`; docs/ (index, 01–04); README rewrite.
-- **3.8:** IPK pipeline — binary package wrapper, per-profile sandbox, architecture check, Binary Integrity (Windows), profile folder monitoring.
+- **3.8:** IPK/APK pipeline — binary package wrapper, per-profile sandbox, architecture check, Binary Integrity (Windows), profile folder monitoring.
 - **3.9:** RU/EN (weighted language detection), localization of _Builder.bat and wizards; WIFI EN patch; Linux Alpha.
 
 ### Era IV — Cross-platform and maturity (4.0 – 4.43)
@@ -79,7 +79,7 @@ Based on CHANGELOG.md (release tags). CHANGELOG export date: 2026-02-20.
 | **Vermagic** | 2.5, 3.2, 4.22, 4.32, 4.43 | Kernel hash substitution, mirrors, 6.6 branch |
 | **Hooks and patches** | 2.5, 3.2, 4.3, 4.32 | hooks.sh, custom_patches, dos2unix |
 | **Profiles and wizards** | 2.0, 3.2, 3.5–3.54, 4.02–4.43 | create_profile, SRC_EXTRA_CONFIG, ImmortalWrt, IMAGE_* migration |
-| **IPK and packages** | 3.8, 3.9, 4.20 | .ipk wrapping, per-profile sandbox, libopenssl |
+| **IPK and packages** | 3.8, 3.9, 4.20 | .ipk/.apk wrapping, per-profile sandbox, libopenssl |
 | **Unified launcher** | 3.2, 4.0 | _Builder.bat → _Builder.sh, M/E/A/C/K menu |
 | **Localization** | 3.9, 4.42, 4.43 | RU/EN, L_* dictionaries, ru.env/en.env, {C_*} |
 | **Docker and OS** | 2.0–4.43 | volumes, locks, WSL, Ubuntu 18/22/24, seccomp, credsStore |
@@ -104,7 +104,7 @@ Based on CHANGELOG.md (release tags). CHANGELOG export date: 2026-02-20.
 | 3.51 | 2026-01-05 | Wizard v2, ImmortalWrt, mirrors |
 | 3.54 | 2026-01-05 | Wizard v2.2, auto-naming |
 | 3.6 | 2026-01-07 | system/, docs/ |
-| 3.8 | 2026-01-08 | IPK pipeline, sandbox |
+| 3.8 | 2026-01-08 | IPK/APK pipeline, sandbox |
 | 3.9 | 2026-01-09 | RU/EN, Linux Alpha |
 | 4.0 | 2026-01-11 | _Builder.sh, cross-platform |
 | 4.02 | 2026-01-12 | Menuconfig → .conf, M indicator |

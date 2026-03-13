@@ -19,7 +19,7 @@ This lesson will demonstrate a professional approach to building, which is neces
 3. **Base:** place the author’s defconfig into the builder folder as `manual_config`.
 4. **Menuconfig:** run the visual package configuration with one menu option.
 5. **Build:** start the build and get the resulting `.bin`.
-6. **AdvBuild:** add your IPK or source packages — they are built with the firmware (see [Lesson 4](04-adv-source-build.en.md)).
+6. **AdvBuild:** add your IPK/APK or source packages — they are built with the firmware (see [Lesson 4](04-adv-source-build.en.md)).
 7. **Hooks:** vermagic hack, patching, extra feeds (see [Lesson 4](04-adv-source-build.en.md) and [Lesson 5](05-patch-sys.en.md)).
 
 Details for each step are below, using the RAX3000M example.
