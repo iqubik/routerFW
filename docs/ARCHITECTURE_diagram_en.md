@@ -7,7 +7,7 @@
 
 # routerFW — Process Diagrams
 
-> Version: 4.45. English diagram set.
+> Version: 4.50. English diagram set.
 >
 > Text: [ARCHITECTURE_en.md](ARCHITECTURE_en.md) · RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md)
 
@@ -84,6 +84,12 @@ flowchart TD
     CHOICE --> |C| CLEAN_WIZ[Cleanup Wizard\nsee diagram 4]
     CLEAN_WIZ --> MENU
 
+    CHOICE --> |F| F_RUN[Open custom_files/<id> folder\nfile explorer / manager]
+    F_RUN --> MENU
+
+    CHOICE --> |P| P_RUN[Open custom_packages/<id> folder\nfile explorer / manager]
+    P_RUN --> MENU
+
     CHOICE --> |1..N valid| BUILD[build_routine\nprofile N\nsee diagram 3]
     BUILD --> MENU
 
@@ -110,7 +116,7 @@ To choose mode in one command, use the `ib`/`src` prefix. Mode toggle (key **M**
 | `build-all` | `a`, `all` | — | Build all (mode: prefix ib/src or default IB) |
 | `edit` | `e` | [id] | Profile editor (no id = interactive choice from list) |
 | `menuconfig` | `k` | \<id\> | Menuconfig (SOURCE only) |
-| `import` | `i` | \<id\> | Import IPK/APK (SOURCE only) |
+| `import` | `i` | \<id\> | Import IPK/APK (SOURCE only, APK support since v4.50) |
 | `wizard` | `w` | — | Profile creation wizard |
 | `clean` | `c` | [type] [target] | Clean: type 1–6 (SRC) or 1–3 (IMG), 9=prune; target = number or A |
 | `state` | `s` | — | Profile table with flags (F,P,S,M,H,X,OI,OS) |
@@ -121,7 +127,7 @@ To choose mode in one command, use the `ib`/`src` prefix. Mode toggle (key **M**
 
 **Positional:** `_Builder.bat 2` is treated as `build 2` (default mode — IB). Commands are case-insensitive.
 
-**Examples:** `_Builder.bat build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat edit myrouter`, `_Builder.bat --help`
+**Examples:** `_Builder.bat build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat check 1`, `_Builder.bat check-all`, `_Builder.bat edit myrouter`, `_Builder.bat --help`
 
 **CLI test harnesses:** `tester.bat` / `tester.sh` run builders with args and check exit codes/output; safe checks only (no builds, clean, or menuconfig). Logs in `.gitignore`.
 

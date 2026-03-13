@@ -7,7 +7,7 @@
 
 # routerFW — Architecture & Process Flow
 
-> Version: 4.49. Last updated: 2026-03.
+> Version: 4.50. Last updated: 2026-03.
 
 ---
 
@@ -29,10 +29,13 @@ Both entry points are **feature-parity** wrappers: same menus, same logic, diffe
 | `build-all`, `a`, `all` | — | Build all profiles (Linux: parallel in background). |
 | `edit`, `e` | `[id]` | Edit profile in $EDITOR; without id → interactive choice. |
 | `menuconfig`, `k` | `<id>` | Run menuconfig (Source Builder only). |
-| `import`, `i` | `<id>` | Import .ipk into profile tree (Source Builder only). |
+| `import`, `i` | `<id>` | Import .ipk/.apk into profile tree (Source Builder only, APK support since v4.50). |
 | `wizard`, `w` | — | Create new profile wizard. |
 | `clean`, `c` | `[type] [id\|A]` | Clean: type 1–6 (Source) or 1–3 (Image); id or A = all. |
-| `state`, `s` | — | Show profile flags (F/P/S/…/OI/OS — files, packages, builds). |
+| `state`, `s` | — | Show profile flags (F/P/S/M/H/X/OI/OS — files, packages, builds). |
+| `check` | `<id>` | Add/update checksum in profiles/ID.conf. |
+| `check-all` | — | Add/update checksum:MD5 in all files from unpacker. |
+| `check-clear` | `[<id>]` | Clear checksum:MD5 from all files or one profile. |
 | `help`, `-h`, `--help` | — | Print CLI usage. |
 | *(positional)* | `<id>` | Single number = build profile with that index. |
 
@@ -84,9 +87,26 @@ Main Menu
   ├─ [K]          Menuconfig (Source Builder only)
   ├─ [C]          Cleanup Wizard (cache, volumes, full reset)
   ├─ [W]          Create new profile wizard  →  system/create_profile.sh / .ps1  (exit: 0, same as main menu)
-  ├─ [I]          Import .ipk packages       →  system/import_ipk.sh / .ps1
+  ├─ [I]          Import .ipk/.apk packages  →  system/import_ipk.sh / .ps1 (APK support since v4.50)
+  ├─ [F]          Open profile's custom_files folder (quick access)
+  ├─ [P]          Open profile's custom_packages folder (quick access)
   └─ [0]          Quit
 ```
+
+### Profile Indicator System `[F P S M H X | OI OS]`
+
+The main menu displays a "surgical" resource panel for instant profile assessment:
+
+| Indicator | Description |
+|-----------|-------------|
+| **F** (Files) | File overlay present (`custom_files/%ID%/`). Contains configs and files to be placed in router's root. |
+| **P** (Packages) | Third-party `.ipk` or `.apk` packages found in `custom_packages/%ID%/` for import. |
+| **S** (Source) | Source code packages present (`src_packages/%ID%/`). |
+| **M** (Manual Config) | Active `manual_config` file detected — saved result from Menuconfig session. |
+| **H** (Hooks) | Automation script `hooks.sh` detected in `custom_files/%ID%/`. |
+| **X** (Patches) | Source code patches detected (`custom_patches/%ID%/`). |
+| **OI** | Image Builder firmware present (`firmware_output/imagebuilder/%ID%/`). |
+| **OS** | Source Builder firmware present (`firmware_output/sourcebuilder/%ID%/`). |
 
 ---
 

@@ -7,7 +7,7 @@
 
 # routerFW — Диаграммы процессов
 
-> Версия 4.45. Набор диаграмм (русская страница).
+> Версия 4.50. Набор диаграмм (русская страница).
 >
 > Текст: [ARCHITECTURE_ru.md](ARCHITECTURE_ru.md) · EN diagrams: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md)
 
@@ -84,6 +84,12 @@ flowchart TD
     CHOICE --> |C| CLEAN_WIZ[Cleanup Wizard\nсм. диаграмму 4]
     CLEAN_WIZ --> MENU
 
+    CHOICE --> |F| F_RUN[Открыть папку custom_files/<id>\nпроводник / файловый менеджер]
+    F_RUN --> MENU
+
+    CHOICE --> |P| P_RUN[Открыть папку custom_packages/<id>\nпроводник / файловый менеджер]
+    P_RUN --> MENU
+
     CHOICE --> |1..N верный| BUILD[build_routine\nпрофиль N\nсм. диаграмму 3]
     BUILD --> MENU
 
@@ -110,7 +116,7 @@ flowchart TD
 | `build-all` | `a`, `all` | — | Массовая сборка (режим: префикс ib/src или по умолчанию IB) |
 | `edit` | `e` | [id] | Редактор профиля (без id — интерактивный выбор по списку) |
 | `menuconfig` | `k` | \<id\> | Menuconfig (только SOURCE) |
-| `import` | `i` | \<id\> | Импорт IPK/APK (только SOURCE) |
+| `import` | `i` | \<id\> | Импорт IPK/APK (только SOURCE, поддержка APK с v4.50) |
 | `wizard` | `w` | — | Мастер создания профиля |
 | `clean` | `c` | [тип] [цель] | Очистка: тип 1–6 (SRC) или 1–3 (IMG), 9=prune; цель — номер или A |
 | `state` | `s` | — | Таблица профилей с флагами (F,P,S,M,H,X,OI,OS) |
@@ -123,7 +129,7 @@ flowchart TD
 
 **Позиционный вызов:** `_Builder.bat 2` трактуется как `build 2` (режим по умолчанию — IB). Регистр команд не учитывается.
 
-**Примеры:** `_Builder.bat build 1`, `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build-all`, `_Builder.bat clean 2 3`, `_Builder.bat --help`
+**Примеры:** `_Builder.bat build 1`, `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build-all`, `_Builder.bat clean 2 3`, `_Builder.bat check 1`, `_Builder.bat check-all`, `_Builder.bat --help`
 
 **Тестовые оболочки CLI:** `tester.bat` / `tester.sh` запускают билдеры с аргументами и проверяют коды выхода и вывод; только безопасные проверки (без сборок, очистки и menuconfig). Логи в `.gitignore`.
 
