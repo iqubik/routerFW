@@ -84,10 +84,10 @@ flowchart TD
     CHOICE --> |C| CLEAN_WIZ[Cleanup Wizard\nсм. диаграмму 4]
     CLEAN_WIZ --> MENU
 
-    CHOICE --> |F| F_RUN[Открыть папку custom_files/<id>\nпроводник / файловый менеджер]
+    CHOICE --> |F| F_RUN[Check All\nобновить checksum:MD5 во всех файлах unpacker]
     F_RUN --> MENU
 
-    CHOICE --> |P| P_RUN[Открыть папку custom_packages/<id>\nпроводник / файловый менеджер]
+    CHOICE --> |P| P_RUN[Вызвать _packer.bat / _packer.sh\nупаковка ресурсов]
     P_RUN --> MENU
 
     CHOICE --> |1..N верный| BUILD[build_routine\nпрофиль N\nсм. диаграмму 3]

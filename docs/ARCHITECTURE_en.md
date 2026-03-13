@@ -82,14 +82,14 @@ START
 Main Menu
   ├─ [number]     Build selected profile
   ├─ [M]          Switch build mode: IMAGE ↔ SOURCE
-  ├─ [E]          Edit profile in $EDITOR
+  ├─ [E]          Editor: open profile folder and profile in $EDITOR
   ├─ [A]          Parallel build ALL profiles (Linux only, background jobs + spinner)
   ├─ [K]          Menuconfig (Source Builder only)
   ├─ [C]          Cleanup Wizard (cache, volumes, full reset)
   ├─ [W]          Create new profile wizard  →  system/create_profile.sh / .ps1  (exit: 0, same as main menu)
   ├─ [I]          Import .ipk/.apk packages  →  system/import_ipk.sh / .ps1 (APK support since v4.50)
-  ├─ [F]          Open profile's custom_files folder (quick access)
-  ├─ [P]          Open profile's custom_packages folder (quick access)
+  ├─ [F]          Check All — update checksum:MD5 in all unpacker files
+  ├─ [P]          Run _packer.bat / _packer.sh (resource packaging)
   └─ [0]          Quit
 ```
 
