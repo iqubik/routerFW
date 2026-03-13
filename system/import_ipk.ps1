@@ -1,4 +1,4 @@
-# file : system/import_ipk.ps1
+﻿# file : system/import_ipk.ps1
 # Скрипт импорта IPK/APK (APK support)
 
 param (
@@ -386,8 +386,7 @@ $(eval $(call BuildPackage,$(PKG_NAME)))
     $makefileContent = $makefileContent.Replace('{{DEPENDS_LINE}}', $dependLine)
     $makefileContent = $makefileContent.Replace('{{INSTALL_BLOCK}}', $installBlock)
     $makefileContent = $makefileContent.Replace('{{POSTINST_BLOCK}}', $postinstBlock)
-    $makefileContent = $makefileContent.Replace('{{PRERM_BLOCK}}', $prermBlock)
-    # Теперь добавляем динамический комментарий в начало $makefileContent
+    $makefileContent = $makefileContent.Replace('{{PRERM_BLOCK}}', $prermBlock)    
     $makefileContent = "$generatedDynamicComment`n`n" + $makefileContent
 
     # Сохраняем файл с принудительными Unix-окончаниями строк (LF)
@@ -406,4 +405,4 @@ Write-Host "==========================================================" -Foregro
 Write-Host "  DONE: $importedCount packages imported." -ForegroundColor Cyan
 if ($ProfileID) { Write-Host "  Location: $outDir" -ForegroundColor Gray }
 Write-Host "==========================================================`n"
-# checksum:MD5=57ab8579e4fb56e79ac797d751dc5b8e
+# checksum:MD5=f377799995641f049d7946c18f05a50c
