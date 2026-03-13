@@ -82,39 +82,46 @@ foreach ($ipk in $ipkFiles) {
             # Если команда не вернула вывод, считаем это ошибкой
             if (-not $adbdumpOutputString) { throw "Docker command returned no output." }
 
-            # Regex для извлечения основных полей
-            $pkgName = if ($adbdumpOutputString -match '(?m)^\s*name:\s*(.*)$') { $matches[1].Trim() } else { "" }
-            $pkgVersion = if ($adbdumpOutputString -match '(?m)^\s*version:\s*(.*)$') { $matches[1].Trim() } else { "" }
-            $pkgArch = if ($adbdumpOutputString -match '(?m)^\s*arch:\s*(.*)$') { $matches[1].Trim() } else { "" }
+#START
+            # Парсинг вывода Docker (строгий построчный алгоритм, аналог awk в bash)
+            $pkgName = ""; $pkgVersion = ""; $pkgArch = ""
+            $postinstLines = @(); $prermLines = @(); $depsList = @()
+            $inDeps = $false; $inPostinst = $false; $inPrerm = $false
 
-            # Regex для зависимостей (строгий, между 'depends:' и 'provides:')
-            $depsBlockMatch = [regex]::Match($adbdumpOutputString, '(?ms)depends:(.*?)provides:')
-            if ($depsBlockMatch.Success) {
-                $depsBlock = $depsBlockMatch.Groups[1].Value
-                $depsMatches = [regex]::Matches($depsBlock, '-\s+(.*)')
-                if ($depsMatches) {
-                    $depsList = $depsMatches.Value | ForEach-Object { $_.Substring(1).Trim() }
+            foreach ($line in ($adbdumpOutputString -split '\r?\n')) {
+                # Основные поля
+                if ($line -match "^  name:\s*(.*)$") { $pkgName = $matches[1].Trim(); continue }
+                if ($line -match "^  version:\s*(.*)$") { $pkgVersion = $matches[1].Trim(); continue }
+                if ($line -match "^  arch:\s*(.*)$") { $pkgArch = $matches[1].Trim(); continue }
+
+                # Определение начала многострочных блоков
+                if ($line -match "^  depends:") { $inDeps = $true; $inPostinst = $false; $inPrerm = $false; continue }
+                if ($line -match "^  post-install:\s*\|") { $inPostinst = $true; $inDeps = $false; $inPrerm = $false; continue }
+                if ($line -match "^  pre-deinstall:\s*\|") { $inPrerm = $true; $inDeps = $false; $inPostinst = $false; continue }
+
+                # Выход из блоков при встрече нового ключа или комментария
+                if ($line -match "^  [a-z]" -or $line -match "^#") {
+                    $inDeps = $false; $inPostinst = $false; $inPrerm = $false
                 }
-            } else {
-                $depsList = @()
+
+                # Сбор данных внутри блоков
+                if ($inDeps) {
+                    if ($line -match "^    -\s+(.*)$") { $depsList += $matches[1].Trim() }
+                }
+                elseif ($inPostinst) {
+                    if ($line -match "^ {4}(.*)$") { $postinstLines += $matches[1] }
+                    elseif ([string]::IsNullOrWhiteSpace($line)) { $postinstLines += "" }
+                }
+                elseif ($inPrerm) {
+                    if ($line -match "^ {4}(.*)$") { $prermLines += $matches[1] }
+                    elseif ([string]::IsNullOrWhiteSpace($line)) { $prermLines += "" }
+                }
             }
 
-            # Regex для post-install скрипта
-            $postinstMatch = [regex]::Match($adbdumpOutputString, '(?ms)post-install:\s*\|(.*?)(?=\n\s*[a-zA-Z\-]+:\s*\||\n#|$)')
-            if ($postinstMatch.Success) {
-                # Убираем отступы в 4 пробела с каждой строки
-                $postinst = ($postinstMatch.Groups[1].Value -split '\n' | ForEach-Object { if ($_.Length -gt 4) { $_.Substring(4) } else { $_.TrimStart() } } | Out-String).Trim()
-            } else {
-                $postinst = ""
-            }
-            Write-Host "    [+] Metadata extracted successfully via Docker." -ForegroundColor Green
-            # Regex для pre-deinstall (аналог prerm)
-            $prermMatch = [regex]::Match($adbdumpOutputString, '(?ms)pre-deinstall:\s*\|(.*?)(?=\n\s*[a-zA-Z\-]+:\s*\||\n#|$)')
-            if ($prermMatch.Success) {
-                $prerm = ($prermMatch.Groups[1].Value -split '\n' | ForEach-Object { if ($_.Length -gt 4) { $_.Substring(4) } else { $_.TrimStart() } } | Out-String).Trim()
-            } else {
-                $prerm = ""
-            }
+            $postinst = ($postinstLines -join "`n").Trim()
+            $prerm = ($prermLines -join "`n").Trim()
+            Write-Host "[+] Metadata extracted successfully via Docker." -ForegroundColor Green
+# END            
         } catch {
             Write-Host "    [!] Docker command failed. Error: $($_.Exception.Message.Split([Environment]::NewLine)[0])" -ForegroundColor Red
             $pkgName = $null # Позволяем сработать фоллбеку (старому методу)
@@ -217,13 +224,13 @@ foreach ($ipk in $ipkFiles) {
 
     # 6. Обработка управляющих скриптов (Очистка и экранирование для Makefile)
     $cleanPostinst = ""
-    if ($postinst) {
+    if (-not [string]::IsNullOrWhiteSpace($postinst)) {
         $cleanPostinst = ($postinst -replace '(?m)^#!/.+$', '').Trim()
         $cleanPostinst = $cleanPostinst -replace '\$', '$$$$'
     }
 
     $cleanPrerm = ""
-    if ($prerm) {
+    if (-not [string]::IsNullOrWhiteSpace($prerm)) {
         $cleanPrerm = ($prerm -replace '(?m)^#!/.+$', '').Trim()
         $cleanPrerm = $cleanPrerm -replace '\$', '$$$$'
     }
