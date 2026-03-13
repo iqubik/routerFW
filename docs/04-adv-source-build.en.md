@@ -134,4 +134,18 @@ How to build firmware using a complex `defconfig` from a third-party developer:
     `firmware_output\sourcebuilder\%ID%\manual_config`
 4.  **Expand**: Run **Menuconfig** again. The system detects the minimalist file (e.g., 11KB) and **automatically expands it** into a full `.config` (~400KB), resolving all dependencies.
 5.  **Finalize**: Upon exit, select **Y** to update the profile. The Builder will compress the settings back into a clean diff and save them into your `.conf`.
-# checksum:MD5=9b2e4c6742dbe358dc18a37964e258c9
+
+
+   * package/<имя_пакета>/compile: Это цель make, которая указывает системе сборки OpenWrt скомпилировать конкретный пакет. Замените <имя_пакета> на фактическое имя директории пакета в openwrt/buildroot/package/.
+   * V=s: Этот флаг делает вывод сборки более подробным (verbose), что очень полезно для отладки, если что-то пойдет не так.
+
+  Пример:
+
+  Если вы хотите пересобрать пакет luci-app-samba4, команда будет такой:
+
+
+   make package/luci-app-samba4/compile V=s
+
+  Если вы просто хотите собрать пакет, а не пересобирать, и он ещё не был собран, можно использовать:
+
+   make package/<имя_пакета>/install V=s
