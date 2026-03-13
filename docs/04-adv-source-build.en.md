@@ -157,4 +157,4 @@ If you just want to clean cache of package, you can use:
 ```bash
 make package/<package_name>/clean V=s
 ```
-# checksum:MD5=3284f7f66cdcc3d7d7f9522679a7c4ed
+# checksum:MD5=8281b3f4fa003ca4624cf6bb9dc7cb41

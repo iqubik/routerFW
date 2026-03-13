@@ -174,4 +174,4 @@
    ```bash
    make package/<имя_пакета>/clean V=s
    ```
-# checksum:MD5=17a98c4773014462dfda608f20f9ed9f
+# checksum:MD5=36cd15dd0e57977588276c51f34443ba
