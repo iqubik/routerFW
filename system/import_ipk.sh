@@ -257,7 +257,9 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
     if [ -n "$(echo "$POSTINST_CONTENT" | tr -d '[:space:]')" ]; then
         # Удаляем только шебанги и экранируем $ для Makefile. Всю логику переносим 1:1.
         CLEAN_POSTINST=$(echo "$POSTINST_CONTENT" | sed '/^#!/d' | sed 's/\$/$$/g')
-        
+        # ИЗМЕНЕНИЕ: Добавляем два переноса строки после default_postinst $$0 $$@ по запросу пользователя
+        CLEAN_POSTINST=$(echo "$CLEAN_POSTINST" | sed 's|default_postinst $$0 $$@|&\n\n|')
+
         read -r -d '' POSTINST_BLOCK << EOP
 define Package/\$(PKG_NAME)/postinst
 #!/bin/sh
@@ -282,6 +284,7 @@ EOP
 define Package/\$(PKG_NAME)/prerm
 #!/bin/sh
 $CLEAN_PRERM
+exit 0
 endef
 EOP
     fi

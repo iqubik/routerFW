@@ -268,7 +268,6 @@ foreach ($ipk in $ipkFiles) {
 define Package/`$(PKG_NAME)/postinst
 #!/bin/sh
 $cleanPostinst
-exit 0
 endef
 "@
     } else {
