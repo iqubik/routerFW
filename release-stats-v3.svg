@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 100" width="100%" height="100">
+<style>.st-card{ opacity:0; animation:stPop 0.35s ease forwards; } @keyframes stPop{ to{ opacity:1; } } .st-bar{ transform-origin:bottom; transform:scaleY(0); animation:stBar 0.4s ease forwards; } @keyframes stBar{ to{ transform:scaleY(1); } }</style>
+<rect width="800" height="100" fill="#f6f8fa" rx="8"/>
+<rect class="st-card" x="12" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0s"/>
+<g class="st-card" style="animation-delay:0.05s">
+<text x="20" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">36</text>
+<text x="20" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Releases</text>
+<rect class="st-bar" x="20" y="52" width="12" height="12" rx="1" fill="#0969da" style="animation-delay:0.2s"><animate attributeName="y" values="52;51;52" dur="4s" repeatCount="indefinite" begin="0.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="34" y="56" width="12" height="8" rx="1" fill="#0969da" style="animation-delay:0.23s"><animate attributeName="y" values="56;55;56" dur="4s" repeatCount="indefinite" begin="0.9s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="48" y="44" width="12" height="20" rx="1" fill="#0969da" style="animation-delay:0.26s"><animate attributeName="y" values="44;43;44" dur="4s" repeatCount="indefinite" begin="1.3s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="62" y="52" width="12" height="12" rx="1" fill="#0969da" style="animation-delay:0.29s"><animate attributeName="y" values="52;51;52" dur="4s" repeatCount="indefinite" begin="1.7s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="76" y="59" width="12" height="5" rx="1" fill="#0969da" style="animation-delay:0.32s"><animate attributeName="y" values="59;58;59" dur="4s" repeatCount="indefinite" begin="2.1s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="90" y="63" width="12" height="1" rx="1" fill="#0969da" style="animation-delay:0.35s"><animate attributeName="y" values="63;62;63" dur="4s" repeatCount="indefinite" begin="2.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="104" y="59" width="12" height="5" rx="1" fill="#0969da" style="animation-delay:0.38s"><animate attributeName="y" values="59;58;59" dur="4s" repeatCount="indefinite" begin="2.9s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="118" y="62" width="12" height="2" rx="1" fill="#0969da" style="animation-delay:0.41s"><animate attributeName="y" values="62;61;62" dur="4s" repeatCount="indefinite" begin="3.3s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="132" y="54" width="12" height="10" rx="1" fill="#0969da" style="animation-delay:0.44s"><animate attributeName="y" values="54;53;54" dur="4s" repeatCount="indefinite" begin="3.7s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="146" y="54" width="12" height="10" rx="1" fill="#0969da" style="animation-delay:0.47s"><animate attributeName="y" values="54;53;54" dur="4s" repeatCount="indefinite" begin="4.1s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="160" y="62" width="12" height="2" rx="1" fill="#0969da" style="animation-delay:0.5s"><animate attributeName="y" values="62;61;62" dur="4s" repeatCount="indefinite" begin="4.5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="174" y="62" width="12" height="2" rx="1" fill="#0969da" style="animation-delay:0.53s"><animate attributeName="y" values="62;61;62" dur="4s" repeatCount="indefinite" begin="4.9s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<text x="103" y="78" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">by week</text>
+</g>
+<rect class="st-card" x="210" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.04s"/>
+<g class="st-card" style="animation-delay:0.08s">
+<text x="218" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">724</text>
+<text x="218" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Changelog items</text>
+<rect class="st-bar" x="218" y="54" width="12" height="10" rx="1" fill="#1a7f37" style="animation-delay:0.25s"><animate attributeName="y" values="54;53;54" dur="4s" repeatCount="indefinite" begin="0.6s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="232" y="56" width="12" height="8" rx="1" fill="#1a7f37" style="animation-delay:0.28s"><animate attributeName="y" values="56;55;56" dur="4s" repeatCount="indefinite" begin="1s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="246" y="44" width="12" height="20" rx="1" fill="#1a7f37" style="animation-delay:0.31s"><animate attributeName="y" values="44;43;44" dur="4s" repeatCount="indefinite" begin="1.4s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="260" y="47" width="12" height="17" rx="1" fill="#1a7f37" style="animation-delay:0.34s"><animate attributeName="y" values="47;46;47" dur="4s" repeatCount="indefinite" begin="1.8s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="274" y="57" width="12" height="7" rx="1" fill="#1a7f37" style="animation-delay:0.37s"><animate attributeName="y" values="57;56;57" dur="4s" repeatCount="indefinite" begin="2.2s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="288" y="63" width="12" height="1" rx="1" fill="#1a7f37" style="animation-delay:0.4s"><animate attributeName="y" values="63;62;63" dur="4s" repeatCount="indefinite" begin="2.6s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="302" y="55" width="12" height="9" rx="1" fill="#1a7f37" style="animation-delay:0.43s"><animate attributeName="y" values="55;54;55" dur="4s" repeatCount="indefinite" begin="3s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="316" y="60" width="12" height="4" rx="1" fill="#1a7f37" style="animation-delay:0.46s"><animate attributeName="y" values="60;59;60" dur="4s" repeatCount="indefinite" begin="3.4s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="330" y="50" width="12" height="14" rx="1" fill="#1a7f37" style="animation-delay:0.49s"><animate attributeName="y" values="50;49;50" dur="4s" repeatCount="indefinite" begin="3.8s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="344" y="50" width="12" height="14" rx="1" fill="#1a7f37" style="animation-delay:0.52s"><animate attributeName="y" values="50;49;50" dur="4s" repeatCount="indefinite" begin="4.2s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="358" y="60" width="12" height="4" rx="1" fill="#1a7f37" style="animation-delay:0.55s"><animate attributeName="y" values="60;59;60" dur="4s" repeatCount="indefinite" begin="4.6s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<rect class="st-bar" x="372" y="61" width="12" height="3" rx="1" fill="#1a7f37" style="animation-delay:0.58s"><animate attributeName="y" values="61;60;61" dur="4s" repeatCount="indefinite" begin="5s" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/></rect>
+<text x="301" y="78" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">items per week</text>
+</g>
+<rect class="st-card" x="408" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.08s"/>
+<g class="st-card" style="animation-delay:0.12s">
+<text x="499" y="26" fill="#1f2328" font-size="11" font-weight="600" text-anchor="middle" font-family="system-ui,sans-serif">Dec 2025 — Mar 2026</text>
+<text x="499" y="38" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif">Period</text>
+<text x="499" y="56" fill="#656d76" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif">12 w · 77 d</text>
+</g>
+<rect class="st-card" x="606" y="12" width="182" height="76" rx="6" fill="#ffffff" stroke="#d0d7de" stroke-width="1" style="animation-delay:0.12s"/>
+<g class="st-card" style="animation-delay:0.15s">
+<text x="614" y="26" fill="#1f2328" font-size="16" font-weight="600" font-family="system-ui,sans-serif">~3/wk</text>
+<text x="614" y="38" fill="#656d76" font-size="9" font-family="system-ui,sans-serif">Pace</text>
+<text x="697" y="49" fill="#656d76" font-size="8" text-anchor="middle" font-family="system-ui,sans-serif">Largest</text>
+<text x="697" y="61" fill="#1f2328" font-size="10" font-weight="600" text-anchor="middle" font-family="system-ui,sans-serif">3.9 (46)</text>
+</g>
+</svg>
