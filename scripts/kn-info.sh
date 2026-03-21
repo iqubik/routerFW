@@ -54,7 +54,7 @@ case "$MODEL_RAW" in
 esac
 
 # Формирование имени
-if [ -n "$VENDOR_DETECTED" ] &&[ "$VENDOR_DETECTED" != "Keenetic" ]; then
+if [ -n "$VENDOR_DETECTED" ] && [ "$VENDOR_DETECTED" != "Keenetic" ]; then
     case "$MODEL_RAW" in
         *"$VENDOR_DETECTED"*) MODEL_DISPLAY="$MODEL_RAW" ;;
         *) MODEL_DISPLAY="$VENDOR_DETECTED $MODEL_RAW" ;;
@@ -80,16 +80,32 @@ get_radio_temp() {
     ' | grep -o '[0-9]*' | head -n1
 }
 
+# Функция для многоцветной раскраски температуры
+color_temp() {
+    local t=$1
+    if [ "$t" -lt 55 ]; then
+        printf "%s%s°C%s" "$C_CYAN" "$t" "$C_RESET"
+    elif [ "$t" -lt 70 ]; then
+        printf "%s%s°C%s" "$C_GREEN" "$t" "$C_RESET"
+    elif [ "$t" -lt 85 ]; then
+        printf "%s%s°C%s" "$C_YELLOW" "$t" "$C_RESET"
+    else
+        printf "%s%s°C%s" "$C_RED" "$t" "$C_RESET"
+    fi
+}
+
 get_temperatures() {
     temp_2=$(get_radio_temp WifiMaster0)
     temp_5=$(get_radio_temp WifiMaster1)
     cpu_str=""
     wifi_str=""
 
+    # Получение температуры CPU для aarch64
     if [ "$ARCH" = "aarch64" ]; then
         temp_cpu_raw=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp 2>/dev/null | tr -d -c '0-9')
         if [ -n "$temp_cpu_raw" ]; then
-            cpu_str="CPU: $((temp_cpu_raw / 1000))°C"
+            cpu_val=$((temp_cpu_raw / 1000))
+            cpu_str="CPU: $(color_temp "$cpu_val")"
         fi
     fi
 
@@ -98,18 +114,20 @@ get_temperatures() {
         return
     fi
 
+    # Проверка температуры 5GHz и формирование строки Wi-Fi
     if echo "$temp_5" | grep -qE '^[0-9]+$'; then
         diff=$((temp_5 - temp_2))
         [ $diff -lt 0 ] && diff=$((-diff))
         if [ $diff -lt 3 ]; then
-            wifi_str="Wi-Fi: ${temp_5}°C"
+            wifi_str="Wi-Fi: $(color_temp "$temp_5")"
         else
-            wifi_str="2.4GHz: ${temp_2}°C | 5GHz: ${temp_5}°C"
+            wifi_str="2.4GHz: $(color_temp "$temp_2") | 5GHz: $(color_temp "$temp_5")"
         fi
     else
-        wifi_str="2.4GHz: ${temp_2}°C"
+        wifi_str="2.4GHz: $(color_temp "$temp_2")"
     fi
 
+    # Сборка итоговой строки (CPU + Wi-Fi)
     [ -n "$cpu_str" ] && wifi_str="$wifi_str | $cpu_str"
     echo " | $wifi_str"
 }
@@ -128,7 +146,8 @@ get_cpu_model() {
     if [ "$ARCH" = "mips" ]; then
         grep 'system type' /proc/cpuinfo | head -1 | cut -d: -f2 | xargs
     elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm" ]; then
-        info=$(grep 'Hardware' /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)[ -z "$info" ] && info=$(grep 'model name' /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+        info=$(grep 'Hardware' /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+        [ -z "$info" ] && info=$(grep 'model name' /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
         echo "$info"
     else
         echo "Unknown"
@@ -191,7 +210,7 @@ get_opkg_storage() {
     if [ -n "$storage_block" ]; then
         free=$(echo "$storage_block" | grep '"free":' | head -1 | grep -o '[0-9]\+')
         total=$(echo "$storage_block" | grep '"total":' | head -1 | grep -o '[0-9]\+')
-        if [ -n "$free" ] &&[ -n "$total" ]; then
+        if [ -n "$free" ] && [ -n "$total" ]; then
             used=$((total - free))
             echo "$(format_size $used $total)"
             return
@@ -346,7 +365,7 @@ echo -e "   Память:      ${C_WHITE}${MEM_USED} MB${C_RESET} / ${MEM_TOTAL}
 
 echo -e "\n${C_GREEN}⚙️  Система:${C_RESET}"
 echo -e "   Версия ПО:   ${C_WHITE}${TITLE}${C_RESET} (${RELEASE})${BOOT_SLOT_STR}"
-echo -e "   Канал:       ${SANDBOX}"
+[ -z "$PORT_FLAG" ] && echo -e "   Канал:       ${SANDBOX}"
 echo -e "   Дата сборки: ${BUILD_DATE}"
 [ -n "$OPKG_INFO" ] && echo -e "   OPKG:        ${OPKG_INFO}"
 echo -e "   Uptime:      ${UPTIME_STR}"
