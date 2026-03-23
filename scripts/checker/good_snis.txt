@@ -27,13 +27,13 @@ reddit.com
 userapi.com
 wikipedia.org
 yahoo.com
+yandex.tr
 
 # ====== HTTP 302 ======
 ign.com
 kinsta.cloud
 vk.com
 vkvideo.ru
-yandex.tr
 
 # ====== HTTP 307 ======
 ozon.ru

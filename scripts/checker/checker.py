@@ -12,7 +12,7 @@ GOOD_FILE = "good_snis.txt"
 BAD_FILE = "bad_snis.txt"
 UNSTABLE_FILE = "unstable_snis.txt"
 
-CHECKS_PER_DOMAIN = 10      # Сколько раз проверяем
+CHECKS_PER_DOMAIN = 5      # Сколько раз проверяем
 DELAY_BETWEEN_CHECKS = 0.5  # Пауза (сек) между стартами параллельных проверок (200мс)
 CURL_TIMEOUT = 5            # Таймаут (сек)
 MAX_THREADS = 15            # Количество одновременных доменов
