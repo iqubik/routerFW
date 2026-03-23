@@ -160,7 +160,7 @@ def main():
             
             # Пишем Идеальные домены ТОЛЬКО если они есть
             if good_list:
-                good_list.sort(key=lambda x: x[1])
+                good_list.sort(key=lambda x: (x[1], x[0]))
                 with open(GOOD_FILE, 'w', encoding='utf-8') as f:
                     current_code = ""
                     for dom, code in good_list:
@@ -171,12 +171,14 @@ def main():
                         
             # Пишем Плавающие ТОЛЬКО если они есть
             if unstable_list:
+                unstable_list.sort(key=lambda x: (x[1], x[0]))
                 with open(UNSTABLE_FILE, 'w', encoding='utf-8') as f:
                     for dom in unstable_list:
                         f.write(dom + '\n')
                         
             # Пишем Мертвые ТОЛЬКО если они есть
             if bad_list:
+                bad_list.sort(key=lambda x: (x[1], x[0]))
                 with open(BAD_FILE, 'w', encoding='utf-8') as f:
                     for dom in bad_list:
                         f.write(dom + '\n')

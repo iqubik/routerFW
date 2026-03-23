@@ -1,50 +1,48 @@
 
 # ====== HTTP 200 ======
-copostly.com
-ok.ru
-corp.mishsoft.ru
-mslvrkvsk.online
-github.com
-spgraph.io
 1c.ru
-rolabs.net
 a.mts.ru
+adminmo.ficarricos.cc
+ar2023.magnit.com
+copostly.com
+corp.mishsoft.ru
 faq9.ru
+github.com
 images.apple.com
-rutube.ru
-miro.com
-www.cloudflare.com
 livingpatterngrid.com
 max.ru
-ar2023.magnit.com
-adminmo.ficarricos.cc
+miro.com
+mslvrkvsk.online
+ok.ru
+rolabs.net
+rutube.ru
+spgraph.io
+www.cloudflare.com
 
 # ====== HTTP 301 ======
-wikipedia.org
-gannett.com
+avito.ru
 cloudflare.com
+gannett.com
 reddit.com
 userapi.com
-yandex.tr
-avito.ru
+wikipedia.org
+yahoo.com
 
 # ====== HTTP 302 ======
-kinsta.cloud
 ign.com
+kinsta.cloud
 vk.com
 vkvideo.ru
+yandex.tr
 
 # ====== HTTP 307 ======
 ozon.ru
 
 # ====== HTTP 403 ======
-travel.yandex.ru
-ya.ru
 kinopoisk.ru
 lumen.yandex.ru
-
-# ====== HTTP 404 ======
-yahoo.com
+travel.yandex.ru
+ya.ru
 
 # ====== HTTP 429 ======
 www.yahoo.com
