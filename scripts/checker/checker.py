@@ -30,7 +30,7 @@ def check_domain(domain):
     url = f"https://{domain}" if not domain.startswith("http") else domain
     clean_domain = domain.split("//")[-1].split("/")[0] if "://" in domain else domain
     
-    results_list =["000"] * CHECKS_PER_DOMAIN
+    results_list = ["000"] * CHECKS_PER_DOMAIN
 
     # Функция для одного микро-запроса (будет работать в своем потоке)
     def _single_curl(delay, idx):
@@ -51,7 +51,7 @@ def check_domain(domain):
     # Запускаем CHECKS_PER_DOMAIN потоков для ОДНОГО домена
     inner_threads =[]
     for i in range(CHECKS_PER_DOMAIN):
-        # i * DELAY_BETWEEN_CHECKS даст нам лесенку: 0.0, 0.2, 0.4, 0.6...
+        # Лесенка: 0.0, 0.2, 0.4, 0.6...
         t = threading.Thread(target=_single_curl, args=(i * DELAY_BETWEEN_CHECKS, i))
         t.start()
         inner_threads.append(t)
@@ -104,14 +104,24 @@ def main():
         return
         
     with open(INPUT_FILE, 'r', encoding='utf-8') as f:
-        domains =[line.strip() for line in f if line.strip()]
+        # Читаем все домены
+        raw_domains =[line.strip() for line in f if line.strip()]
+        
+    # === ИСПРАВЛЕНИЕ 1: Удаляем дубликаты ===
+    domains = list(set(raw_domains))
         
     total_count = len(domains)
     if total_count == 0:
         print("❌ Файл с доменами пуст!")
         return
 
+    # === ИСПРАВЛЕНИЕ 2: Удаляем старые файлы перед началом ===
+    for file in [GOOD_FILE, BAD_FILE, UNSTABLE_FILE]:
+        if os.path.exists(file):
+            os.remove(file)
+
     print(f"🔍 Запуск проверки в {MAX_THREADS} потоков (внутри каждого еще по {CHECKS_PER_DOMAIN} микро-потоков)...")
+    print(f"ℹ️  Уникальных доменов для проверки: {total_count} (дубликаты удалены)")
     print("=" * 70)
     
     sys.stdout.write("\033[?25l")
@@ -120,7 +130,7 @@ def main():
 
     # Списки для накопления результатов
     good_list = []
-    bad_list = []
+    bad_list =[]
     unstable_list =[]
 
     try:
@@ -148,34 +158,37 @@ def main():
             
             # === ФИНАЛЬНАЯ ЗАПИСЬ И СОРТИРОВКА ===
             
-            # Сортируем успешные домены по HTTP коду (200, 301, 302, 403...)
-            good_list.sort(key=lambda x: x[1])
-            
-            # Записываем Идеальные домены
-            with open(GOOD_FILE, 'w', encoding='utf-8') as f:
-                current_code = ""
-                for dom, code in good_list:
-                    # Добавляем красивый комментарий-разделитель в файл
-                    if code != current_code:
-                        f.write(f"\n# ====== HTTP {code} ======\n")
-                        current_code = code
-                    f.write(f"{dom}\n")
-                    
-            # Записываем Плавающие
-            with open(UNSTABLE_FILE, 'w', encoding='utf-8') as f:
-                for dom in unstable_list:
-                    f.write(dom + '\n')
-                    
-            # Записываем Мертвые
-            with open(BAD_FILE, 'w', encoding='utf-8') as f:
-                for dom in bad_list:
-                    f.write(dom + '\n')
+            # Пишем Идеальные домены ТОЛЬКО если они есть
+            if good_list:
+                good_list.sort(key=lambda x: x[1])
+                with open(GOOD_FILE, 'w', encoding='utf-8') as f:
+                    current_code = ""
+                    for dom, code in good_list:
+                        if code != current_code:
+                            f.write(f"\n# ====== HTTP {code} ======\n")
+                            current_code = code
+                        f.write(f"{dom}\n")
+                        
+            # Пишем Плавающие ТОЛЬКО если они есть
+            if unstable_list:
+                with open(UNSTABLE_FILE, 'w', encoding='utf-8') as f:
+                    for dom in unstable_list:
+                        f.write(dom + '\n')
+                        
+            # Пишем Мертвые ТОЛЬКО если они есть
+            if bad_list:
+                with open(BAD_FILE, 'w', encoding='utf-8') as f:
+                    for dom in bad_list:
+                        f.write(dom + '\n')
 
-            print("✅ Проверка и сортировка завершены!")
-            print(f"🟢 Идеальные: {GOOD_FILE} (Отсортированы по HTTP-коду)")
-            print(f"🟡 Плавающие: {UNSTABLE_FILE}")
-            print(f"🔴 Мертвые:   {BAD_FILE}")
-            
+            print("✅ Проверка завершена!")
+            if good_list:
+                print(f"🟢 Идеальные: {GOOD_FILE} (Отсортированы по HTTP-коду)")
+            if unstable_list:
+                print(f"🟡 Плавающие: {UNSTABLE_FILE}")
+            if bad_list:
+                print(f"🔴 Мертвые:   {BAD_FILE}")
+                
             # Включаем отображение курсора обратно
             sys.stdout.write("\033[?25h")
             sys.stdout.flush()
