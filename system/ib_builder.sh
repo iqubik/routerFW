@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.8
+# file: system/ib_builder.sh v1.9
 set -e
 
 # Цвета для логов
@@ -79,7 +79,7 @@ else
 fi
 
 # Проверка, что распаковка прошла успешно (поддержка opkg и apk)
-[ -f "repositories.conf" ] || [ -f "repositories" ] ||[ -f "Makefile" ] || error "Extraction failed: Build root not found!"
+[ -f "repositories.conf" ] || [ -f "repositories" ] || [ -f "Makefile" ] || error "Extraction failed: Build root not found!"
 
 # --- 3. ПОДГОТОВКА ОКРУЖЕНИЯ ---
 if [ -f /openssl.cnf ]; then
@@ -89,8 +89,63 @@ if [ -f /openssl.cnf ]; then
 fi
 
 if [ -d /input_packages ]; then
+    log "Processing input packages..."
+    # КРИТИЧНО: Гарантируем наличие папки перед копированием
+    mkdir -p packages/
+    # Удаляем stale локальные пакеты от прошлых запусков
+    rm -f packages/*.apk packages/*.ipk 2>/dev/null || true
+
+    # Копируем IPK (старый формат)
     cp /input_packages/*.ipk packages/ 2>/dev/null || true
-    cp /input_packages/*.apk packages/ 2>/dev/null || true
+
+    # Обработка APK (новый формат)
+    if ls /input_packages/*.apk 1>/dev/null 2>&1; then
+        apk_count=$(ls /input_packages/*.apk 2>/dev/null | wc -l)
+        log "Found $apk_count APK file(s). Copying to packages/..."
+        cp /input_packages/*.apk packages/ 2>/dev/null || true
+
+        # Удаляем старый индекс, чтобы исключить stale-состояние
+        rm -f packages/packages.adb
+
+        # Валидация APK (проверяем уже скопированные файлы)
+        valid_apk=0
+        for apk_file in packages/*.apk; do
+            [ -e "$apk_file" ] || continue
+            apk_name=$(basename "$apk_file")
+
+            if [ ! -s "$apk_file" ]; then
+                warn "Empty APK file: $apk_name (removed from build)"
+                rm -f "$apk_file"
+            else
+                log "  + $apk_name ($(du -h "$apk_file" | cut -f1))"
+                valid_apk=$((valid_apk + 1))
+            fi
+        done
+
+        # Проверяем, что APK читаются host-apk (быстрая диагностика "битого"/несовместимого файла)
+        if [ "$valid_apk" -gt 0 ]; then
+            APK_BIN=""
+            [ -x "./staging_dir/host/bin/apk" ] && APK_BIN="./staging_dir/host/bin/apk"
+            if [ -z "$APK_BIN" ] && command -v apk >/dev/null 2>&1; then
+                APK_BIN="$(command -v apk)"
+            fi
+
+            if [ -n "$APK_BIN" ]; then
+                APK_BIN="$(realpath "$APK_BIN" 2>/dev/null || echo "$APK_BIN")"
+                log "Validating APK metadata via $APK_BIN..."
+                for apk_file in packages/*.apk; do
+                    [ -e "$apk_file" ] || continue
+                    if ! "$APK_BIN" adbdump "$apk_file" >/dev/null 2>&1; then
+                        error "APK metadata parse failed: $(basename "$apk_file"). Incompatible/corrupted APK."
+                    fi
+                done
+            else
+                warn "apk binary not found before make image; metadata validation skipped."
+            fi
+        else
+            warn "No valid APK files left after validation."
+        fi
+    fi
 fi
 export SOURCE_DATE_EPOCH=$(date +%s)
 
@@ -133,9 +188,9 @@ if [ -n "$CUSTOM_REPOS" ]; then
         # New APK (OpenWrt 25.x и новее)
         echo "$CUSTOM_REPOS" | sed 's# src/gz#\nsrc/gz#g' | while read -r line; do
             [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-            # Если в профиле остался старый opkg-синтаксис (начинается с src/), берем только URL (3-е слово)
-            if echo "$line" | grep -q "^src/"; then
-                url=$(echo "$line" | awk '{print $3}')
+            # Оптимизация: чистый Bash вместо grep/awk
+            if [[ "$line" == src/* ]]; then
+                read -r _ _ url _ <<< "$line"
                 [ -n "$url" ] && echo "${url%/}" >> repositories
             else
                 echo "${line%/}" >> repositories
@@ -152,16 +207,35 @@ rm -f "/tmp/clean_overlay/hooks.sh" "/tmp/clean_overlay/README.md"
 
 # --- 6. ЗАПУСК СБОРКИ (С ПОВТОРОМ) ---
 log "Starting make image for $TARGET_PROFILE..."
-MAKE_ARGS="PROFILE=\"$TARGET_PROFILE\" FILES=\"/overlay_files\" PACKAGES=\"$PKGS\""
-[ -n "$EXTRA_IMAGE_NAME" ] && MAKE_ARGS="$MAKE_ARGS EXTRA_IMAGE_NAME=\"$EXTRA_IMAGE_NAME\""
-[ -n "$DISABLED_SERVICES" ] && MAKE_ARGS="$MAKE_ARGS DISABLED_SERVICES=\"$DISABLED_SERVICES\""
+# Жестко отключаем signature-check в .config (для локальных неподписанных/чужих APK)
+touch .config
+sed -i '/^CONFIG_SIGNATURE_CHECK=/d;/^# CONFIG_SIGNATURE_CHECK is not set/d' .config
+echo '# CONFIG_SIGNATURE_CHECK is not set' >> .config
+
+# Используем очищенный overlay (/tmp/clean_overlay), а не исходный
+# CONFIG_SIGNATURE_CHECK="" отключает проверку подписей локальных (и сетевых) APK
+MAKE_ARGS=(
+    "PROFILE=$TARGET_PROFILE"
+    "FILES=/tmp/clean_overlay"
+    "PACKAGES=$PKGS"
+    "CONFIG_SIGNATURE_CHECK="
+)
+[ -n "$EXTRA_IMAGE_NAME" ] && MAKE_ARGS+=("EXTRA_IMAGE_NAME=$EXTRA_IMAGE_NAME")
+[ -n "$DISABLED_SERVICES" ] && MAKE_ARGS+=("DISABLED_SERVICES=$DISABLED_SERVICES")
 
 SUCCESS=0
+set -o pipefail # Гарантирует, что ошибка от make не "проглотится" командой sed
 for i in {1..2}; do
     log "Attempt $i of 2..."
-    if eval make image $MAKE_ARGS; then SUCCESS=1; break;
-    else warn "Build failed! Retrying in 5s..."; sleep 5; fi
+    if make image "${MAKE_ARGS[@]}" 2>&1 | sed -u "s|WARNING: opening .*/packages\.adb: No such file or directory|$(printf '%b' "$GREEN")[INFO]$(printf '%b' "$NC") Generating local packages.adb index...|"; then
+        SUCCESS=1
+        break
+    else 
+        warn "Build failed! Retrying in 5s..."
+        sleep 5
+    fi
 done
+set +o pipefail
 
 [ $SUCCESS -eq 0 ] && error "Build failed after 2 attempts."
 
@@ -204,4 +278,4 @@ echo -e "\n============================================================"
 echo -e "=== Build completed in ${ELAPSED}s."
 echo -e "=== Artifacts: firmware_output/$REL_PATH/$TIMESTAMP"
 echo -e "============================================================\n"
-# checksum:MD5=47015c3e7834257e78d55060baa068d8
+# checksum:MD5=13d9c0e22299b3f3ba2ff8980859c985
