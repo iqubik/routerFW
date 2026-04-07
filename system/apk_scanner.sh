@@ -229,6 +229,10 @@ echo -e "${C_CYAN}==========================================================${C_
 printf "${T_DONE}\n" "$SCANNED" "$RENAMED" "$WARNINGS"
 echo -e "${C_CYAN}==========================================================${C_RST}"
 
+# Авто-определение языка для паузы
+[[ "$LANG" == *"ru"* ]] && echo -ne "\n Нажмите Enter..." || echo -ne "\n Press Enter..."
+read -r
+
 if [ "$WARNINGS" -gt 0 ]; then
     exit 1
 fi

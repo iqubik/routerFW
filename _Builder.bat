@@ -391,6 +391,7 @@ echo    !C_LBL![!C_KEY!C!C_LBL!] !b_clean! !C_LBL![!C_KEY!W!C_LBL!] !b_wiz! !C_L
 if "%BUILD_MODE%"=="SOURCE" (
     echo    !C_LBL![!C_KEY!K!C_LBL!] !L_BTN_MENUCONFIG!      !C_LBL![!C_KEY!I!C_LBL!] !L_BTN_IPK!!C_RST!
 )
+echo    !C_LBL![!C_KEY!S!C_LBL!] APK Scanner!C_RST!
 echo.
 set "choice="
 set /p choice=!C_LBL!!L_CHOICE!!C_VAL! ⚡ !C_RST!
@@ -434,6 +435,7 @@ if /i "%choice%"=="P" (
     )
     goto MENU
 )
+if /i "%choice%"=="S" goto APK_SCANNER_SELECTION
 :: Проверка на числовой ввод
 set /a num_choice=%choice% 2>nul
 if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
@@ -593,6 +595,46 @@ if "%BUILD_MODE%"=="IMAGE" (
 ) else (
     set "BUILD_MODE=IMAGE"
 )
+goto MENU
+
+:: APK SCANNER SECTION
+:APK_SCANNER_SELECTION
+if not defined ROUTERFW_NO_CLS cls
+echo %C_CYAN%==========================================================%C_RST%
+echo  APK SCANNER — Select Profile
+echo %C_CYAN%==========================================================%C_RST%
+echo.
+for /L %%i in (1,1,%count%) do (
+    set "fname_tmp=!profile[%%i]:.conf=!"
+    echo    %C_LBL%[%C_KEY%%%i%C_LBL%]%C_RST% !fname_tmp!
+)
+echo.
+echo    %C_LBL%[%C_KEY%0%C_LBL%] %L_BACK%%C_RST%
+echo.
+set /p "s_choice=  Profile ID: "
+if "%s_choice%"=="0" goto MENU
+if "%s_choice%"=="" goto APK_SCANNER_SELECTION
+if %s_choice% gtr %count% goto APK_SCANNER_SELECTION
+if %s_choice% lss 1 goto APK_SCANNER_SELECTION
+
+set "SEL_CONF=!profile[%s_choice%]!"
+set "SEL_ID=!SEL_CONF:.conf=!"
+
+:: Извлекаем SRC_ARCH из профиля
+set "TMP_ARCH=unknown"
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "SRC_ARCH"`) do (
+    set "TMP_ARCH=%%a"
+    set "TMP_ARCH=!TMP_ARCH:"=!"
+)
+
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "system/apk_scanner.ps1" -ProfileID "!SEL_ID!" -TargetArch "!TMP_ARCH!"
+if !ERRORLEVEL! NEQ 0 (
+    echo.
+    echo [!] Scanner completed with warnings.
+)
+echo.
+pause
 goto MENU
 
 :: IMPORT IPK SECTION

@@ -1487,6 +1487,7 @@ while true; do
     if [ "$BUILD_MODE" == "SOURCE" ]; then
         echo -e "    ${C_LBL}[${C_KEY}K${C_LBL}] ${L_BTN_MENUCONFIG}      ${C_LBL}[${C_KEY}I${C_LBL}] ${L_BTN_IPK}${C_RST}"
     fi
+    echo -e "    ${C_LBL}[${C_KEY}S${C_LBL}] APK Scanner${C_RST}"
     echo ""
 
     read -p "${C_LBL}${L_CHOICE}${C_VAL} ⚡ ${C_RST}" choice
@@ -1502,8 +1503,33 @@ while true; do
                 exit 0
             fi 
             continue ;;
-        M) 
+        M)
             [[ "$BUILD_MODE" == "IMAGE" ]] && BUILD_MODE="SOURCE" || BUILD_MODE="IMAGE" ;;
+        S)
+            clear
+            echo -e "${C_CYAN}==========================================================${C_RST}"
+            echo -e "  APK SCANNER — Select Profile"
+            echo -e "${C_CYAN}==========================================================${C_RST}"
+            echo ""
+            for ((i=1; i<=count; i++)); do
+                p_name_display="${profiles[$i]%.conf}"
+                printf "  ${C_LBL}[${C_KEY}%d${C_LBL}]${C_RST} %s\n" "$i" "$p_name_display"
+            done
+            echo ""
+            echo -e "  ${C_LBL}[${C_KEY}0${C_LBL}]${C_RST} ${L_BACK}"
+            echo ""
+            read -p "  Profile ID: " s_choice
+            if [[ "$s_choice" =~ ^[0-9]+$ ]] && [ "$s_choice" -le "$count" ] && [ "$s_choice" -gt 0 ]; then
+                sel_conf="${profiles[$s_choice]}"
+                sel_id="${sel_conf%.conf}"
+                # Извлекаем SRC_ARCH из профиля
+                sel_arch=$(grep "SRC_ARCH=" "profiles/$sel_conf" | sed 's/SRC_ARCH=//;s/"//g' | tr -d '\r')
+                echo ""
+                bash "system/apk_scanner.sh" "$sel_id" "$sel_arch" || true
+                echo ""
+            fi
+            pause
+            continue ;;
         E)
             clear
             # === EDITOR & ANALYSIS DASHBOARD (Ported from .bat) ===
