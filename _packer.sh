@@ -34,6 +34,7 @@ FILES=(
     "system/src.dockerfile.legacy"
     "system/create_profile.sh"
     "system/import_ipk.sh"
+    "system/apk_scanner.sh"
     "system/lang/ru.env"
     "system/lang/en.env"
     "scripts/show_pkgs.sh"

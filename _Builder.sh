@@ -294,7 +294,10 @@ build_routine() {
     if [ "$BUILD_MODE" == "IMAGE" ]; then
         if [ -d "$HOST_PKGS_DIR" ] && ls "$HOST_PKGS_DIR"/*.apk 1>/dev/null 2>&1; then
             echo -e "${C_CYAN}[*] APK files detected. Running scanner...${C_RST}"
-            bash "system/apk_scanner.sh" "$p_id" "$SRC_ARCH" || {
+            # Извлекаем SRC_ARCH из конфига (как в ручном режиме)
+            local pkg_arch=$(grep "SRC_ARCH=" "profiles/$conf_file" | sed 's/SRC_ARCH=//;s/"//g' | tr -d '\r')
+            export APK_SCANNER_LANG="$SYS_LANG"
+            bash "system/apk_scanner.sh" "$p_id" "$pkg_arch" || {
                 echo -e "${C_YEL}[!] Scanner found issues. Continue anyway? [Y/n]: ${C_RST}"
                 read -r scan_choice
                 if [[ "$scan_choice" =~ ^[Nn]$ ]]; then
@@ -1777,4 +1780,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=59dffdab6708ffffa663bd4b77dd5f1a
+# checksum:MD5=36f4d82d478bacd67b2387febdff057e

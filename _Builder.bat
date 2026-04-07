@@ -1798,7 +1798,7 @@ if "%BUILD_MODE%"=="IMAGE" (
             )
             echo.
             echo [*] APK files detected. Running scanner...
-            powershell -NoProfile -ExecutionPolicy Bypass -File "system/apk_scanner.ps1" -ProfileID "%PROFILE_ID%" -TargetArch "!TMP_ARCH!"
+            powershell -NoProfile -ExecutionPolicy Bypass -File "system/apk_scanner.ps1" -ProfileID "%PROFILE_ID%" -TargetArch "!TMP_ARCH!" -Lang "!SYS_LANG!"
             if !ERRORLEVEL! NEQ 0 (
                 echo.
                 echo [!] Scanner found issues. Continue anyway? [Y/n]:
@@ -1832,4 +1832,4 @@ if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJlYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
 exit /b
-:: checksum:MD5=70108ff1d2f8f4290e1560cc9c95a04b
+:: checksum:MD5=7c8490d252a35946f730f943682ec244

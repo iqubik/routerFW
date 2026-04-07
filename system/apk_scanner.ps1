@@ -1,4 +1,4 @@
-# file : system/apk_scanner.ps1
+﻿# file : system/apk_scanner.ps1
 # Скрипт сканирования и валидации APK-пакетов в custom_packages
 
 param (
@@ -155,15 +155,15 @@ foreach ($apk in $apkFiles) {
         Write-Host "    --- $T_NAME_WARN ---" -ForegroundColor Yellow
         Write-Host "$T_NAME_FILE $apkName"
         Write-Host "$T_NAME_INT ${pkgName}-${pkgVersion}"
-        $warnings++
 
         $correctName = "${pkgName}-${pkgVersion}.apk"
         $correctPath = Join-Path $apk.DirectoryName $correctName
 
         if ($correctName -ne $apkName) {
-            $choice = Read-Host $T_RENAME_PMT
+            $null = Read-Host $T_RENAME_PMT
             if ($choice -eq "N" -or $choice -eq "n") {
                 Write-Host "    $T_SKIPPED" -ForegroundColor Gray
+                $warnings++
             } else {
                 try {
                     Rename-Item -Path $apkPath -NewName $correctName -ErrorAction Stop
@@ -171,6 +171,7 @@ foreach ($apk in $apkFiles) {
                     $renamed++
                 } catch {
                     Write-Host "    [ERR] $T_RENAME_FAIL : $apkName" -ForegroundColor Red
+                    $warnings++
                 }
             }
         }
@@ -212,4 +213,4 @@ if ($warnings -gt 0) {
     exit 1
 }
 exit 0
-# checksum:MD5=placeholder
+# checksum:MD5=9cb25ea8e35594dc2a2eb39713307baf

@@ -178,7 +178,6 @@ for APK_PATH in "${APK_FILES[@]}"; do
         echo -e "    ${C_YEL}--- $T_NAME_WARN ---${C_RST}"
         echo -e "${T_NAME_FILE} $APK_NAME"
         echo -e "${T_NAME_INTERNAL} ${PKG_NAME}-${PKG_VERSION}"
-        ((WARNINGS++))
 
         # Формируем корректное имя
         CORRECT_NAME="${PKG_NAME}-${PKG_VERSION}.apk"
@@ -193,12 +192,14 @@ for APK_PATH in "${APK_FILES[@]}"; do
             read -r choice
             if [[ "$choice" =~ ^[Nn]$ ]]; then
                 echo -e "    ${C_GRY}  $T_SKIPPED${C_RST}"
+                ((WARNINGS++))
             else
                 if mv "$APK_PATH" "$CORRECT_PATH"; then
                     echo -e "    ${C_GRN}${T_RENAMED} $CORRECT_NAME${C_RST}"
                     ((RENAMED++))
                 else
                     log_error "Failed to rename $APK_NAME"
+                    ((WARNINGS++))
                 fi
             fi
         fi
@@ -241,4 +242,4 @@ if [ "$WARNINGS" -gt 0 ]; then
     exit 1
 fi
 exit 0
-# checksum:MD5=placeholder
+# checksum:MD5=a7bc6a1f4b9854c1c8e741fa0356992d
