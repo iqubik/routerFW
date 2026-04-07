@@ -1482,15 +1482,24 @@ while true; do
     echo -e "    ${L_LEGEND_IND}"
     echo -e "    ${C_GRY}${L_LEGEND_TEXT}${C_RST}\n"
     
-    printf "    ${C_LBL}[${C_KEY}A${C_LBL}] %-18s ${C_LBL}[${C_KEY}M${C_LBL}] %s ${C_VAL}%-10s${C_RST}       ${C_LBL}[${C_KEY}E${C_LBL}] %s${C_RST}\n" \
+# Убрали %-18s и %-22s. 
+    # После "Собрать ВСЕ" стоит 2 пробела, а после "Обслуживание" — 1. Это выровняет [M] и [W].
+    # %-10s для $OPPOSITE_MODE (SOURCE) оставляем, так как английские слова printf считает правильно.
+    
+    # Убрали %-10s (заменили на %s) и оставили ровно 2 пробела перед [E]
+    printf "    ${C_LBL}[${C_KEY}A${C_LBL}] %s  ${C_LBL}[${C_KEY}M${C_LBL}] %s ${C_VAL}%s${C_RST}  ${C_LBL}[${C_KEY}E${C_LBL}] %s${C_RST}\n" \
            "$L_BTN_ALL" "$L_BTN_SWITCH" "$OPPOSITE_MODE" "$L_BTN_EDIT"
-    printf "    ${C_LBL}[${C_KEY}C${C_LBL}] %-18s ${C_LBL}[${C_KEY}W${C_LBL}] %-22s ${C_LBL}[${C_KEY}0${C_LBL}] %s${C_RST}\n" \
+
+    # Оставили ровно 2 пробела перед [0] для симметрии
+    printf "    ${C_LBL}[${C_KEY}C${C_LBL}] %s ${C_LBL}[${C_KEY}W${C_LBL}] %s  ${C_LBL}[${C_KEY}0${C_LBL}] %s${C_RST}\n" \
            "$L_BTN_CLEAN" "$L_BTN_WIZ" "$L_BTN_EXIT"
 
     if [ "$BUILD_MODE" == "SOURCE" ]; then
-        echo -e "    ${C_LBL}[${C_KEY}K${C_LBL}] ${L_BTN_MENUCONFIG}      ${C_LBL}[${C_KEY}I${C_LBL}] ${L_BTN_IPK}${C_RST}"
+        printf "    ${C_LBL}[${C_KEY}K${C_LBL}] %s      ${C_LBL}[${C_KEY}I${C_LBL}] %s${C_RST}\n" "${L_BTN_MENUCONFIG}" "${L_BTN_IPK}"
     fi
-    echo -e "    ${C_LBL}[${C_KEY}S${C_LBL}] APK Scanner${C_RST}"
+    if [ "$BUILD_MODE" != "SOURCE" ]; then
+        printf "    ${C_LBL}[${C_KEY}S${C_LBL}] %s${C_RST}\n" "APK Scanner"
+    fi
     echo ""
 
     read -p "${C_LBL}${L_CHOICE}${C_VAL} ⚡ ${C_RST}" choice
@@ -1509,6 +1518,7 @@ while true; do
         M)
             [[ "$BUILD_MODE" == "IMAGE" ]] && BUILD_MODE="SOURCE" || BUILD_MODE="IMAGE" ;;
         S)
+            if [ "$BUILD_MODE" == "SOURCE" ]; then continue; fi
             clear
             echo -e "${C_CYAN}==========================================================${C_RST}"
             echo -e "  APK SCANNER — Select Profile"

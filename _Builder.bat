@@ -391,7 +391,9 @@ echo    !C_LBL![!C_KEY!C!C_LBL!] !b_clean! !C_LBL![!C_KEY!W!C_LBL!] !b_wiz! !C_L
 if "%BUILD_MODE%"=="SOURCE" (
     echo    !C_LBL![!C_KEY!K!C_LBL!] !L_BTN_MENUCONFIG!      !C_LBL![!C_KEY!I!C_LBL!] !L_BTN_IPK!!C_RST!
 )
-echo    !C_LBL![!C_KEY!S!C_LBL!] APK Scanner!C_RST!
+if not "%BUILD_MODE%"=="SOURCE" (
+    echo    !C_LBL![!C_KEY!S!C_LBL!] APK Scanner                                                       !C_RST!
+)
 echo.
 set "choice="
 set /p choice=!C_LBL!!L_CHOICE!!C_VAL! ⚡ !C_RST!
@@ -435,7 +437,10 @@ if /i "%choice%"=="P" (
     )
     goto MENU
 )
-if /i "%choice%"=="S" goto APK_SCANNER_SELECTION
+if /i "%choice%"=="S" (
+    if "%BUILD_MODE%"=="SOURCE" goto INVALID
+    goto APK_SCANNER_SELECTION
+)
 :: Проверка на числовой ввод
 set /a num_choice=%choice% 2>nul
 if "%num_choice%"=="0" if not "%choice%"=="0" goto INVALID
