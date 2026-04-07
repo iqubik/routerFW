@@ -1525,6 +1525,7 @@ while true; do
                 # Извлекаем SRC_ARCH из профиля
                 sel_arch=$(grep "SRC_ARCH=" "profiles/$sel_conf" | sed 's/SRC_ARCH=//;s/"//g' | tr -d '\r')
                 echo ""
+                export APK_SCANNER_LANG="$SYS_LANG"
                 bash "system/apk_scanner.sh" "$sel_id" "$sel_arch" || true
                 echo ""
             fi

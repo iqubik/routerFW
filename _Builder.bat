@@ -628,7 +628,7 @@ for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| finds
 )
 
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "system/apk_scanner.ps1" -ProfileID "!SEL_ID!" -TargetArch "!TMP_ARCH!"
+powershell -NoProfile -ExecutionPolicy Bypass -File "system/apk_scanner.ps1" -ProfileID "!SEL_ID!" -TargetArch "!TMP_ARCH!" -Lang "!SYS_LANG!"
 if !ERRORLEVEL! NEQ 0 (
     echo.
     echo [!] Scanner completed with warnings.

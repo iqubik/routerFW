@@ -5,18 +5,15 @@ param (
     [Parameter(Mandatory = $false)]
     [string]$ProfileID = "",
     [Parameter(Mandatory = $false)]
-    [string]$TargetArch = ""
+    [string]$TargetArch = "",
+    [Parameter(Mandatory = $false)]
+    [string]$Lang = ""
 )
 
 $ScriptVersion = "1.0"
 
-# --- ЯЗЫК (автоопределение) ---
-try {
-    $userLang = [System.Globalization.CultureInfo]::CurrentUICulture.Name
-} catch {
-    $userLang = "en"
-}
-$IsRU = ($userLang -like "ru*")
+# --- ЯЗЫК (передаётся от билдера) ---
+$IsRU = ($Lang -eq "RU")
 
 if ($IsRU) {
     $T_SCAN_TITLE  = "APK СКАНЕР"
@@ -203,6 +200,13 @@ foreach ($apk in $apkFiles) {
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ($T_DONE -f $scanned, $renamed, $warnings) -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
+
+# Пауза
+if ($IsRU) {
+    Read-Host "`n Нажмите Enter"
+} else {
+    Read-Host "`n Press Enter"
+}
 
 if ($warnings -gt 0) {
     exit 1

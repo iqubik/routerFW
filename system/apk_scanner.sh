@@ -19,7 +19,7 @@ C_RST='\033[0m'
 
 # --- ЯЗЫК (автоопределение) ---
 IS_RU=false
-[[ "$LANG" == *"ru"* ]] && IS_RU=true
+[ "${APK_SCANNER_LANG^^}" == "RU" ] && IS_RU=true
 
 # Словарь
 if [ "$IS_RU" = true ]; then
@@ -229,8 +229,12 @@ echo -e "${C_CYAN}==========================================================${C_
 printf "${T_DONE}\n" "$SCANNED" "$RENAMED" "$WARNINGS"
 echo -e "${C_CYAN}==========================================================${C_RST}"
 
-# Авто-определение языка для паузы
-[[ "$LANG" == *"ru"* ]] && echo -ne "\n Нажмите Enter..." || echo -ne "\n Press Enter..."
+# Язык для паузы (передаётся от билдера)
+if [ "${APK_SCANNER_LANG^^}" == "RU" ]; then
+    echo -ne "\n Нажмите Enter..."
+else
+    echo -ne "\n Press Enter..."
+fi
 read -r
 
 if [ "$WARNINGS" -gt 0 ]; then
