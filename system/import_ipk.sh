@@ -180,8 +180,8 @@ for IPK_PATH in "${IPK_FILES[@]}"; do
     fi
 
     # --- 5. ВАЛИДАЦИЯ АРХИТЕКТУРЫ ---
-    if [ "$PKG_ARCH" == "all" ]; then
-        echo -e "    Architecture: all (Universal) - ${C_GRN}OK${C_RST}"
+    if [ "$PKG_ARCH" == "all" ] || [ "$PKG_ARCH" == "noarch" ]; then
+        echo -e "    Architecture: $PKG_ARCH (Universal) - ${C_GRN}OK${C_RST}"
     elif [ -n "$TARGET_ARCH" ]; then
         if [ "$PKG_ARCH" == "$TARGET_ARCH" ]; then
             echo -e "    Architecture: $PKG_ARCH (Match) - ${C_GRN}OK${C_RST}"
@@ -337,4 +337,4 @@ echo -e "${C_CYAN}==========================================================${C_
 # Авто-определение языка для паузы
 [[ "$LANG" == *"ru"* ]] && echo -ne "\n Нажмите Enter..." || echo -ne "\n Press Enter..."
 read -r
-# checksum:MD5=dcc733d2716f372869bfb73abd8307a8
+# checksum:MD5=e0422ac45f185e6d0584d628b49fb05f

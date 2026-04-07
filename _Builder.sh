@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.51"
+VER_NUM="4.6"
 
 # Bootstrap — dict not yet available
 # Функция очистки при прерывании (Ctrl+C). Вызывается по SIGINT/SIGTERM в любой момент,
@@ -287,9 +287,24 @@ build_routine() {
 
     # === FIX 2: Безопасное создание папок ===
     check_dir "$HOST_OUTPUT_DIR"
-    
+
     echo -e "${C_LBL}[BUILD]${C_RST} ${L_BUILD_TARGET} ${C_VAL}$p_id${C_RST}"
-    
+
+    # === APK SCANNER (только IB, только если есть .apk) ===
+    if [ "$BUILD_MODE" == "IMAGE" ]; then
+        if [ -d "$HOST_PKGS_DIR" ] && ls "$HOST_PKGS_DIR"/*.apk 1>/dev/null 2>&1; then
+            echo -e "${C_CYAN}[*] APK files detected. Running scanner...${C_RST}"
+            bash "system/apk_scanner.sh" "$p_id" "$SRC_ARCH" || {
+                echo -e "${C_YEL}[!] Scanner found issues. Continue anyway? [Y/n]: ${C_RST}"
+                read -r scan_choice
+                if [[ "$scan_choice" =~ ^[Nn]$ ]]; then
+                    echo -e "${C_YEL}Build cancelled.${C_RST}"
+                    return 1
+                fi
+            }
+        fi
+    fi
+
     # 1. Принудительно удаляем контейнер (чистка хвостов)
     docker rm -f "${proj_name}-${service}-1" >/dev/null 2>&1
     # 2. Полный down с удалением анонимных томов (-v)

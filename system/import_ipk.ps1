@@ -211,8 +211,8 @@ foreach ($ipk in $ipkFiles) {
     }
 
     # --- 5. УМНАЯ ВАЛИДАЦИЯ АРХИТЕКТУРЫ ---
-    if ($pkgArch -eq "all") {
-        Write-Host "    Architecture: all (Universal) - OK" -ForegroundColor Green
+    if ($pkgArch -eq "all" -or $pkgArch -eq "noarch") {
+        Write-Host "    Architecture: $pkgArch (Universal) - OK" -ForegroundColor Green
     } elseif ($TargetArch -ne "") {
         if ($pkgArch -eq $TargetArch) {
             Write-Host "    Architecture: $pkgArch (Match) - OK" -ForegroundColor Green
@@ -404,4 +404,4 @@ Write-Host "==========================================================" -Foregro
 Write-Host "  DONE: $importedCount packages imported." -ForegroundColor Cyan
 if ($ProfileID) { Write-Host "  Location: $outDir" -ForegroundColor Gray }
 Write-Host "==========================================================`n"
-# checksum:MD5=b5a1fd3d1ccee9eaf1e21fb0217e9807
+# checksum:MD5=d544d636c7abd6c2ad69f7c08d77116a

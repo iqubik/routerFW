@@ -2,7 +2,7 @@
 rem file: _Builder.bat
 rem CLI: --lang=RU|EN или -l RU|EN — язык. [ib|src] — режим. build[b], build-all[a|all], edit[e], menuconfig[k], import[i], wizard[w], clean[c], help[-h|--help]. Примеры: --lang=EN build 1, ib build 1.
 
-set "VER_NUM=4.51"
+set "VER_NUM=4.6"
 
 setlocal enabledelayedexpansion
 :: Фиксируем размер окна: 120 символов в ширину, 40 в высоту (пропуск при ROUTERFW_NO_CLS — тестер)
@@ -1741,6 +1741,35 @@ if not exist "%REL_OUT_PATH%" mkdir "%REL_OUT_PATH%"
 echo !L_P_LAUNCH! %PROFILE_ID%
 echo !L_INFO!   !L_P_TARGET!: !TARGET_VAL!
 echo !L_INFO!   !L_P_SERVICE!: %SERVICE_NAME%
+
+:: 3.5 APK SCANNER (только IB, только если есть .apk)
+if "%BUILD_MODE%"=="IMAGE" (
+    if exist "%HOST_PKGS_DIR%" (
+        set "APK_FOUND="
+        for %%F in ("%HOST_PKGS_DIR%\*.apk") do set "APK_FOUND=1"
+        if defined APK_FOUND (
+            :: Извлекаем SRC_ARCH из профиля для сканера
+            set "TMP_ARCH=unknown"
+            for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "SRC_ARCH"`) do (
+                set "TMP_ARCH=%%a"
+                set "TMP_ARCH=!TMP_ARCH:"=!"
+            )
+            echo.
+            echo [*] APK files detected. Running scanner...
+            powershell -NoProfile -ExecutionPolicy Bypass -File "system/apk_scanner.ps1" -ProfileID "%PROFILE_ID%" -TargetArch "!TMP_ARCH!"
+            if !ERRORLEVEL! NEQ 0 (
+                echo.
+                echo [!] Scanner found issues. Continue anyway? [Y/n]:
+                set /p "SCAN_CHOICE="
+                if /i "!SCAN_CHOICE!"=="n" (
+                    echo Build cancelled.
+                    exit /b
+                )
+            )
+            echo.
+        )
+    )
+)
 
 :: 4. ЗАПУСК (Используем уже вычисленные переменные путей)
 :: Запуск в отдельном окне (с поддержкой интерактивного входа для SOURCE режима и обновления профиля)
