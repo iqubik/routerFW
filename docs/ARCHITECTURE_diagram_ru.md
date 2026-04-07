@@ -7,7 +7,7 @@
 
 # routerFW — Диаграммы процессов
 
-> Версия 4.50. Набор диаграмм (русская страница).
+> Версия 4.60. Набор диаграмм (русская страница).
 >
 > Текст: [ARCHITECTURE_ru.md](ARCHITECTURE_ru.md) · EN diagrams: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md)
 
@@ -90,6 +90,14 @@ flowchart TD
     CHOICE --> |P| P_RUN[Вызвать _packer.bat / _packer.sh\nупаковка ресурсов]
     P_RUN --> MENU
 
+    CHOICE --> |S| S_CHECK2{Режим\nIMAGE?}
+    S_CHECK2 --> |нет| MENU
+    S_CHECK2 --> |да| S_LIST2[APK Scanner: список профилей]
+    S_LIST2 --> S_ID2{ID}
+    S_ID2 --> |0| MENU
+    S_ID2 --> |1..N| S_RUN2[apk_scanner: .sh p_id p_arch / .ps1 -ProfileID -TargetArch -Lang\nвалидация и переименование]
+    S_RUN2 --> MENU
+
     CHOICE --> |1..N верный| BUILD[build_routine\nпрофиль N\nсм. диаграмму 3]
     BUILD --> MENU
 
@@ -132,6 +140,76 @@ flowchart TD
 **Примеры:** `_Builder.bat build 1`, `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build-all`, `_Builder.bat clean 2 3`, `_Builder.bat check 1`, `_Builder.bat check-all`, `_Builder.bat --help`
 
 **Тестовые оболочки CLI:** `tester.bat` / `tester.sh` запускают билдеры с аргументами и проверяют коды выхода и вывод; только безопасные проверки (без сборок, очистки и menuconfig). Логи в `.gitignore`.
+
+---
+
+## 2.5. APK Scanner — валидация и переименование (RU)
+
+```mermaid
+flowchart TD
+    S_START([APK Scanner\napk_scanner.sh / .ps1])
+    S_START --> S_LANG[Язык: APK_SCANNER_LANG=RU/EN\nили -Lang параметр]
+    S_LANG --> S_PARAMS[Вход: PROFILE_ID, TARGET_ARCH]
+    S_PARAMS --> S_SCAN{*.apk в\ncustom_packages/<profile>/ ?}
+    S_SCAN --> |нет| S_EXIT_OK[exit 0 — тихо]
+    S_SCAN --> |да| S_FOR[Для каждого APK]
+
+    S_FOR --> S_DUMP[docker run --rm alpine:latest\napk adbdump -- /input/file.apk]
+    S_DUMP --> S_PARSE{.PKGINFO\nраспарсен?}
+    S_PARSE --> |нет| S_ERR["Ошибка парсинга\nexit 1"]
+    S_PARSE --> |да| S_EXTRACT[Извлечь: name, version, release, arch]
+
+    S_EXTRACT --> S_ARCH{Проверка архитектуры}
+    S_ARCH --> |noarch/all| S_ARCH_UNIV["УНИВЕРСАЛЬНАЯ → OK"]
+    S_ARCH --> |совпадение| S_ARCH_OK["СОВПАДЕНИЕ → OK"]
+    S_ARCH --> |несовпадение| S_ARCH_WARN["ПРЕДУПРЕЖДЕНИЕ\nне блокировка"]
+
+    S_ARCH_UNIV & S_ARCH_OK & S_ARCH_WARN --> S_NAME{Сверка имени\nfilename vs metadata?}
+    S_NAME --> |совпадает| S_NAME_OK["Имя соответствует → OK"]
+    S_NAME --> |нет| S_PROMPT["Переименовать?\nY/n"]
+    S_PROMPT --> S_YES{Y?}
+    S_YES --> |да| S_REN[mv / Rename-Item\n✓ Переименован]
+    S_YES --> |нет| S_SKIP["Пропущено\n→ предупреждение"]
+
+    S_NAME_OK & S_REN & S_SKIP & S_ARCH_WARN & S_ERR --> S_SUMMARY["Итог: проверено N\nпереименовано M, предупреждений W"]
+    S_SUMMARY --> S_EXIT{Есть отказы\nили отказ от rename?}
+    S_EXIT --> |нет| S_EXIT_OK
+    S_EXIT --> |да| S_EXIT_WARN[exit 1]
+```
+
+### Интеграция сканера в build_routine (IB-режим)
+
+```mermaid
+flowchart TD
+    BR_IB([build_routine\nIB-режим])
+    BR_IB --> BR_ARCH[Извлечь SRC_ARCH\nиз profiles/<id>.conf]
+    BR_ARCH --> BR_APK{.apk файлы в\ncustom_packages/<profile>/ ?}
+    BR_APK --> |нет| BR_COMPOSE[docker compose up\nстандартный IB процесс]
+    BR_APK --> |да| BR_SCAN[Запуск apk_scanner\nAPK_SCANNER_LANG=$SYS_LANG  sh\n-Lang !SYS_LANG!  bat]
+    BR_SCAN --> BR_SCAN_EXIT{exit code?}
+    BR_SCAN_EXIT --> |0| BR_COMPOSE
+    BR_SCAN_EXIT --> |1| BR_PROMPT["Продолжить сборку?\nY/n"]
+    BR_PROMPT --> BR_CONT{Y?}
+    BR_CONT --> |да| BR_COMPOSE
+    BR_CONT --> |нет| BR_ABORT[abort, возврат в меню]
+```
+
+### Место кнопки [S] в главном меню
+
+```mermaid
+flowchart TD
+    MENU([Главное меню])
+    MENU --> CHOICE{Ввод}
+    CHOICE --> |S| S_CHECK{Режим\nIMAGE?}
+    S_CHECK --> |нет| S_NOAPK["Сканер работает\nтолько в IB-режиме"]
+    S_NOAPK --> MENU
+    S_CHECK --> |да| S_LIST["Список профилей\nвыбор ID"]
+    S_LIST --> S_ID{ID}
+    S_ID --> |0| MENU
+    S_ID --> |1..N| S_RUN[apk_scanner: .sh p_id p_arch / .ps1 -ProfileID -TargetArch -Lang\ncustom_packages/<profile>/*.apk]
+    S_RUN --> S_RESULT{"exit 0 или 1?\nпоказать итог"}
+    S_RESULT --> MENU
+```
 
 ---
 

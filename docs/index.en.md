@@ -32,6 +32,9 @@ This is a series of lessons designed to help you master the Universal Builder, f
 7.  [**Troubleshooting and FAQ**](./07-troubleshooting-faq.en.md)
     *   *Build limitations (zapret/nfqws), device tips, links to related lessons.*
 
+8.  [**Lesson 8: Embedding APK/IPK in Image Builder**](./08-ib-apk-import-embed.en.md)
+    *   *Adding custom packages in IB mode, automatic APK filename validation, handling noarch/all architectures, and the APK Scanner.*
+
 ## Project Architecture
 
 <picture>
@@ -47,4 +50,4 @@ This is a series of lessons designed to help you master the Universal Builder, f
 ---
 
 [**Project audit**](audit.md#routerfw-project-audit) — repo state, conventions, risks.
-# checksum:MD5=507f62b17aa49ec905e107b662c0dd0d
+# checksum:MD5=29c581fc8ee34f217edad78b0062d902

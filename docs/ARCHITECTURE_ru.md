@@ -7,7 +7,7 @@
 
 # routerFW — Архитектура и поток процессов
 
-> Версия: 4.50. Обновлено: 2026-03.
+> Версия: 4.60. Обновлено: 2026-04.
 
 ---
 
@@ -88,6 +88,7 @@
   ├─ [C]         Мастер очистки (кэш, тома, полный сброс)
   ├─ [W]         Мастер создания нового профиля  →  system/create_profile.sh / .ps1  (выход: 0, как в главном меню)
   ├─ [I]         Импорт .ipk/.apk-пакетов        →  system/import_ipk.sh / .ps1 (поддержка APK с v4.50)
+  ├─ [S]         APK Scanner — валидация и переименование .apk  →  system/apk_scanner.sh / .ps1 (с v4.60)
   ├─ [F]         Check All — обновить checksum:MD5 во всех файлах unpacker
   ├─ [P]         Вызвать _packer.bat / _packer.sh (упаковка ресурсов)
   └─ [0]         Выход
@@ -110,7 +111,69 @@
 
 ---
 
-## 4. Процесс сборки — режим IMAGE BUILDER
+## 4. APK Scanner — валидация пакетов (Image Builder)
+
+```
+system/apk_scanner.sh / system/apk_scanner.ps1  (v1.0, с v4.60)
+  │
+  ├─ Запуск: АВТО (перед docker compose up в IB-режиме, при наличии .apk в custom_packages/)
+  │           или РУЧНОЙ (кнопка [S] в главном меню → выбор профиля)
+  │
+  ├─ Параметры:  $1 = PROFILE_ID,  $2 = TARGET_ARCH,  env: APK_SCANNER_LANG=RU|EN
+  │        (PowerShell: -ProfileId, -TargetArch, -Lang)
+  │
+  ├─ [1] Поиск *.apk в custom_packages/<профиль>/
+  │        └─ Нет файлов → выход 0 (тихо)
+  │
+  ├─ [2] Для каждого APK:
+  │        docker run --rm alpine:latest apk adbdump -- /input/<file>.apk
+  │        │
+  │        ├─ Читает .PKGINFO из контейнера (без unzip — единственный надёжный метод)
+  │        ├─ Парсит: Package (имя), Version, Arch
+  │        └─ Ошибка парсинга → exit 1 (некорректный APK-файл)
+  │
+  ├─ [3] Валидация архитектуры:
+  │        ├─ pkg_arch == "all" || "noarch"  →  УНИВЕРСАЛЬНАЯ (пропуск, OK)
+  │        ├─ pkg_arch == target_arch        →  СОВПАДЕНИЕ (OK)
+  │        └─ pkg_arch ≠ target_arch        →  ПРЕДУПРЕЖДЕНИЕ (не блокировка)
+  │
+  ├─ [4] Сверка имени файла с метаданными:
+  │        Ожидаемый формат:  <name>-<version>-<release>.apk
+  │        ├─ Совпадает  →  «Имя соответствует» (OK)
+  │        └─ Не совпадает → Prompt: «Переименовать? [Y/n]»
+  │              ├─ Y  →  mv / Rename-Item  →  «✓ Переименован»
+  │              └─ n  →  «Пропущено» (предупреждение)
+  │
+  └─ [5] Итог:  «ГОТОВО: проверено N, переименовано M, предупреждений W»
+          ├─ Успешные переименования  →  exit 0 (НЕ считаются предупреждениями)
+          ├─ Отказ от переименования  →  exit 1 (предупреждение)
+          └─ Arch mismatch            →  exit 1 (предупреждение)
+```
+
+**Интеграция в build_routine():**
+```
+build_routine(profile.conf)  [IB-режим]
+  │
+  ├─ Извлечение SRC_ARCH из конфига профиля
+  │
+  ├─ Если custom_packages/<профиль>/*.apk существуют:
+  │     ├─ Запуск apk_scanner.sh / .ps1
+  │     │     APK_SCANNER_LANG="$SYS_LANG"  (sh)   или   -Lang "!SYS_LANG!"  (bat)
+  │     ├─ exit 0 → продолжение сборки
+  │     └─ exit 1 → prompt: «Продолжить сборку? [Y/n]»
+  │           ├─ Y → continue
+  │           └─ n → abort
+  │
+  └─ docker compose up  →  стандартный IB-процесс
+```
+
+**Почему `alpine:latest` не удаляется:** Это служебный образ для сканирования. `docker run --rm` очищает контейнеры, но образ остаётся для повторных запусков. Занимает ~7 МБ.
+
+**Зависимости:** Docker (для `apk adbdump`), доступ к `alpine:latest` (pull при первом запуске). Не требует `unzip`, `jq` или других утилит — всё внутри контейнера Alpine.
+
+---
+
+## 5. Процесс сборки — режим IMAGE BUILDER
 
 ```
 _Builder.sh/bat  →  build_routine(profile.conf)
@@ -155,7 +218,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 
 ---
 
-## 5. Процесс сборки — режим SOURCE BUILDER
+## 6. Процесс сборки — режим SOURCE BUILDER
 
 ```
 _Builder.sh/bat  →  build_routine(profile.conf)
@@ -207,7 +270,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 
 ---
 
-## 6. Процесс Menuconfig (только Source Builder)
+## 7. Процесс Menuconfig (только Source Builder)
 
 ```
 Меню [K]  →  run_menuconfig(profile.conf)
@@ -229,7 +292,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 
 ---
 
-## 7. scripts/hooks.sh — хук перед сборкой (Source Builder)
+## 8. scripts/hooks.sh — хук перед сборкой (Source Builder)
 
 ```
 hooks.sh  (HOOKS_VERSION=1.7, запускается внутри контейнера перед make defconfig)
@@ -247,7 +310,7 @@ hooks.sh  (HOOKS_VERSION=1.7, запускается внутри контейн
 
 ---
 
-## 8. Система профилей
+## 9. Система профилей
 
 ```
 profiles/*.conf  (общий формат для Image Builder и Source Builder)
@@ -262,7 +325,7 @@ profiles/*.conf  (общий формат для Image Builder и Source Builder
 
 ---
 
-## 9. Docker-образы
+## 10. Docker-образы
 
 ```
 Image Builder:
@@ -276,7 +339,7 @@ Source Builder:
 
 ---
 
-## 10. Гитигнорируемые (приватные) директории
+## 11. Гитигнорируемые (приватные) директории
 
 ```
 custom_files/     ← SSH-ключи, пароли, /etc/shadow, приватные конфиги — НИКОГДА не коммитить
@@ -289,7 +352,7 @@ nl_test/ nw_test/ ← тестовые распаковки дистрибути
 
 ---
 
-## 11. Пакер / Дистрибутив / Генерируемые артефакты
+## 12. Пакер / Дистрибутив / Генерируемые артефакты
 
 ```
 _packer.sh / _packer.bat  (v2.2 MT)
@@ -301,6 +364,6 @@ _packer.sh / _packer.bat  (v2.2 MT)
 
 ---
 
-## 12. Полная карта процессов (Mermaid)
+## 13. Полная карта процессов (Mermaid)
 
 См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).

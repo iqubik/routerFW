@@ -7,7 +7,7 @@
 
 # routerFW — Process Diagrams
 
-> Version: 4.50. English diagram set.
+> Version: 4.60. English diagram set.
 >
 > Text: [ARCHITECTURE_en.md](ARCHITECTURE_en.md) · RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md)
 
@@ -90,6 +90,14 @@ flowchart TD
     CHOICE --> |P| P_RUN[Run _packer.bat / _packer.sh\nresource packaging]
     P_RUN --> MENU
 
+    CHOICE --> |S| S_CHECK2{Mode\nIMAGE?}
+    S_CHECK2 --> |no| MENU
+    S_CHECK2 --> |yes| S_LIST2[APK Scanner: list profiles]
+    S_LIST2 --> S_ID2{ID}
+    S_ID2 --> |0| MENU
+    S_ID2 --> |1..N| S_RUN2[apk_scanner: .sh p_id p_arch / .ps1 -ProfileID -TargetArch -Lang\nvalidate & rename]
+    S_RUN2 --> MENU
+
     CHOICE --> |1..N valid| BUILD[build_routine\nprofile N\nsee diagram 3]
     BUILD --> MENU
 
@@ -130,6 +138,76 @@ To choose mode in one command, use the `ib`/`src` prefix. Mode toggle (key **M**
 **Examples:** `_Builder.bat build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat check 1`, `_Builder.bat check-all`, `_Builder.bat edit myrouter`, `_Builder.bat --help`
 
 **CLI test harnesses:** `tester.bat` / `tester.sh` run builders with args and check exit codes/output; safe checks only (no builds, clean, or menuconfig). Logs in `.gitignore`.
+
+---
+
+## 2.5. APK Scanner — Validation & Renaming (EN)
+
+```mermaid
+flowchart TD
+    S_START([APK Scanner\napk_scanner.sh / .ps1])
+    S_START --> S_LANG[Language: APK_SCANNER_LANG=RU/EN\nor -Lang parameter]
+    S_LANG --> S_PARAMS[Input: PROFILE_ID, TARGET_ARCH]
+    S_PARAMS --> S_SCAN{*.apk in\ncustom_packages/<profile>/ ?}
+    S_SCAN --> |no| S_EXIT_OK[exit 0 — silent]
+    S_SCAN --> |yes| S_FOR[For each APK]
+
+    S_FOR --> S_DUMP[docker run --rm alpine:latest\napk adbdump -- /input/file.apk]
+    S_DUMP --> S_PARSE{.PKGINFO\nparsed?}
+    S_PARSE --> |no| S_ERR["Parse failed\nexit 1"]
+    S_PARSE --> |yes| S_EXTRACT[Extract: name, version, release, arch]
+
+    S_EXTRACT --> S_ARCH{Architecture check}
+    S_ARCH --> |noarch/all| S_ARCH_UNIV["UNIVERSAL → OK"]
+    S_ARCH --> |match| S_ARCH_OK["MATCH → OK"]
+    S_ARCH --> |mismatch| S_ARCH_WARN["WARNING\nnon-blocking"]
+
+    S_ARCH_UNIV & S_ARCH_OK & S_ARCH_WARN --> S_NAME{Filename\nvs metadata?}
+    S_NAME --> |matches| S_NAME_OK["Name matches → OK"]
+    S_NAME --> |no| S_PROMPT["Rename?\nY/n"]
+    S_PROMPT --> S_YES{Y?}
+    S_YES --> |yes| S_REN[mv / Rename-Item\n✓ Renamed]
+    S_YES --> |no| S_SKIP["Skipped\n→ warning"]
+
+    S_NAME_OK & S_REN & S_SKIP & S_ARCH_WARN & S_ERR --> S_SUMMARY["Summary: N scanned\nM renamed, W warnings"]
+    S_SUMMARY --> S_EXIT{Any refusal\nor failed rename?}
+    S_EXIT --> |no| S_EXIT_OK
+    S_EXIT --> |yes| S_EXIT_WARN[exit 1]
+```
+
+### Scanner integration into build_routine (IB mode)
+
+```mermaid
+flowchart TD
+    BR_IB([build_routine\nIB mode])
+    BR_IB --> BR_ARCH[Extract SRC_ARCH\nfrom profiles/<id>.conf]
+    BR_ARCH --> BR_APK{.apk files in\ncustom_packages/<profile>/ ?}
+    BR_APK --> |no| BR_COMPOSE[docker compose up\nstandard IB process]
+    BR_APK --> |yes| BR_SCAN[Run apk_scanner\nAPK_SCANNER_LANG=$SYS_LANG  sh\n-Lang !SYS_LANG!  bat]
+    BR_SCAN --> BR_SCAN_EXIT{exit code?}
+    BR_SCAN_EXIT --> |0| BR_COMPOSE
+    BR_SCAN_EXIT --> |1| BR_PROMPT["Continue build?\nY/n"]
+    BR_PROMPT --> BR_CONT{Y?}
+    BR_CONT --> |yes| BR_COMPOSE
+    BR_CONT --> |no| BR_ABORT[abort, return to menu]
+```
+
+### [S] button in the main menu
+
+```mermaid
+flowchart TD
+    MENU([Main menu])
+    MENU --> CHOICE{Input}
+    CHOICE --> |S| S_CHECK{Mode\nIMAGE?}
+    S_CHECK --> |no| S_NOAPK["Scanner works\nin IB mode only"]
+    S_NOAPK --> MENU
+    S_CHECK --> |yes| S_LIST["Profile list\nselect ID"]
+    S_LIST --> S_ID{ID}
+    S_ID --> |0| MENU
+    S_ID --> |1..N| S_RUN[apk_scanner: .sh p_id p_arch / .ps1 -ProfileID -TargetArch -Lang\ncustom_packages/<profile>/*.apk]
+    S_RUN --> S_RESULT{"exit 0 or 1?\nshow summary"}
+    S_RESULT --> MENU
+```
 
 ---
 

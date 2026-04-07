@@ -7,7 +7,7 @@
 
 # routerFW — Architecture & Process Flow
 
-> Version: 4.50. Last updated: 2026-03.
+> Version: 4.60. Last updated: 2026-04.
 
 ---
 
@@ -88,6 +88,7 @@ Main Menu
   ├─ [C]          Cleanup Wizard (cache, volumes, full reset)
   ├─ [W]          Create new profile wizard  →  system/create_profile.sh / .ps1  (exit: 0, same as main menu)
   ├─ [I]          Import .ipk/.apk packages  →  system/import_ipk.sh / .ps1 (APK support since v4.50)
+  ├─ [S]          APK Scanner — validate & rename .apk  →  system/apk_scanner.sh / .ps1 (since v4.60)
   ├─ [F]          Check All — update checksum:MD5 in all unpacker files
   ├─ [P]          Run _packer.bat / _packer.sh (resource packaging)
   └─ [0]          Quit
@@ -110,7 +111,69 @@ The main menu displays a "surgical" resource panel for instant profile assessmen
 
 ---
 
-## 4. Build Flow — IMAGE BUILDER mode
+## 4. APK Scanner — Package Validation (Image Builder)
+
+```
+system/apk_scanner.sh / system/apk_scanner.ps1  (v1.0, since v4.60)
+  │
+  ├─ Launch: AUTO (before docker compose up in IB mode, when .apk files exist in custom_packages/)
+  │           or MANUAL ([S] button in main menu → profile selection)
+  │
+  ├─ Parameters:  $1 = PROFILE_ID,  $2 = TARGET_ARCH,  env: APK_SCANNER_LANG=RU|EN
+  │        (PowerShell: -ProfileId, -TargetArch, -Lang)
+  │
+  ├─ [1] Search *.apk in custom_packages/<profile>/
+  │        └─ No files → exit 0 (silent)
+  │
+  ├─ [2] For each APK:
+  │        docker run --rm alpine:latest apk adbdump -- /input/<file>.apk
+  │        │
+  │        ├─ Reads .PKGINFO from container (no unzip — the only reliable method)
+  │        ├─ Parses: Package (name), Version, Arch
+  │        └─ Parse error → exit 1 (invalid APK file)
+  │
+  ├─ [3] Architecture validation:
+  │        ├─ pkg_arch == "all" || "noarch"  →  UNIVERSAL (skip, OK)
+  │        ├─ pkg_arch == target_arch        →  MATCH (OK)
+  │        └─ pkg_arch ≠ target_arch        →  WARNING (non-blocking)
+  │
+  ├─ [4] Filename vs metadata comparison:
+  │        Expected format:  <name>-<version>-<release>.apk
+  │        ├─ Matches  →  "Name matches" (OK)
+  │        └─ Mismatch → Prompt: "Rename? [Y/n]"
+  │              ├─ Y  →  mv / Rename-Item  →  "✓ Renamed"
+  │              └─ n  →  "Skipped" (warning)
+  │
+  └─ [5] Summary:  "DONE: N scanned, M renamed, W warnings"
+          ├─ Successful renames    →  exit 0 (NOT counted as warnings)
+          ├─ Refused rename        →  exit 1 (warning)
+          └─ Arch mismatch         →  exit 1 (warning)
+```
+
+**Integration into build_routine():**
+```
+build_routine(profile.conf)  [IB mode]
+  │
+  ├─ Extract SRC_ARCH from profile config
+  │
+  ├─ If custom_packages/<profile>/*.apk exist:
+  │     ├─ Run apk_scanner.sh / .ps1
+  │     │     APK_SCANNER_LANG="$SYS_LANG"  (sh)   or   -Lang "!SYS_LANG!"  (bat)
+  │     ├─ exit 0 → continue build
+  │     └─ exit 1 → prompt: "Continue build? [Y/n]"
+  │           ├─ Y → continue
+  │           └─ n → abort
+  │
+  └─ docker compose up  →  standard IB process
+```
+
+**Why `alpine:latest` is not removed:** It's a service image for scanning. `docker run --rm` cleans up containers but the image stays for repeated runs. Takes ~7 MB.
+
+**Dependencies:** Docker (for `apk adbdump`), access to `alpine:latest` (pulled on first run). Does not require `unzip`, `jq` or other utilities — everything runs inside the Alpine container.
+
+---
+
+## 5. Build Flow — IMAGE BUILDER mode
 
 ```
 _Builder.sh/bat  →  build_routine(profile.conf)
@@ -155,7 +218,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 
 ---
 
-## 5. Build Flow — SOURCE BUILDER mode
+## 6. Build Flow — SOURCE BUILDER mode
 
 ```
 _Builder.sh/bat  →  build_routine(profile.conf)
@@ -207,7 +270,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 
 ---
 
-## 6. Menuconfig Flow (Source Builder only)
+## 7. Menuconfig Flow (Source Builder only)
 
 ```
 Menu [K]  →  run_menuconfig(profile.conf)
@@ -229,7 +292,7 @@ Menu [K]  →  run_menuconfig(profile.conf)
 
 ---
 
-## 7. scripts/hooks.sh — Pre-build Hook (Source Builder)
+## 8. scripts/hooks.sh — Pre-build Hook (Source Builder)
 
 ```
 hooks.sh  (HOOKS_VERSION=1.7, runs inside container before make defconfig)
@@ -247,7 +310,7 @@ hooks.sh  (HOOKS_VERSION=1.7, runs inside container before make defconfig)
 
 ---
 
-## 8. Profile System
+## 9. Profile System
 
 ```
 profiles/*.conf  (shared between Image Builder and Source Builder)
@@ -262,7 +325,7 @@ profiles/*.conf  (shared between Image Builder and Source Builder)
 
 ---
 
-## 9. Docker Images
+## 10. Docker Images
 
 ```
 Image Builder:
@@ -276,7 +339,7 @@ Source Builder:
 
 ---
 
-## 10. Gitignored (Private) Directories
+## 11. Gitignored (Private) Directories
 
 ```
 custom_files/     ← SSH keys, passwords, /etc/shadow, private configs — NEVER commit
@@ -289,7 +352,7 @@ nl_test/ nw_test/ ← test unpack dirs (distribution snapshots); not source of t
 
 ---
 
-## 11. Packer / Distribution / Generated Artifacts
+## 12. Packer / Distribution / Generated Artifacts
 
 ```
 _packer.sh / _packer.bat  (v2.2 MT)
@@ -301,6 +364,6 @@ _packer.sh / _packer.bat  (v2.2 MT)
 
 ---
 
-## 12. Full Process Map (Mermaid)
+## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).

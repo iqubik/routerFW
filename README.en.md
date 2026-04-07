@@ -58,6 +58,18 @@ The main menu features a "surgical" resource panel **`[F P S M H X | OI OS]`** f
 
 ---
 
+### 🛡️ APK Scanner (v4.60+)
+Built-in scanner for automatic validation and renaming of `.apk` files before building in Image Builder mode.
+
+*   **Why:** Image Builder rejects packages if the filename doesn't match the internal version (the `luci-i18n-podkop-ru` bug). The scanner reads metadata via Docker (`apk adbdump`) and fixes filenames automatically.
+*   **noarch/all:** Packages with universal architecture (scripts, LuCI, configs) are now correctly passed for any device.
+*   **Auto-launch:** Triggers before `docker compose up` when `.apk` files are present in `custom_packages/`.
+*   **Manual launch:** **`[S] APK Scanner`** button in the main menu — profile selection, scan, report.
+
+👉 **[Lesson 8: Embedding APK/IPK in Image Builder](docs/08-ib-apk-import-embed.en.md)** — step-by-step guide, real-world issues, and FAQ.
+
+---
+
 ## ⌨️ Command-Line Interface (CLI)
 
 You can run the builder with arguments **without entering the interactive menu** (Windows: `_Builder.bat`, Linux: `_Builder.sh`).
@@ -106,6 +118,7 @@ An extended knowledge base has been created for the project to help you go from 
 *   **Lessons 1–5:** Basics, configuration, Source Build, patches, and advanced customization.
 *   **Lesson 6:** Flashing RAX3000M eMMC (manual GPT, bootenv, overlay troubleshooting).
 *   **Lesson 7 (FAQ):** Troubleshooting and limitations (zapret/nfqws, device tips).
+*   **Lesson 8:** Embedding APK/IPK in Image Builder (auto-scanner, noarch/all, filename validation).
 *   **[Project Architecture & Diagrams](docs/ARCHITECTURE_en.md)** — full flowcharts of all builder processes.
 
 Ready-made images for specific devices: see the 4pda discussion and [Releases](https://github.com/iqubik/routerFW/releases).
@@ -121,7 +134,7 @@ Building takes place in isolated **Docker containers**. The system does not clut
 #### 1. 🐇 Image Builder (Fast)
 *   **Speed:** 1-2 minutes.
 *   **Purpose:** Add packages (`luci`, `vpn`), embed Wi-Fi/PPPoE configs.
-*   **Features:** **Atomic Downloads** (protection against network failures), smart cache (re-build takes ~30 sec), integration of third-party `.ipk` files (from the `custom_packages` folder).
+*   **Features:** **Atomic Downloads** (protection against network failures), smart cache (re-build takes ~30 sec), integration of third-party `.ipk` files (from the `custom_packages` folder), **APK Scanner** (automatic validation and renaming of packages before build).
 
 #### 2. 🐢 Source Builder (Powerful)
 *   **Speed:** First run ~20-60 min, subsequent runs ~3-5 min (thanks to **CCache**).
@@ -178,7 +191,7 @@ Forgot your router's architecture or afraid of syntax errors? Use the **[W] Prof
 *   `docs/` — Offline copy of the knowledge base.
 *   `profiles/` — Your universal `.conf` files.
 *   `custom_files/profile_name/` — File overlay (everything here goes to the router's root).
-*   `custom_packages/profile_name/` — Folder for `.ipk` packages. Used in **ImageBuilder** (direct inclusion) and as a source for import in **SourceBuilder**.
+*   `custom_packages/profile_name/` — Folder for `.ipk/apk` packages. Used in **ImageBuilder** (direct inclusion, auto-scanner validation) and as a source for import in **SourceBuilder**.
 *   `src_packages/profile_name/` — For source code. Used for third-party packages from GitHub and as the **output folder** for `.ipk` files processed by the importer.
 *   `firmware_output/` — Ready firmwares and build logs.
 *   `system/` — Folder with Dockerfiles, scripts, and the builder core.
@@ -403,4 +416,4 @@ Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse b
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=f9abf39adb0425c747cffcd188e37735
+# checksum:MD5=bb0bafc0b29f9188440051cb0b6354df
