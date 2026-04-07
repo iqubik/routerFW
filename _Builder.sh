@@ -1486,16 +1486,15 @@ while true; do
     # После "Собрать ВСЕ" стоит 2 пробела, а после "Обслуживание" — 1. Это выровняет [M] и [W].
     # %-10s для $OPPOSITE_MODE (SOURCE) оставляем, так как английские слова printf считает правильно.
     
-    # Убрали %-10s (заменили на %s) и оставили ровно 2 пробела перед [E]
-    printf "    ${C_LBL}[${C_KEY}A${C_LBL}] %s  ${C_LBL}[${C_KEY}M${C_LBL}] %s ${C_VAL}%s${C_RST}  ${C_LBL}[${C_KEY}E${C_LBL}] %s${C_RST}\n" \
+    printf "    ${C_LBL}[${C_KEY}A${C_LBL}] %s     ${C_LBL}[${C_KEY}M${C_LBL}] %s ${C_VAL}%s${C_RST}  ${C_LBL}[${C_KEY}E${C_LBL}] %s${C_RST}\n" \
            "$L_BTN_ALL" "$L_BTN_SWITCH" "$OPPOSITE_MODE" "$L_BTN_EDIT"
 
-    # Оставили ровно 2 пробела перед [0] для симметрии
-    printf "    ${C_LBL}[${C_KEY}C${C_LBL}] %s ${C_LBL}[${C_KEY}W${C_LBL}] %s  ${C_LBL}[${C_KEY}0${C_LBL}] %s${C_RST}\n" \
+    # Добавлен еще один (третий) пробел перед скобкой [0]
+    printf "    ${C_LBL}[${C_KEY}C${C_LBL}] %s    ${C_LBL}[${C_KEY}W${C_LBL}] %s   ${C_LBL}[${C_KEY}0${C_LBL}] %s${C_RST}\n" \
            "$L_BTN_CLEAN" "$L_BTN_WIZ" "$L_BTN_EXIT"
 
     if [ "$BUILD_MODE" == "SOURCE" ]; then
-        printf "    ${C_LBL}[${C_KEY}K${C_LBL}] %s      ${C_LBL}[${C_KEY}I${C_LBL}] %s${C_RST}\n" "${L_BTN_MENUCONFIG}" "${L_BTN_IPK}"
+        printf "    ${C_LBL}[${C_KEY}K${C_LBL}] %s   ${C_LBL}[${C_KEY}I${C_LBL}] %s${C_RST}\n" "${L_BTN_MENUCONFIG}" "${L_BTN_IPK}"
     fi
     if [ "$BUILD_MODE" != "SOURCE" ]; then
         printf "    ${C_LBL}[${C_KEY}S${C_LBL}] %s${C_RST}\n" "APK Scanner"
@@ -1790,4 +1789,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=36f4d82d478bacd67b2387febdff057e
+# checksum:MD5=d7e564be38e208555fc5ba6c33197533
