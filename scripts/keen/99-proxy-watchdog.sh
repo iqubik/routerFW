@@ -7,7 +7,8 @@
 UPSTREAMS_FILE="/opt/etc/upstreams.list"
 
 # Укажите все нужные интерфейсы через пробел: "Proxy0 Wireguard1 Wireguard2 OpenVPN0"
-TUNNELS="Proxy0 Wireguard1"
+# ndmc -c "show running-config" чтобы узнать имена интерфейсов
+TUNNELS="Proxy1 Wireguard1"
 
 if [ "$id" = "GigabitEthernet1" ]; then
 
