@@ -2109,7 +2109,7 @@ echo fi >> "%RUNNER_SCRIPT%"
 echo %L_K_LAUNCH%
 echo.
 :: FIX: Smart Chown (оптимизация запуска) + Security Opt
-set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && set "COMPOSE_BASE_FILE=system/docker-compose-src.yaml" && call :RUN_COMPOSE -p %PROJ_NAME% run --build --rm -it %SERVICE_NAME% /bin/bash -c "if [ -d /home/build/openwrt/.git ] && [ x$(stat -c %%U /ccache 2>/dev/null) = xbuild ]; then echo '[INIT] Permissions OK'; else echo '[INIT] Fixing permissions (Slow)...'; chown -R build:build /home/build/openwrt /ccache; fi && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
+set "HOST_PKGS_DIR=./src_packages/%PROFILE_ID%" && set "COMPOSE_BASE_FILE=system/docker-compose-src.yaml" && call :RUN_COMPOSE -p %PROJ_NAME% run --build --rm -it %SERVICE_NAME% /bin/bash -c "if [ -d /home/build/openwrt/.git ] && [ x$(stat -c %%%%U /ccache 2>/dev/null) = xbuild ]; then echo '[INIT] Permissions OK'; else echo '[INIT] Fixing permissions (Slow)...'; chown -R build:build /home/build/openwrt /ccache; fi && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
 :: --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ ---
 if exist "%WIN_OUT_PATH%\manual_config" (
     echo.
