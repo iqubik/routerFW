@@ -7,7 +7,7 @@
 # Language / Язык
 [🇷🇺 Русский язык](README.md) | [🇺🇸 English]
 
-# 🚀 OpenWrtFW Builder (Image + Source) + IPK/APK Injection
+# 🚀 OpenWrtFW Builder v4.71+ (Image + Source) + IPK/APK Injection
 
 Many have likely wanted to have a personal OpenWrt router binary with a full configuration and custom packages. Not just a backup, but a direct version rollback to a clean `.bin` file!
 
@@ -422,4 +422,4 @@ Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse b
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=45223ab37fb6584f6ab97fd09af50350
+# checksum:MD5=6ed191c1d1256dbe70a559e1a9fa0898

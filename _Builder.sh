@@ -4,7 +4,7 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-VER_NUM="4.70"
+VER_NUM="4.71"
 if [ -f "system/version.env" ]; then
     loaded_ver=$(grep -E '^ROUTERFW_VERSION=' "system/version.env" | head -1 | cut -d'=' -f2- | tr -d '"'\''[:space:]\r')
     [ -n "$loaded_ver" ] && VER_NUM="$loaded_ver"
@@ -2271,4 +2271,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=c58004c493feedd7376f557fe2ccaf9d
+# checksum:MD5=29bbffa42eb93d5fa8224671d70aab63

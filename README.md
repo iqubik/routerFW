@@ -7,7 +7,7 @@
 # Language / Язык
 [🇷🇺 Russian] | [🇺🇸 English](README.en.md)
 
-# 🚀 OpenWrtFW Builder (Image + Source) + ipk/apk injection
+# 🚀 OpenWrtFW Builder v4.71+ (Image + Source) + ipk/apk injection
 
 Наверняка многие хотели иметь персональный бинарник роутера на OpenWrt с полным конфигом и кастомными пакетами. Не просто резервная копия, а прямой откат версии в чистый `.bin`!
 
@@ -429,4 +429,4 @@ SRC_CORES="safe"
 ---
 
 Аудит проекта https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=7ee672180fc46ad648f7954817750dc6
+# checksum:MD5=c7972a2025df24ade136a411030445c5
