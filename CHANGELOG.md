@@ -1,7 +1,7 @@
 # RouterFW — тексты релизов (по тегам)
 
 Выгружено из репозитория по тегам через `gh release view`.
-Дата выгрузки: 2026-07-14 19:31:04.
+Дата выгрузки: 2026-11-09 13:57:22.
 
 ---
 
@@ -2551,8 +2551,8 @@ author:	iqubik
 created:	2026-07-14T16:26:04Z
 published:	2026-07-14T16:28:27Z
 url:	https://github.com/iqubik/routerFW/releases/tag/4.70
-asset:	routerFW_LinuxDockerBuilder_v14.07.2026_19-08.tar.gz
-asset:	routerFW_WinDockerBuilder_v14.07.2026_19-07.zip
+asset:	routerFW_LinuxDockerBuilder_v14.07.2026_21-03.tar.gz
+asset:	routerFW_WinDockerBuilder_v14.07.2026_20-41.zip
 --
 # RouterFW 4.70
 
@@ -2694,3 +2694,74 @@ RouterFW 4.70 делает проект заметно надежнее для �
 
 
 **Full Changelog**: https://github.com/iqubik/routerFW/compare/4.60...4.70
+
+
+## ========== TAG: 4.71 ==========
+
+title:	4.71 fix menuconfig
+tag:	4.71
+draft:	false
+prerelease:	false
+immutable:	false
+author:	iqubik
+created:	2026-11-09T10:36:19Z
+published:	2026-11-09T10:50:41Z
+url:	https://github.com/iqubik/routerFW/releases/tag/4.71
+asset:	routerFW_LinuxDockerBuilder_v09.11.2026_13-35.tar.gz
+asset:	routerFW_WinDockerBuilder_v09.11.2026_13-35.zip
+--
+# routerFW 4.71 — исправления Windows и регрессионные тесты
+
+## Исправления
+
+- Исправлен запуск **Menuconfig** в Windows: повторный разбор команды через `CALL` повреждал Bash-команду и приводил к ошибке `syntax error near unexpected token 'fi'`. Спасибо **@m-sfln** за исправление в PR #52.
+- Исправлена аналогичная ошибка при открытии **shell из редактора профиля** в режиме Source Builder.
+
+## Тестирование
+
+- В `tester.bat` добавлена проверка сохранности аргументов всех четырёх встроенных shell-команд при передаче через `CALL`.
+- Проверяются **16 комбинаций Docker/Podman и Compose plugin/standalone**, без запуска контейнеров.
+- Подтверждено, что возврат ошибочного экранирования вызывает падение теста.
+- Проверка автоматически запускается существующим Windows CI.
+- Windows-тестер: **53 проверки пройдены, 0 ошибок**.
+
+## Обновления
+
+- Версия повышена до **4.71** в обоих билдерах и `system/version.env`.
+- Синхронизированы README, документация архитектуры и диаграммы RU/EN.
+- Пересчитаны контрольные суммы изменённых файлов.
+
+Реальные сборки прошивок в рамках этой проверки не запускались.
+
+---
+
+# routerFW 4.71 — Windows fixes and regression tests
+
+## Fixes
+
+- Fixed **Menuconfig** startup on Windows: repeated command parsing through `CALL` corrupted the Bash command, causing `syntax error near unexpected token 'fi'`. Thanks to **@m-sfln** for the fix in PR #52.
+- Fixed the same escaping issue when opening a **shell from the profile editor** in Source Builder mode.
+
+## Testing
+
+- Added a regression test to `tester.bat` that checks argument preservation across `CALL` for all four inline shell commands.
+- Covers **16 combinations of Docker/Podman and Compose plugin/standalone**, without starting containers.
+- Confirmed that restoring the broken escaping causes the test to fail.
+- The test runs automatically in the existing Windows CI.
+- Windows test suite: **53 passed, 0 failed**.
+
+## Updates
+
+- Bumped the version to **4.71** in both builders and `system/version.env`.
+- Updated the Russian and English READMEs, architecture documentation, and diagrams.
+- Recalculated checksums for the changed files.
+
+Actual firmware builds were not run as part of this validation.
+
+## What's Changed
+* FIX build Menuconfig by @m-sfln in https://github.com/iqubik/routerFW/pull/52
+
+## New Contributors
+* @m-sfln made their first contribution in https://github.com/iqubik/routerFW/pull/52
+
+**Full Changelog**: https://github.com/iqubik/routerFW/compare/4.70...4.71
