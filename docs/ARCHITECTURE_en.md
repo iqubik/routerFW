@@ -41,7 +41,13 @@ Both entry points are **feature-parity** wrappers: same menus, same logic, diffe
 
 **Container runtime selection:** `--runtime=auto|docker|podman`, short form `-r auto|docker|podman`, or the `ROUTERFW_RUNTIME` environment variable. In `auto` mode, an interactive launch asks the user when both Docker and Podman are available; non-interactive commands choose an available runtime without opening a menu. In WSL, the Bash version can fall back to `docker.exe` / `podman.exe` when native Linux CLIs are missing.
 
-**CLI test harnesses:** `tester.bat` and `tester.sh` run the builders with arguments and check exit codes/output; they perform only safe checks (no builds, clean, or menuconfig). Logs and artifacts are in `.gitignore`.
+**Local checks and CI:** GitHub Actions runs the same `tester.bat` / `tester.sh`, without separate copies of checks in YAML. Both suites cover the CLI, packer/unpacker roundtrips, packer determinism, and rejection of corrupt payloads. The Bash suite also runs syntax checks and ShellCheck (an installed `shellcheck` is required).
+
+- Windows: `tester.bat` runs the full Windows suite. `ROUTERFW_TEST_SKIP_PACKER=1` explicitly skips packaging and means an incomplete run.
+- Linux: `bash ./tester.sh` runs checks without starting containers; `bash ./tester.sh --ci` runs the entire suite, including Docker and Podman.
+- Individual container checks: `bash ./tester.sh "Docker Smoke"` and `bash ./tester.sh "Podman Smoke"`. The corresponding CI jobs use these exact commands.
+
+Smoke tests build the builder images and check IB/SRC volume writes, user permissions, and glibc compatibility. They require working runtimes, Compose, Python 3, and network access; a missing dependency fails the selected check. Each test uses its own Compose project and removes only its own containers, volumes, and output files. These checks do not build firmware or open Menuconfig. Use a separate fresh working copy to reproduce clean-checkout behavior. Logs: `tester_log_win.md` / `tester_log_lin.md`; CI uploads them even on failure.
 
 ---
 
@@ -394,4 +400,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=0f60137eeed45d53c9d65fe6d9d6be21
+# checksum:MD5=dbdacaa407016b34d0cfaf9e7bf84bd2

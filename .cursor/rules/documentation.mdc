@@ -21,7 +21,7 @@ alwaysApply: false
 - `docs/ARCHITECTURE_diagram_ru.md` / `_en.md` — matching Mermaid process diagrams.
 - `docs/map.md` / `map.en.md` — historical development map; distinguish historical release facts from current state.
 - `docs/audit.md` — dated, evidence-based repository health snapshot; never carry forward stale “all OK” claims without rechecking.
-- `pub.md` — current public release announcement; `CHANGELOG.md` remains the historical release record.
+- `pub.md` — **temporary GitHub Release draft** (RU + EN): generate from the difference between the previous **published Git tag** and the **current intended release tree**, cross-checking the historical `CHANGELOG.md`. Never use the previous commit as a substitute for the previous tag. It is staging text, not a historical changelog, and must not be auto-published.
 - `GEMINI.md` and `.cursor/rules/*.mdc` — agent-facing project context and constraints; keep them aligned with current source and CI.
 
 ## Architecture documentation
@@ -44,14 +44,22 @@ Each lesson begins with a centered RU/EN language switcher, a horizontal rule, t
 - Keep historical version numbers when explaining when a feature was introduced, but label them as historical.
 - Verify Docker/Podman, base-image, CLI, cleanup, CI, and test claims against current source/workflows before changing prose.
 - Never advertise global prune: it is intentionally disabled.
-- Distinguish CLI/packaging tests from real firmware builds. Current CI does not build firmware images or run Docker/Podman container-build smoke jobs.
+- Distinguish CLI/packaging tests from real firmware builds. Current CI calls the local Bash/Batch testers and separate Docker/Podman smoke checks (actual image/volume checks). It does **not** build firmware images. Keep the descriptions aligned with `.github/workflows/tests.yml` and tester options (`--ci`, smoke test labels).
 
 ## Offline documentation packaging
 
 Both `_packer.sh` and `_packer.bat` must include every Markdown page linked from `README` or `docs/index` (lessons 01–08, both architecture descriptions, both Mermaid diagrams, `map`, `audit`, and both indexes). Keep the two packer file lists in parity. Extend both `tester.sh` and `tester.bat` packer-roundtrip assertions whenever a documentation page is added or moved.
 
+## Maintainer source-tree export and release output
+
+- `package_source_zip.bat` / `package_source_zip.py` export a review snapshot; they are not firmware builders or runtime dependencies. Python 3.10+ is required only for this optional tool.
+- The archive includes `SOURCE_TREE_INDEX.txt`, with relative *names* for all files/directories, even inside the excluded heavy and private directories; excluded contents are never copied. Clearly warn about metadata privacy. The inventory fails on enumeration errors or exceeding `--tree-max-entries` rather than claiming to be complete when truncated; `--no-tree` opts out.
+- Default payload omissions include `.git`, `firmware_output`, `builds`, `bck`, `nw_test`, `nl_test`, user-custom trees and generated artifacts. Explain `--include-custom`, `--unique`, the 4 MiB file-size limit, and `[Y/n]` (Enter=yes) when relevant.
+- At the output audit of **every change slice**, check affected RU/EN README/docs, architecture/diagrams when applicable, agent rules and tests. Update the relevant items with the implementation rather than deferring docs. Do not edit the temporary release draft `pub.md` unless the user requests a release.
+- Tester parity is semantic: `tests/test_tester_parity.py` checks common BAT/SH CLI and health labels with explicit platform-only exceptions. Both harnesses call the optional Python source-export regression suite when available. CI must install Python and fail if these checks cannot run; do not silently mark missing CI dependencies as PASS.
+
 ## Markdown and generated artifacts
 
-- Preserve `.gitattributes`: Markdown files use CRLF; `.mdc` agent rules use LF.
+- Preserve `.gitattributes`: Markdown files use CRLF; `.mdc` agent rules, `.sh` and `profiles/*.conf` use LF. Do not silently change profile EOLs or normalize entire files as part of a documentation update.
 - Recalculate a file's trailing `checksum:MD5` footer when editing a file that has one. The checksum is over the normalized content before the footer, including its final line ending.
 - Do not edit generated tester logs, test snapshots, or `CHANGELOG.md` merely to make old historical output look current.

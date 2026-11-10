@@ -31,7 +31,7 @@ Security note: the current IB path disables APK signature checking in its make i
 8. Run `make download` with a verbose retry on failure, then compile. A failed parallel build triggers one `make -j1 V=s` retry unless `SRC_CORES=debug` was requested initially.
 9. Copy firmware and `build.config` to `/output/<timestamp>/`.
 
-Important ordering: hooks run before the final `files/` overlay sync. Hook-generated files under `files/` can be removed by `rsync --delete` unless also present in `/overlay_files`. The current parallel-build fallback does not classify `EROFS`/`EIO`; a read-only or failing filesystem is not repaired by retrying `make`.
+Important ordering: hooks run before the final `files/` overlay sync. Hook-generated files under `files/` can be removed by `rsync --delete` unless also present in `/overlay_files`. Before downloads and compilation, and after `make` failures, Source Builder probes actual write access to its worktree, `dl`, CCache, `/tmp`, and `/output`; confirmed `EROFS`/`EIO`/no-space/permission failures abort without retry or automatic cleanup. An ordinary compiler failure on currently writable storage keeps the `make -j1 V=s` fallback; a transient past failure may remain unclassified.
 
 ## Container images
 

@@ -41,3 +41,9 @@ GEMINI.md
 /diff.zip.new
 /diff.new.zip
 /artifacts/worktree_diffs/
+# Optional source-tree snapshots (package_source_zip.bat / .py)
+/routerFW_source.zip
+/routerFW_source_*.zip
+/.routerFW_source.*.tmp.zip
+/tests/__pycache__
+/__pycache__

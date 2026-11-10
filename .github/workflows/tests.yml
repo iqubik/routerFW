@@ -20,106 +20,13 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-
-      - name: Set executable permissions
-        shell: bash
-        run: |
-          chmod +x _Builder.sh _packer.sh tester.sh
-          test -x _Builder.sh
-          test -x _packer.sh
-          test -x tester.sh
-
-      - name: Install shellcheck
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
-
-      - name: Bash syntax
-        run: for f in _Builder.sh _packer.sh _unpacker.sh tester.sh system/*.sh; do bash -n "$f"; done
-        shell: bash
-
-      - name: Custom shell syntax
-        run: |
-          git ls-files -z -- 'custom_files/**/*.sh' 'scripts/**/*.sh' 'scripts/*.sh' |
-            xargs -0 -r -n1 bash -n
-        shell: bash
-
-      - name: ShellCheck
-        run: shellcheck --severity=error _Builder.sh _packer.sh tester.sh system/*.sh
-
-      - name: Localization keys
-        run: diff <(grep -E '^(L_|H_)' system/lang/ru.env | sed 's/=.*//' | sort) <(grep -E '^(L_|H_)' system/lang/en.env | sed 's/=.*//' | sort)
-        shell: bash
-
-      - name: Version sync
-        run: |
-          ver=$(grep -E '^ROUTERFW_VERSION=' system/version.env | cut -d= -f2 | tr -d '\r')
-          grep -Fq "VER_NUM=\"$ver\"" _Builder.sh
-          grep -Fq "set \"VER_NUM=$ver\"" _Builder.bat
-          grep -Fq "v$ver+" README.md
-          grep -Fq "v$ver+" README.en.md
-          grep -Fq "Version: $ver." docs/ARCHITECTURE_en.md
-          grep -Fq "Версия: $ver." docs/ARCHITECTURE_ru.md
-        shell: bash
-
-      - name: BOM expectations
-        run: |
-          test_bom() { [[ "$(head -c 3 "$1")" == $'\xef\xbb\xbf' ]]; }
-          errors=0
-          for f in system/create_profile.ps1 system/import_ipk.ps1; do
-            test_bom "$f" || { echo "BOM missing in $f"; errors=1; }
-          done
-          for f in _Builder.sh system/lang/ru.env README.md; do
-            test_bom "$f" && { echo "Unexpected BOM in $f"; errors=1; }
-          done
-          exit "$errors"
-        shell: bash
-
-      - name: Forbid global docker prune
-        run: |
-          if grep -R -E '(docker(\.exe)?|podman) (network|volume|system) prune|run_container .* (network|volume|system) prune|\$C_EXE .*system prune|%CONTAINER_EXE% system prune' _Builder.sh _Builder.bat tester.sh tester.bat system/*.sh system/*.ps1; then
-            echo "Forbidden global docker prune command found"
-            exit 1
-          fi
-        shell: bash
-
-      - name: Verify Linux packer determinism
-        run: |
-          set -e
-          original_unpacker="$(mktemp)"
-          generated_unpacker="$(mktemp)"
-          cp ./_unpacker.sh "$original_unpacker"
-          before="$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort)"
-          cleanup() {
-            cp "$original_unpacker" ./_unpacker.sh
-            rm -f "$original_unpacker" "$generated_unpacker"
-            find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print |
-              grep -Fvx "$before" |
-              xargs -r rm -f || true
-          }
-          trap cleanup EXIT
-          printf '\n' | ROUTERFW_TEST_MODE=1 bash ./_packer.sh >/dev/null
-          cp ./_unpacker.sh "$generated_unpacker"
-          printf '\n' | ROUTERFW_TEST_MODE=1 bash ./_packer.sh >/dev/null
-          cmp -s "$generated_unpacker" ./_unpacker.sh
-        shell: bash
-
-      - name: Run bash tester
+      - name: Run local Bash suite (syntax, lint, CLI, packer and unpacker)
         run: bash ./tester.sh
-        shell: bash
-        env:
-          ROUTERFW_TEST_MODE: "1"
-
-      - name: Linux unpacker smoke
-        run: |
-          set -e
-          temp="$(mktemp -d)"
-          cp ./_unpacker.sh "$temp/"
-          (
-            cd "$temp"
-            bash ./_unpacker.sh
-            test -f system/version.env
-          )
-        shell: bash
-
       - name: Upload Linux tester log
         if: always()
         uses: actions/upload-artifact@v6
@@ -133,133 +40,12 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-
-      - name: Windows packer smoke
-        run: |
-          set ROUTERFW_TEST_MODE=1
-          call _packer.bat
-          if errorlevel 1 exit /b 1
-          if exist temp_packer_worker* exit /b 1
-          if exist _unpacker.bat.new exit /b 1
-          copy /Y _unpacker.bat "%RUNNER_TEMP%\generated-unpacker.bat" >nul
-        shell: cmd
-
-      - name: Verify Windows packer determinism
-        run: |
-          set ROUTERFW_TEST_MODE=1
-          call _packer.bat
-          if errorlevel 1 exit /b 1
-          if exist temp_packer_worker* exit /b 1
-          if exist _unpacker.bat.new exit /b 1
-          fc /b "%RUNNER_TEMP%\generated-unpacker.bat" _unpacker.bat
-          if errorlevel 1 exit /b 1
-        shell: cmd
-
-      - name: Run batch tester
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Run local Batch suite (CLI, packer and unpacker)
         run: .\tester.bat
         shell: cmd
-        env:
-          ROUTERFW_TEST_MODE: "1"
-          ROUTERFW_TEST_SKIP_PACKER: "1"
-
-      - name: Windows unpacker smoke
-        run: |
-          $repo = (Get-Location).Path
-          $temp = Join-Path $env:RUNNER_TEMP "routerfw-unpack"
-          New-Item -ItemType Directory -Force -Path $temp | Out-Null
-          Copy-Item _unpacker.bat $temp
-          Push-Location $temp
-          try {
-            cmd /c "call _unpacker.bat"
-            if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-            }
-            if (-not (Test-Path "system\version.env")) {
-              exit 1
-            }
-          }
-          finally {
-            Pop-Location
-          }
-
-          $enc = New-Object Text.UTF8Encoding($false)
-          foreach ($rel in @("system\podman-compose.yaml", "system\podman-compose-src.yaml", "system\version.env")) {
-            $srcPath = Join-Path $repo $rel
-            $dstPath = Join-Path $temp $rel
-            if (-not (Test-Path -LiteralPath $dstPath)) {
-              Write-Error "Missing unpacked file: $rel"
-              exit 1
-            }
-            $src = [IO.File]::ReadAllText($srcPath, $enc) -replace ([char]13 + [char]10), [char]10
-            $src = $src -replace [char]13, [char]10
-            $dst = [IO.File]::ReadAllText($dstPath, $enc) -replace ([char]13 + [char]10), [char]10
-            $dst = $dst -replace [char]13, [char]10
-            if ($rel -eq "system\version.env") {
-              $srcVersion = [regex]::Match($src, "(?m)^ROUTERFW_VERSION=(.+)$").Groups[1].Value.Trim()
-              $dstVersion = [regex]::Match($dst, "(?m)^ROUTERFW_VERSION=(.+)$").Groups[1].Value.Trim()
-              if (-not $srcVersion -or $srcVersion -ne $dstVersion) {
-                Write-Error "Version value mismatch in $rel"
-                exit 1
-              }
-              continue
-            }
-            if ($src -ne $dst) {
-              Write-Error "Roundtrip content mismatch: $rel"
-              exit 1
-            }
-          }
-        shell: pwsh
-
-      - name: Windows corrupt unpacker smoke
-        run: |
-          $temp = Join-Path $env:RUNNER_TEMP "routerfw-corrupt-unpack"
-          Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $temp | Out-Null
-
-          $inBlock = $false
-          $done = $false
-          $out = foreach ($line in Get-Content -LiteralPath "_unpacker.bat") {
-            if ($line -eq ":: BEGIN_B64_ system/version.env") {
-              $inBlock = $true
-              $line
-              continue
-            }
-            if ($line -eq ":: END_B64_ system/version.env") {
-              $inBlock = $false
-              $line
-              continue
-            }
-            if ($inBlock -and -not $done -and $line -notmatch "^::") {
-              $done = $true
-              "@@@@"
-              continue
-            }
-            $line
-          }
-
-          if (-not $done) {
-            Write-Error "Could not corrupt system/version.env payload"
-            exit 1
-          }
-
-          [IO.File]::WriteAllLines((Join-Path $temp "_unpacker.bat"), [string[]]$out, (New-Object Text.UTF8Encoding($false)))
-          Push-Location $temp
-          try {
-            $proc = Start-Process -FilePath $env:ComSpec -ArgumentList "/d", "/c", "call _unpacker.bat >nul 2>nul" -Wait -PassThru -NoNewWindow
-            if ($proc.ExitCode -eq 0) {
-              Write-Error "Corrupt unpacker unexpectedly succeeded"
-              exit 1
-            }
-            if (Test-Path "system\version.env") {
-              Write-Error "Corrupt payload was written to disk"
-              exit 1
-            }
-          }
-          finally {
-            Pop-Location
-          }
-        shell: pwsh
-
       - name: Upload Windows tester log
         if: always()
         uses: actions/upload-artifact@v6
@@ -269,109 +55,36 @@ jobs:
 
   docker-smoke:
     runs-on: ubuntu-latest
+    env:
+      TERM: xterm
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-
-      - name: Set executable permissions
-        run: chmod +x _Builder.sh _packer.sh tester.sh
-        shell: bash
-
-      - name: Docker compose smoke
-        run: |
-          docker info
-          docker compose -f system/docker-compose.yaml config >/dev/null
-          docker compose -f system/docker-compose-src.yaml config >/dev/null
-          ROUTERFW_RUNTIME=docker bash ./_Builder.sh help >/dev/null
-
-          rm -rf firmware_output/imagebuilder/docker-smoke firmware_output/sourcebuilder/docker-smoke
-          mkdir -p firmware_output/imagebuilder/docker-smoke firmware_output/sourcebuilder/docker-smoke
-
-          SELECTED_CONF=tplink_tl_wr1043nd_v2_24105_ow_full.conf HOST_OUTPUT_DIR=./firmware_output/imagebuilder/docker-smoke HOST_PKGS_DIR=./custom_packages/tplink_tl_wr1043nd_v2_24105_ow_full HOST_FILES_DIR=./custom_files/tplink_tl_wr1043nd_v2_24105_ow_full docker compose -f system/docker-compose.yaml -p docker-smoke-ib run --build --rm builder-openwrt sh -lc '
-            id
-            touch /builder_workspace/.routerfw-write-test
-            touch /output/imagebuilder/docker-smoke/.routerfw-output-test
-          '
-          test -f firmware_output/imagebuilder/docker-smoke/.routerfw-output-test
-
-          SELECTED_CONF=tplink_tl_wr1043nd_v2_24105_ow_full.conf HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/docker-smoke HOST_PKGS_DIR=./src_packages/tplink_tl_wr1043nd_v2_24105_ow_full HOST_PATCHES_DIR=./custom_patches/tplink_tl_wr1043nd_v2_24105_ow_full HOST_FILES_DIR=./custom_files/tplink_tl_wr1043nd_v2_24105_ow_full docker compose -f system/docker-compose-src.yaml -p docker-smoke-src run --build --rm builder-src-openwrt sh -lc '
-            id
-            chown build:build /output
-            sudo -u build sh -lc "
-              id
-              echo ok > /output/result.txt
-            "
-          '
-          test -f firmware_output/sourcebuilder/docker-smoke/result.txt
-
-          ib_glibc="$(SELECTED_CONF=tplink_tl_wr1043nd_v2_24105_ow_full.conf HOST_OUTPUT_DIR=./firmware_output/imagebuilder/docker-smoke HOST_PKGS_DIR=./custom_packages/tplink_tl_wr1043nd_v2_24105_ow_full HOST_FILES_DIR=./custom_files/tplink_tl_wr1043nd_v2_24105_ow_full docker compose -f system/docker-compose.yaml -p docker-smoke-ib run --rm builder-openwrt getconf GNU_LIBC_VERSION | awk '/^glibc /{print $2; exit}')"
-          src_glibc="$(SELECTED_CONF=tplink_tl_wr1043nd_v2_24105_ow_full.conf HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/docker-smoke HOST_PKGS_DIR=./src_packages/tplink_tl_wr1043nd_v2_24105_ow_full HOST_PATCHES_DIR=./custom_patches/tplink_tl_wr1043nd_v2_24105_ow_full HOST_FILES_DIR=./custom_files/tplink_tl_wr1043nd_v2_24105_ow_full docker compose -f system/docker-compose-src.yaml -p docker-smoke-src run --rm builder-src-openwrt getconf GNU_LIBC_VERSION | awk '/^glibc /{print $2; exit}')"
-          if [ -z "$ib_glibc" ] || [ -z "$src_glibc" ]; then
-            echo "Failed to read builder glibc versions: image='$ib_glibc' source='$src_glibc'"
-            exit 1
-          fi
-          if [ "$(printf '%s\n%s\n' "$ib_glibc" "$src_glibc" | sort -V | tail -1)" != "$ib_glibc" ]; then
-            echo "Image Builder glibc $ib_glibc is older than Source Builder glibc $src_glibc"
-            exit 1
-          fi
-          echo "Modern builder glibc invariant OK: image=$ib_glibc source=$src_glibc"
-        shell: bash
+      - name: Run local Docker smoke
+        run: bash ./tester.sh "Docker Smoke"
+      - name: Upload Docker smoke log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tester-log-docker
+          path: tester_log_lin.md
 
   podman-smoke:
     runs-on: ubuntu-latest
+    env:
+      TERM: xterm
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-
-      - name: Set executable permissions
-        run: chmod +x _Builder.sh _packer.sh tester.sh
-        shell: bash
-
-      - name: Install podman
+      - name: Install Podman
         run: sudo apt-get update && sudo apt-get install -y podman podman-compose
-        shell: bash
-
-      - name: Podman compose smoke
-        run: |
-          command -v podman-compose >/dev/null
-          podman info
-
-          rm -rf firmware_output/imagebuilder/podman-smoke firmware_output/sourcebuilder/podman-smoke
-          mkdir -p firmware_output/imagebuilder/podman-smoke firmware_output/sourcebuilder/podman-smoke
-
-          export ROUTERFW_RUNTIME=podman
-          export ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose.yaml
-          export SELECTED_CONF=tplink_tl_wr1043nd_v2_24105_ow_full.conf
-          export HOST_OUTPUT_DIR=./firmware_output/imagebuilder/podman-smoke
-          export HOST_PKGS_DIR=./custom_packages/tplink_tl_wr1043nd_v2_24105_ow_full
-          export HOST_FILES_DIR=./custom_files/tplink_tl_wr1043nd_v2_24105_ow_full
-
-          ROUTERFW_TEST_COMPOSE_ARGS='config' bash ./_Builder.sh help >/dev/null
-          ROUTERFW_TEST_COMPOSE_ARGS='-p podman-smoke-ib build builder-openwrt' bash ./_Builder.sh help
-          ROUTERFW_TEST_COMPOSE_ARGS=$(cat <<'ARGS'
-          -p podman-smoke-ib run --rm builder-openwrt sh -lc 'id; touch /builder_workspace/.routerfw-write-test; touch /output/imagebuilder/podman-smoke/.routerfw-output-test'
-          ARGS
-          ) bash ./_Builder.sh help
-          test -f firmware_output/imagebuilder/podman-smoke/.routerfw-output-test
-          test -w firmware_output/imagebuilder/podman-smoke/.routerfw-output-test
-          test "$(stat -c '%u' firmware_output/imagebuilder/podman-smoke/.routerfw-output-test)" = "$(id -u)"
-
-          export ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose-src.yaml
-          export HOST_OUTPUT_DIR=./firmware_output/sourcebuilder/podman-smoke
-          export HOST_PKGS_DIR=./src_packages/tplink_tl_wr1043nd_v2_24105_ow_full
-          export HOST_PATCHES_DIR=./custom_patches/tplink_tl_wr1043nd_v2_24105_ow_full
-          export HOST_FILES_DIR=./custom_files/tplink_tl_wr1043nd_v2_24105_ow_full
-
-          ROUTERFW_TEST_COMPOSE_ARGS='config' bash ./_Builder.sh help >/dev/null
-          ROUTERFW_TEST_COMPOSE_ARGS='-p podman-smoke-src build builder-src-openwrt' bash ./_Builder.sh help
-          ROUTERFW_TEST_COMPOSE_ARGS=$(cat <<'ARGS'
-          -p podman-smoke-src run --rm builder-src-openwrt sh -lc 'id; sudo -u build sh -lc "id; echo ok > /output/result.txt"'
-          ARGS
-          ) bash ./_Builder.sh help
-          test -f firmware_output/sourcebuilder/podman-smoke/result.txt
-          test -w firmware_output/sourcebuilder/podman-smoke/result.txt
-          test "$(stat -c '%u' firmware_output/sourcebuilder/podman-smoke/result.txt)" = "$(id -u)"
-          test "$(cat firmware_output/sourcebuilder/podman-smoke/result.txt)" = "ok"
-        shell: bash
+      - name: Run local Podman smoke
+        run: bash ./tester.sh "Podman Smoke"
+      - name: Upload Podman smoke log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tester-log-podman
+          path: tester_log_lin.md

@@ -16,6 +16,10 @@ alwaysApply: true
 - When onboarding, reconstructing a regression, or updating the development map, targeted searches for the relevant/latest release sections are allowed and expected when the task requires history.
 - Never edit historical release entries to make them appear current. Add a new release entry only through the project's release workflow or explicit user instruction.
 
+## Temporary release draft
+
+- `pub.md` is a maintainer's replaceable RU/EN GitHub Release description draft, not a historical source or canonical release manifest. Prepare it only when requested by comparing the previous published Git tag with the intended current release tree, verifying against `CHANGELOG.md`. Do not publish or overwrite it automatically.
+
 ## Other generated/test artifacts
 
 - Do not treat `tester_log_*.md`, `tester_tmp_*`, or unpacked snapshots under `nl_test/` and `nw_test/` as canonical documentation or source.

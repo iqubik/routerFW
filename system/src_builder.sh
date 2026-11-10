@@ -230,36 +230,150 @@ if [ -d "/overlay_files" ] && [ -n "$(ls -A /overlay_files)" ]; then
 fi
 
 # 5. СБОРКА
-echo "[DOWNLOAD] Starting..."
-make download || make download V=s
+# BEGIN SOURCE STORAGE HEALTH HELPERS (used by tests/test_src_builder_storage.sh)
+# Проверяем фактическую запись в тома, а не делаем вывод об их состоянии по "Error 1" от make.
+# В успешном случае пробный файл обязательно удаляется; кеши и пользовательские файлы не чистим.
+storage_error_code=''
+storage_error_path=''
+storage_error_detail=''
+
+storage_classify_error() {
+    local message="$1"
+    case "$message" in
+        *'Read-only file system'*) printf '%s' 'STORAGE_READONLY' ;;
+        *'No space left on device'*|*'Disk quota exceeded'*) printf '%s' 'STORAGE_NO_SPACE' ;;
+        *'Input/output error'*) printf '%s' 'STORAGE_IO_ERROR' ;;
+        *'Permission denied'*|*'Operation not permitted'*) printf '%s' 'PERMISSION_ERROR' ;;
+        *'No such file or directory'*) printf '%s' 'STORAGE_PATH_MISSING' ;;
+        *) printf '%s' 'STORAGE_WRITE_ERROR' ;;
+    esac
+}
+
+storage_fail() {
+    local phase="$1" path="$2" code="$3" detail="$4"
+    storage_error_code="$code"
+    storage_error_path="$path"
+    storage_error_detail="$detail"
+    printf '\n[BUILD INFRA] %s during %s\n' "$code" "$phase" >&2
+    printf '[BUILD INFRA] Path: %s\n' "$path" >&2
+    printf '[BUILD INFRA] Evidence: %s\n' "$detail" >&2
+    printf '[BUILD INFRA] Disk space (if available):\n' >&2
+    LC_ALL=C df -hT -- "$path" >&2 || true
+    printf '[BUILD INFRA] Inodes (if available):\n' >&2
+    LC_ALL=C df -Pi -- "$path" >&2 || true
+    printf '[BUILD INFRA] Stopping; no automatic volume cleanup or retry. Check Docker/Podman storage and host filesystem.\n' >&2
+    return 1
+}
+
+storage_check() {
+    local phase="$1" path temp err blocks inodes output
+    shift
+    local -a paths=("$@")
+    if (( ${#paths[@]} == 0 )); then
+        # /home/build/openwrt/dl — отдельный volume, /output — bind mount на хост.
+        paths=("$PWD" "$PWD/dl" /ccache /tmp /output)
+    fi
+    storage_error_code=''
+    storage_error_path=''
+    storage_error_detail=''
+    for path in "${paths[@]}"; do
+        if [[ ! -d "$path" ]]; then
+            storage_fail "$phase" "$path" STORAGE_PATH_MISSING 'Directory missing or inaccessible' || return 1
+        fi
+        if temp=$(LC_ALL=C mktemp -- "$path/.routerfw-health.XXXXXXXXXX" 2>&1); then
+            if ! err=$(LC_ALL=C rm -- "$temp" 2>&1); then
+                storage_fail "$phase" "$path" "$(storage_classify_error "$err")" "Probe cleanup failed: $err" || return 1
+            fi
+        else
+            storage_fail "$phase" "$path" "$(storage_classify_error "$temp")" "$temp" || return 1
+        fi
+
+        # Диагноз по df ставим только при явном нуле доступных блоков/inode.
+        # При неизвестных значениях (например, файловая система без inode) не делаем ложный вывод.
+        if output=$(LC_ALL=C df -Pk -- "$path" 2>&1); then
+            blocks=$(printf '%s\n' "$output" | awk 'END {print $4}')
+            if [[ "$blocks" == 0 ]]; then
+                storage_fail "$phase" "$path" STORAGE_NO_SPACE 'df reports 0 available 1K-blocks' || return 1
+            fi
+        else
+            case "$(storage_classify_error "$output")" in
+                STORAGE_READONLY|STORAGE_NO_SPACE|STORAGE_IO_ERROR)
+                    storage_fail "$phase" "$path" "$(storage_classify_error "$output")" "df -Pk failed: $output" || return 1 ;;
+                *) printf '[BUILD INFRA] WARN: df -Pk %s: %s\n' "$path" "$output" >&2 ;;
+            esac
+        fi
+        if output=$(LC_ALL=C df -Pi -- "$path" 2>&1); then
+            inodes=$(printf '%s\n' "$output" | awk 'END {print $4}')
+            if [[ "$inodes" == 0 ]]; then
+                storage_fail "$phase" "$path" STORAGE_NO_SPACE 'df reports 0 free inodes' || return 1
+            fi
+        else
+            case "$(storage_classify_error "$output")" in
+                STORAGE_READONLY|STORAGE_NO_SPACE|STORAGE_IO_ERROR)
+                    storage_fail "$phase" "$path" "$(storage_classify_error "$output")" "df -Pi failed: $output" || return 1 ;;
+                *) printf '[BUILD INFRA] WARN: df -Pi %s: %s\n' "$path" "$output" >&2 ;;
+            esac
+        fi
+    done
+    printf '[STORAGE] %s: writable paths verified (%s).\n' "$phase" "${#paths[@]}"
+    return 0
+}
+
+run_source_download() {
+    echo '[DOWNLOAD] Starting...'
+    if make download; then
+        return 0
+    fi
+    storage_check 'after make download failure' || return 1
+    echo '[DOWNLOAD] Attempt 2: make download V=s'
+    if make download V=s; then
+        return 0
+    fi
+    storage_check 'after verbose make download failure' || return 1
+    echo '[DOWNLOAD FAILED] Both download attempts failed; storage probe passed (cause not classified).' >&2
+    return 1
+}
+
+run_source_compile() {
+    local -a args=("$@")
+    echo "[BUILD] Starting build with args: ${args[*]}"
+    if make "${args[@]}"; then
+        return 0
+    fi
+    storage_check 'after initial make failure' || return 1
+    if [[ "${SRC_CORES:-}" == debug ]]; then
+        echo -e "\n${RED}[BUILD FAILED] Initial debug build failed; storage probe passed (cause not classified).${NC}\n" >&2
+        return 1
+    fi
+    echo -e "\n${RED}[BUILD ERROR] Parallel build failed! Starting Attempt 2: -j1 V=s (Debug mode)...${NC}\n"
+    if make -j1 V=s; then
+        return 0
+    fi
+    storage_check 'after debug make failure' || return 1
+    echo -e "\n${RED}[BUILD FAILED] Debug build failed; storage probe passed (cause not classified).${NC}\n" >&2
+    return 1
+}
+# END SOURCE STORAGE HEALTH HELPERS
+
+storage_check 'before make download' || exit 1
+run_source_download || exit 1
 
 SYS_CORES=$(nproc)
 BUILD_JOBS=$SYS_CORES
-MAKE_ARGS="-j$BUILD_JOBS"
+MAKE_ARGS=("-j$BUILD_JOBS")
 
 if [[ "$SRC_CORES" == "debug" ]]; then
-    MAKE_ARGS="-j1 V=s"
-    echo "[BUILD] Debug mode requested. Using: $MAKE_ARGS"
+    MAKE_ARGS=(-j1 V=s)
+    echo "[BUILD] Debug mode requested. Using: ${MAKE_ARGS[*]}"
 elif [[ "$SRC_CORES" == "safe" ]]; then
     BUILD_JOBS=$((SYS_CORES > 1 ? SYS_CORES - 1 : 1))
-    MAKE_ARGS="-j$BUILD_JOBS"
+    MAKE_ARGS=("-j$BUILD_JOBS")
 elif [[ "$SRC_CORES" =~ ^[0-9]+$ ]]; then
-    MAKE_ARGS="-j$SRC_CORES"
+    MAKE_ARGS=("-j$SRC_CORES")
 fi
 
-echo "[BUILD] Starting build with args: $MAKE_ARGS"
-if ! make $MAKE_ARGS; then
-    if [[ "$SRC_CORES" != "debug" ]]; then
-        echo -e "\n${RED}[BUILD ERROR] Parallel build failed! Starting Attempt 2: -j1 V=s (Debug mode)...${NC}\n"
-        if ! make -j1 V=s; then
-            echo -e "\n${RED}[BUILD FAILED] Debug build failed.${NC}\n"
-            exit 1
-        fi
-    else
-        echo -e "\n${RED}[BUILD FAILED] Initial debug build failed.${NC}\n"
-        exit 1
-    fi
-fi
+storage_check 'before compile' || exit 1
+run_source_compile "${MAKE_ARGS[@]}" || exit 1
 
 # 6. СОХРАНЕНИЕ
 TARGET_DIR="/output/$TIMESTAMP"
@@ -298,4 +412,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=7d8eff781a52ff91e96de1d45d2d0645
+# checksum:MD5=a4f29fd337d1fc53182ae668944f9b77

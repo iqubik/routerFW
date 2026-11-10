@@ -5,6 +5,8 @@
 # Запуск без аргументов = все тесты.
 # Запуск с аргументами = только тесты с указанными метками.
 # Пример: ./tester.sh help "Localization Keys"
+# Full CI checks (requires Docker, Podman, Compose, Python 3 and ShellCheck): ./tester.sh --ci
+# Individual container checks: ./tester.sh "Docker Smoke" / ./tester.sh "Podman Smoke"
 #
 # Запуск без аргументов = все тесты.
 # Запуск с аргументами = только тесты с указанными метками.
@@ -66,6 +68,11 @@ cleanup_tester() {
 trap cleanup_tester EXIT
 
 # 1. Сохраняем аргументы скрипта в глобальный массив, сохраняя пробелы
+FULL_CI=0
+if [ "${1:-}" = "--ci" ]; then
+  FULL_CI=1
+  shift
+fi
 FILTERS=("$@")
 
 if [ ${#FILTERS[@]} -gt 0 ]; then
@@ -100,6 +107,89 @@ should_run() {
   
   return 1 # false (skip)
 }
+
+container_smoke() (
+    set -e -o pipefail
+    local runtime="$1" project="routerfw-smoke-$1-$$"
+    unset ROUTERFW_TEST_MODE ROUTERFW_TEST_COMPOSE_LOG ROUTERFW_TEST_COMPOSE_PROVIDER
+    unset ROUTERFW_TEST_BUILD_STATUS ROUTERFW_TEST_COMPOSE_ARGS ROUTERFW_TEST_COMPOSE_BASE
+    export ROUTERFW_RUNTIME="$runtime"
+    export SELECTED_CONF=tplink_tl_wr1043nd_v2_24105_ow_full.conf
+    export HOST_PKGS_DIR="./custom_packages/${SELECTED_CONF%.conf}"
+    export HOST_FILES_DIR="./custom_files/${SELECTED_CONF%.conf}"
+    export HOST_PATCHES_DIR="./custom_patches/${SELECTED_CONF%.conf}"
+    export HOST_OUTPUT_DIR="./firmware_output/sourcebuilder/$project"
+    mkdir -p "$HOST_PKGS_DIR" "$HOST_FILES_DIR" "$HOST_PATCHES_DIR" \
+        "firmware_output/imagebuilder/$project" "$HOST_OUTPUT_DIR"
+    smoke_cleanup() {
+        local base
+        for base in system/docker-compose.yaml system/docker-compose-src.yaml; do
+            ROUTERFW_TEST_COMPOSE_BASE="$base" ROUTERFW_TEST_COMPOSE_ARGS="-p $project down --volumes" \
+                bash ./_Builder.sh help || return
+        done
+        rm -rf -- "firmware_output/imagebuilder/$project" "$HOST_OUTPUT_DIR"
+    }
+    trap smoke_cleanup EXIT
+
+    export ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose.yaml
+    ROUTERFW_TEST_COMPOSE_ARGS=config bash ./_Builder.sh help
+    ROUTERFW_TEST_COMPOSE_ARGS="-p $project build builder-openwrt" bash ./_Builder.sh help
+    local command="-p $project run --rm -T builder-openwrt sh -ec 'id; touch /builder_workspace/.routerfw-write-test; touch /output/imagebuilder/$project/.routerfw-output-test; getconf GNU_LIBC_VERSION > /output/imagebuilder/$project/glibc.txt'"
+    ROUTERFW_TEST_COMPOSE_ARGS="$command" bash ./_Builder.sh help
+    test -f "firmware_output/imagebuilder/$project/.routerfw-output-test"
+    test -w "firmware_output/imagebuilder/$project/.routerfw-output-test"
+    if [ "$runtime" = podman ]; then
+        test "$(stat -c '%u' "firmware_output/imagebuilder/$project/.routerfw-output-test")" = "$(id -u)"
+    fi
+
+    export HOST_PKGS_DIR="./src_packages/${SELECTED_CONF%.conf}"
+    mkdir -p "$HOST_PKGS_DIR"
+    export ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose-src.yaml
+    ROUTERFW_TEST_COMPOSE_ARGS=config bash ./_Builder.sh help
+    ROUTERFW_TEST_COMPOSE_ARGS="-p $project build builder-src-openwrt" bash ./_Builder.sh help
+    command="-p $project run --rm -T builder-src-openwrt sh -ec 'id; chown build:build /output; sudo -u build sh -ec \"id; echo ok > /output/result.txt; getconf GNU_LIBC_VERSION > /output/glibc.txt\"'"
+    ROUTERFW_TEST_COMPOSE_ARGS="$command" bash ./_Builder.sh help
+    test "$(cat "$HOST_OUTPUT_DIR/result.txt")" = ok
+    test -w "$HOST_OUTPUT_DIR/result.txt"
+    if [ "$runtime" = podman ]; then
+        test "$(stat -c '%u' "$HOST_OUTPUT_DIR/result.txt")" = "$(id -u)"
+    fi
+    local ib_glibc src_glibc
+    ib_glibc=$(awk '/^glibc /{print $2; exit}' "firmware_output/imagebuilder/$project/glibc.txt")
+    src_glibc=$(awk '/^glibc /{print $2; exit}' "$HOST_OUTPUT_DIR/glibc.txt")
+    test -n "$ib_glibc" && test -n "$src_glibc"
+    test "$(printf '%s\n%s\n' "$ib_glibc" "$src_glibc" | sort -V | tail -1)" = "$ib_glibc"
+    echo "Modern builder glibc invariant OK: image=$ib_glibc source=$src_glibc"
+)
+export -f container_smoke
+
+# The packer regenerates checksum trailers; verify them separately from source content.
+packed_file_matches() {
+    local source="$1" payload="$2" expected actual
+    expected=$(tail -n 1 "$payload" | tr -d '\r' | cut -d= -f2)
+    actual=$(head -n -1 "$payload" | md5sum | cut -d' ' -f1)
+    [ "$expected" = "$actual" ] || { echo "Invalid unpacked checksum: $payload"; return 1; }
+    cmp -s <(sed -E -e 's/\r$//' -e '${/^# checksum:MD5=[0-9a-fA-F]{32}$/d;}' "$source") \
+        <(sed -E -e 's/\r$//' -e '${/^# checksum:MD5=[0-9a-fA-F]{32}$/d;}' "$payload") \
+        || { echo "Roundtrip content mismatch: $source"; return 1; }
+}
+export -f packed_file_matches
+
+# Replace the inode instead of truncating a file that DrvFS/Windows may still have open.
+restore_test_unpacker() {
+    local backup="$1" staged
+    staged=$(mktemp ./.routerfw-unpacker-restore.XXXXXX) || return 1
+    if cp -p -- "$backup" "$staged" \
+        && mv -fT -- "$staged" ./_unpacker.sh \
+        && cmp -s -- "$backup" ./_unpacker.sh; then
+        rm -f -- "$backup"
+        return 0
+    fi
+    rm -f -- "$staged"
+    echo "[ERROR] Cannot restore _unpacker.sh; original backup preserved: $backup" >&2
+    return 1
+}
+export -f restore_test_unpacker
 
 run() {
   local expect="$1"
@@ -203,7 +293,7 @@ wait_all() {
 }
 
 TEE_LINE="" tee_line
-TEE_LINE="=== CLI tester.sh (safe checks only) ===" tee_line
+TEE_LINE="=== routerFW Bash test suite ===" tee_line
 TEE_LINE="" tee_line
 
 # --- Ожидание: exit 0 ---
@@ -290,6 +380,11 @@ TEE_LINE="=== Project Health Checks ===" tee_line
 TEE_LINE="" tee_line
 
 # Сравнение ключей
+run_check 0 "Source Builder Storage Recovery" "bash tests/test_src_builder_storage.sh"
+run_check 0 "Source Tree Packager" 'if command -v python3 >/dev/null 2>&1 && python3 -c "import sys; assert sys.version_info >= (3, 10)"; then python3 -m unittest discover -s tests -p "test_*.py" -q; elif [ -n "${CI:-}" ]; then echo "[FAIL] CI requires Python 3.10+ for source exporter regressions"; exit 1; else echo "[SKIP] Optional Python 3.10+ unavailable; source packaging tests not run"; fi'
+run_check 0 "Packer Staging Cleanup" "bash tests/test_packer_staging_cleanup.sh"
+run_check 0 "Bash Syntax" 'set -e -o pipefail; for f in _Builder.sh _packer.sh _unpacker.sh tester.sh system/*.sh tests/*.sh; do bash -n "$f"; done; git ls-files -z -- "custom_files/**/*.sh" "scripts/**/*.sh" "scripts/*.sh" | xargs -0 -r -n1 bash -n'
+run_check 0 "ShellCheck" 'command -v shellcheck >/dev/null || { echo "Install shellcheck to run the same checks as CI"; exit 1; }; shellcheck --severity=error _Builder.sh _packer.sh tester.sh system/*.sh'
 run_check 0 "Localization Keys" "diff <(grep -E '^(L_|H_)' system/lang/ru.env | sed 's/=.*//' | sort) <(grep -E '^(L_|H_)' system/lang/en.env | sed 's/=.*//' | sort)"
 run_check 0 "Version Sync" "ver=\$(grep -E '^ROUTERFW_VERSION=' system/version.env | cut -d= -f2 | tr -d '\r'); grep -Fq \"VER_NUM=\\\"\$ver\\\"\" _Builder.sh && grep -Fq \"set \\\"VER_NUM=\$ver\\\"\" _Builder.bat && grep -Fq \"v\$ver+\" README.md && grep -Fq \"v\$ver+\" README.en.md && grep -Fq \"Version: \$ver.\" docs/ARCHITECTURE_en.md && grep -Fq \"Версия: \$ver.\" docs/ARCHITECTURE_ru.md"
 run_check 0 "Shell Syntax" "for f in _Builder.sh tester.sh system/*.sh; do bash -n \"\$f\" || exit 1; done"
@@ -301,8 +396,8 @@ run_check 0 "Compose Wrapper Docker" "log_file=\$(mktemp); trap 'rm -f \"\$log_f
 run_check 0 "Compose Wrapper Podman" "log_file=\$(mktemp); trap 'rm -f \"\$log_file\"' EXIT; ROUTERFW_TEST_MODE=1 ROUTERFW_NO_CLS=1 ROUTERFW_RUNTIME=podman ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose.yaml ROUTERFW_TEST_COMPOSE_ARGS='-p audit up builder-openwrt' ROUTERFW_TEST_COMPOSE_LOG=\"\$log_file\" bash \"$SCRIPT_DIR/$SH\" help >/dev/null 2>&1; line=\$(head -n 1 \"\$log_file\"); [[ \"\$line\" == 'ROUTERFW_BIND_RW_SUFFIX=:z ROUTERFW_BIND_RO_SUFFIX=:ro,z ROUTERFW_BIND_PROFILES_SUFFIX=:ro,z podman-compose -f system/docker-compose.yaml -f system/podman-compose.yaml -p audit up builder-openwrt' ]] && [[ \"\$line\" != *'docker-compose.yaml -f system/docker-compose.yaml'* ]]"
 run_check 0 "Compose Wrapper Docker Standalone" "log_file=\$(mktemp); trap 'rm -f \"\$log_file\"' EXIT; ROUTERFW_TEST_MODE=1 ROUTERFW_NO_CLS=1 ROUTERFW_TEST_COMPOSE_PROVIDER=standalone ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose.yaml ROUTERFW_TEST_COMPOSE_ARGS='-p audit up builder-openwrt' ROUTERFW_TEST_COMPOSE_LOG=\"\$log_file\" bash \"$SCRIPT_DIR/$SH\" help >/dev/null 2>&1; line=\$(head -n 1 \"\$log_file\"); [[ \"\$line\" == 'docker-compose -f system/docker-compose.yaml -p audit up builder-openwrt' ]]"
 run_check 0 "Compose Wrapper Podman Standalone" "log_file=\$(mktemp); trap 'rm -f \"\$log_file\"' EXIT; ROUTERFW_TEST_MODE=1 ROUTERFW_NO_CLS=1 ROUTERFW_RUNTIME=podman ROUTERFW_TEST_COMPOSE_PROVIDER=standalone ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose.yaml ROUTERFW_TEST_COMPOSE_ARGS='-p audit up builder-openwrt' ROUTERFW_TEST_COMPOSE_LOG=\"\$log_file\" bash \"$SCRIPT_DIR/$SH\" help >/dev/null 2>&1; line=\$(head -n 1 \"\$log_file\"); [[ \"\$line\" == 'ROUTERFW_BIND_RW_SUFFIX=:z ROUTERFW_BIND_RO_SUFFIX=:ro,z ROUTERFW_BIND_PROFILES_SUFFIX=:ro,z podman-compose -f system/docker-compose.yaml -f system/podman-compose.yaml -p audit up builder-openwrt' ]]"
-run_check 0 "Packer Roundtrip" "set -e; tmp_unpack=\$(mktemp -d); original_unpacker=\$(mktemp); cp ./_unpacker.sh \"\$original_unpacker\"; archive_file=''; trap 'cp \"\$original_unpacker\" ./_unpacker.sh; rm -f \"\$original_unpacker\"; rm -rf \"\$tmp_unpack\"; if [ -n \"\$archive_file\" ] && [ -f \"\$archive_file\" ]; then rm -f \"\$archive_file\"; fi' EXIT; before=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort); printf '\n' | ROUTERFW_TEST_MODE=1 bash ./_packer.sh >/dev/null 2>&1; test -x ./_unpacker.sh; archive_file=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort | grep -Fvx \"\$before\" | head -n 1 || true); cp ./_unpacker.sh \"\$tmp_unpack/_unpacker.sh\"; (cd \"\$tmp_unpack\" && bash ./_unpacker.sh >/dev/null 2>&1); for rel in system/podman-compose.yaml system/podman-compose-src.yaml system/version.env docs/01-introduction.md docs/01-introduction.en.md docs/02-digital-twin.md docs/02-digital-twin.en.md docs/03-source-build.md docs/03-source-build.en.md docs/04-adv-source-build.md docs/04-adv-source-build.en.md docs/05-patch-sys.md docs/05-patch-sys.en.md docs/06-rax3000m-emmc-flash.md docs/06-rax3000m-emmc-flash.en.md docs/07-troubleshooting-faq.md docs/07-troubleshooting-faq.en.md docs/08-ib-apk-import-embed.md docs/08-ib-apk-import-embed.en.md docs/ARCHITECTURE_ru.md docs/ARCHITECTURE_en.md docs/ARCHITECTURE_diagram_ru.md docs/ARCHITECTURE_diagram_en.md docs/map.md docs/map.en.md docs/audit.md docs/index.md docs/index.en.md; do test -f \"\$tmp_unpack/\$rel\"; cmp -s \"./\$rel\" \"\$tmp_unpack/\$rel\"; done"
-run_check 0 "Packer Corrupt Unpack Fails" "set -e; tmp_unpack=\$(mktemp -d); original_unpacker=\$(mktemp); cp ./_unpacker.sh \"\$original_unpacker\"; archive_file=''; trap 'cp \"\$original_unpacker\" ./_unpacker.sh; rm -f \"\$original_unpacker\"; rm -rf \"\$tmp_unpack\"; if [ -n \"\$archive_file\" ] && [ -f \"\$archive_file\" ]; then rm -f \"\$archive_file\"; fi' EXIT; before=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort); printf '\n' | ROUTERFW_TEST_MODE=1 bash ./_packer.sh >/dev/null 2>&1; archive_file=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort | grep -Fvx \"\$before\" | head -n 1 || true); awk 'BEGIN{inblk=0;done=0} \$0==\"# BEGIN_B64_ system/version.env\"{inblk=1;print;next} \$0==\"# END_B64_ system/version.env\"{inblk=0;print;next} inblk && !done && \$0 !~ /^#/{print \"!!!!\"; done=1; next} {print} END{exit done?0:1}' ./_unpacker.sh > \"\$tmp_unpack/_unpacker.sh\"; (cd \"\$tmp_unpack\" && ! bash ./_unpacker.sh >/dev/null 2>&1); test ! -f \"\$tmp_unpack/system/version.env\""
+run_check 0 "Packer Roundtrip" "set -e; tmp_unpack=\$(mktemp -d); original_unpacker=\$(mktemp); cp -p -- ./_unpacker.sh \"\$original_unpacker\"; archive_file=''; trap 'restore_test_unpacker \"\$original_unpacker\"; rm -rf \"\$tmp_unpack\"; if [ -n \"\$archive_file\" ]; then while IFS= read -r archive; do rm -f -- \"\$archive\"; done <<< \"\$archive_file\"; fi' EXIT; before=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort); printf '\n' | ROUTERFW_TEST_MODE=1 bash ./_packer.sh >/dev/null 2>&1; test -x ./_unpacker.sh; cp ./_unpacker.sh \"\$tmp_unpack/first-unpacker.sh\"; printf '\n' | ROUTERFW_TEST_MODE=1 bash ./_packer.sh >/dev/null 2>&1; cmp -s \"\$tmp_unpack/first-unpacker.sh\" ./_unpacker.sh; archive_file=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort | grep -Fvx \"\$before\" || true); cp ./_unpacker.sh \"\$tmp_unpack/_unpacker.sh\"; (cd \"\$tmp_unpack\" && bash ./_unpacker.sh >/dev/null 2>&1); for rel in system/podman-compose.yaml system/podman-compose-src.yaml system/version.env docs/01-introduction.md docs/01-introduction.en.md docs/02-digital-twin.md docs/02-digital-twin.en.md docs/03-source-build.md docs/03-source-build.en.md docs/04-adv-source-build.md docs/04-adv-source-build.en.md docs/05-patch-sys.md docs/05-patch-sys.en.md docs/06-rax3000m-emmc-flash.md docs/06-rax3000m-emmc-flash.en.md docs/07-troubleshooting-faq.md docs/07-troubleshooting-faq.en.md docs/08-ib-apk-import-embed.md docs/08-ib-apk-import-embed.en.md docs/ARCHITECTURE_ru.md docs/ARCHITECTURE_en.md docs/ARCHITECTURE_diagram_ru.md docs/ARCHITECTURE_diagram_en.md docs/map.md docs/map.en.md docs/audit.md docs/index.md docs/index.en.md; do test -f \"\$tmp_unpack/\$rel\"; packed_file_matches \"./\$rel\" \"\$tmp_unpack/\$rel\"; done"
+run_check 0 "Packer Corrupt Unpack Fails" "set -e; tmp_unpack=\$(mktemp -d); original_unpacker=\$(mktemp); cp -p -- ./_unpacker.sh \"\$original_unpacker\"; archive_file=''; trap 'restore_test_unpacker \"\$original_unpacker\"; rm -rf \"\$tmp_unpack\"; if [ -n \"\$archive_file\" ]; then while IFS= read -r archive; do rm -f -- \"\$archive\"; done <<< \"\$archive_file\"; fi' EXIT; before=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort); printf '\n' | ROUTERFW_TEST_MODE=1 bash ./_packer.sh >/dev/null 2>&1; archive_file=\$(find . -maxdepth 1 -name 'routerFW_LinuxDockerBuilder_v*.tar.gz' -print | sort | grep -Fvx \"\$before\" || true); awk 'BEGIN{inblk=0;done=0} \$0==\"# BEGIN_B64_ system/version.env\"{inblk=1;print;next} \$0==\"# END_B64_ system/version.env\"{inblk=0;print;next} inblk && !done && \$0 !~ /^#/{print \"!!!!\"; done=1; next} {print} END{exit done?0:1}' ./_unpacker.sh > \"\$tmp_unpack/_unpacker.sh\"; (cd \"\$tmp_unpack\" && ! bash ./_unpacker.sh >/dev/null 2>&1); test ! -f \"\$tmp_unpack/system/version.env\""
 
 # Проверка BOM
 BOM_CHECK_CMD="
@@ -310,6 +405,9 @@ BOM_CHECK_CMD="
   errors=0;
   BOM_EXPECTED=('system/create_profile.ps1' 'system/import_ipk.ps1');
   NO_BOM_EXPECTED=('_Builder.sh' 'system/lang/ru.env' 'README.md');
+  for f in \"\${BOM_EXPECTED[@]}\" \"\${NO_BOM_EXPECTED[@]}\"; do
+    [ -f \"\$f\" ] || { echo \"Missing file: \$f\"; errors=1; };
+  done;
   for f in \"\${BOM_EXPECTED[@]}\"; do 
     if [ -f \"\$f\" ]; then
         test_bom \"\$f\" || { echo \"BOM missing in \$f\"; ((errors++)); }; 
@@ -325,6 +423,19 @@ BOM_CHECK_CMD="
 run_check 0 "BOM Signature" "$BOM_CHECK_CMD"
 
 wait_all
+if [ "$FULL_CI" -eq 1 ] || [ ${#FILTERS[@]} -gt 0 ]; then
+  for runtime in docker podman; do
+    label="${runtime^} Smoke"
+    enqueue_task 0 "$label" "Check" bash -e -o pipefail -c "container_smoke $runtime"
+    wait_all
+  done
+else
+  TEE_LINE='[SKIP] Real container checks: run ./tester.sh --ci (requires Docker and Podman), or select "Docker Smoke" / "Podman Smoke".' tee_line
+fi
+if [ "$PASS" -eq 0 ] && [ "$FAIL" -eq 0 ]; then
+  TEE_LINE='[FAIL] No tests matched the supplied labels.' tee_line
+  FAIL=1
+fi
 TEE_LINE="" tee_line
 TEE_LINE="=== Итого: $PASS OK, $FAIL FAIL ===" tee_line
 TEE_LINE="" tee_line

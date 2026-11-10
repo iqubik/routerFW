@@ -1,8 +1,12 @@
 # file: system/podman-compose-src.yaml
+# A pod cannot share its user namespace with a keep-id service.
+x-podman:
+  in_pod: false
+
 services:
   builder-src-openwrt:
     userns_mode: "keep-id:uid=1000,gid=1000"
 
   builder-src-oldwrt:
     userns_mode: "keep-id:uid=1000,gid=1000"
-# checksum:MD5=66a1c424be8b1d6b687216edff78aefa
+# checksum:MD5=09f08eae9ee06179147195ba2d52b639

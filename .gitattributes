@@ -9,6 +9,7 @@ system/lang/*.env text eol=lf
 
 # Unix-скрипты и конфиги: LF
 *.sh   text eol=lf
+*.py   text eol=lf
 *.conf text eol=lf
 *.yaml text eol=lf
 *.yml  text eol=lf

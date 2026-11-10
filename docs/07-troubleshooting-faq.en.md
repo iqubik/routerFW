@@ -14,6 +14,14 @@ Common issues and limitations when building and using firmware from the builder 
 
 ## Build limitations
 
+### Source Builder: storage failure vs compilation error
+
+**Symptoms:** after `make ... Error 1`, the log includes `Read-only file system`, `No space left on device`, `Input/output error`, failures to write to `/tmp`, or Git errors. `Error 1` alone does **not** establish a storage failure or an invalid profile.
+
+**Source Builder safeguard:** before `make download` and compilation, and after failed `make` attempts, the builder tests whether it can create and remove a temporary file in the source worktree, the separate `dl` volume, `/ccache`, `/tmp`, and `/output`. An observed failure produces `[BUILD INFRA]` with `STORAGE_READONLY`, `STORAGE_NO_SPACE`, `STORAGE_IO_ERROR`, `PERMISSION_ERROR`, `STORAGE_PATH_MISSING`, or `STORAGE_WRITE_ERROR`, plus `df` details; it **does not** start a futile retry. If storage is healthy, the normal `make -j1 V=s` fallback remains enabled. These probes do not replace the initial OpenWrt log: transient hardware or filesystem failures might not recur during the probe.
+
+**First steps:** preserve the full log, including several hundred lines **before** the first failure. On the host, check `docker system df -v` (or Podman's equivalents), physical disk free space, and system messages for `I/O error`, `EXT4-fs error`, or `Remounting filesystem read-only`. For Docker Desktop/WSL2 also check the VHDX storage. Do not run `docker compose down -v`, global `prune`, or Docker Desktop factory reset before collecting evidence: persistent volume data could be lost. Free disk space alone cannot rule out filesystem damage.
+
 ### Sysupgrade/factory not built; only initramfs and other devices' images in output
 
 **Symptoms:** A source build finishes without errors, but the result folder has no `*-squashfs-sysupgrade.bin` or `*-squashfs-factory.bin` for your device. Only `*-initramfs-kernel.bin` and metadata (manifest, buildinfo, sha256sums, etc.) are present. Sometimes images for **other** devices (e.g. 8dev_carambola2) appear — they should not be there when building a single profile.
@@ -55,4 +63,4 @@ On some builds (e.g. Padavanonly), Wi‑Fi readiness can be improved: if you set
 *   RAX3000M eMMC installation and overlay/U-Boot issues — [Lesson 6](06-rax3000m-emmc-flash.en.md).
 
 Back to [lessons index](index.en.md).
-# checksum:MD5=8c9afe0abe27adb5dd78f27f361146db
+# checksum:MD5=c1ed061a75914803fd015fa64daf3fe1
