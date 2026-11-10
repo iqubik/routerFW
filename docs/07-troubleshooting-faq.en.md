@@ -28,7 +28,7 @@ In the log, search for `mktplinkfw`, `too big`, `error`. The byte count (“too 
 
 **What to do:** Reduce the package set in the profile to fit the flash limit (e.g. for 8 MB: luci → luci-light, wpad-openssl → wpad-basic-mbedtls, drop USB/storage and heavy LuCI apps; install DOH and extra packages after flashing or after extroot). Repeat test builds from source with ccache are fast. Keep the base firmware to the necessary minimum; if using extroot, there is no need to cram everything into the image — install packages via opkg after mounting extroot.
 
-**If the output contains images for other devices (carambola, etc.):** The build is not limited to your profile — check the builder version (current 4.50), that a single profile is selected, and that the config targets a single device. In a correct single-profile build, the folder should contain only that device’s images (initramfs, factory, sysupgrade for it).
+**If the output contains images for other devices (carambola, etc.):** The build is not limited to your profile — check the builder version (the current version is recorded in `system/version.env`; at the time of this guide update it is 4.71), that a single profile is selected, and that the config targets a single device. In a correct single-profile build, the folder should contain only that device’s images (initramfs, factory, sysupgrade for it).
 
 ---
 
@@ -55,4 +55,4 @@ On some builds (e.g. Padavanonly), Wi‑Fi readiness can be improved: if you set
 *   RAX3000M eMMC installation and overlay/U-Boot issues — [Lesson 6](06-rax3000m-emmc-flash.en.md).
 
 Back to [lessons index](index.en.md).
-# checksum:MD5=cb355c8dca61e6a75044622de481ad45
+# checksum:MD5=8c9afe0abe27adb5dd78f27f361146db

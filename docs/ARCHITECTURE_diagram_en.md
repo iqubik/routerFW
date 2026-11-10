@@ -59,7 +59,9 @@ flowchart TD
     E_ANALYZE --> E_EDIT["$EDITOR (nano)\nprofiles/<id>.conf"]
     E_EDIT --> MENU
 
-    CHOICE --> |A| A_RUN[Log dir: firmware_output/.build_logs/<ts>\nRun build_routine for each profile\nin parallel; ROUTERFW_JOBS limit]
+    CHOICE --> |A| A_MODE{IMAGE mode?}
+    A_MODE --> |no| A_BLOCKED[Source build-all disabled\nreturn to menu]
+    A_MODE --> |yes| A_RUN[Log dir: firmware_output/.build_logs/<ts>\nBash: parallel, ROUTERFW_JOBS limit\nWindows: sequential]
     A_RUN --> A_WAIT[Spinner, wait all\nper-profile result + time]
     A_WAIT --> MENU
 
@@ -113,7 +115,7 @@ Running with arguments runs the chosen action without entering the interactive m
 - **Optional prefix before command:** `ib` or `image` = Image Builder, `src` or `source` = Source Builder. No prefix = **Image Builder** by default.
 - **Build IB profile 1:** `_Builder.bat ib build 1` or `_Builder.bat build 1` (default is IB). On Linux use `./_Builder.sh` instead of `_Builder.bat`.
 - **Build Source profile 1:** `_Builder.bat src build 1`.
-- **Build all in chosen mode:** `_Builder.bat ib build-all`, `_Builder.bat src build-all`.
+- **Build all profiles:** `_Builder.bat ib build-all` only. `src build-all` is rejected.
 To choose mode in one command, use the `ib`/`src` prefix. Mode toggle (key **M** in the menu) is available only in the interactive menu.
 
 **Runtime:** `--runtime=auto|docker|podman`, `-r auto|docker|podman`, or `ROUTERFW_RUNTIME`. In `auto`, an interactive launch asks when both Docker and Podman are available. Bash in WSL can use `docker.exe` / `podman.exe` if no native CLI exists.
@@ -123,7 +125,7 @@ To choose mode in one command, use the `ib`/`src` prefix. Mode toggle (key **M**
 | Command | Short | Arguments | Action |
 |--------|--------|-----------|--------|
 | `build` | `b` | \<id\> — number or profile name | Build one profile |
-| `build-all` | `a`, `all` | — | Build all (mode: prefix ib/src or default IB) |
+| `build-all` | `a`, `all` | — | Image Builder only; Bash parallel, Windows sequential; rejected in Source Builder |
 | `edit` | `e` | [id] | Profile editor (no id = interactive choice from list) |
 | `menuconfig` | `k` | \<id\> | Menuconfig (SOURCE only) |
 | `import` | `i` | \<id\> | Import IPK/APK (SOURCE only, APK support since v4.50) |
@@ -220,8 +222,8 @@ flowchart TD
     BR([build_routine\nprofile.conf])
     BR --> READ_PROFILE["Read profile vars\nIMAGE or SRC"]
     READ_PROFILE --> LEGACY{"Legacy check\nURL 17/18/19 or branch 19.07/18.06?"}
-    LEGACY --> |yes img| OLD_IMG["builder-oldwrt\nUbuntu 18.04"]
-    LEGACY --> |no img| NEW_IMG["builder-openwrt\nUbuntu 22.04"]
+    LEGACY --> |yes img| OLD_IMG["builder-oldwrt\nUbuntu 20.04"]
+    LEGACY --> |no img| NEW_IMG["builder-openwrt\nUbuntu 24.04"]
     LEGACY --> |yes src| OLD_SRC["builder-src-oldwrt\nUbuntu 18.04"]
     LEGACY --> |no src| NEW_SRC["builder-src-openwrt\nUbuntu 24.04"]
 
@@ -326,3 +328,4 @@ flowchart TD
 | X | custom_patches/<id> non-empty |
 | OI | firmware_output/imagebuilder/<id> has files |
 | OS | firmware_output/sourcebuilder/<id> has files |
+# checksum:MD5=240590dafee4046ff1e523179c17fb54

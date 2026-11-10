@@ -5,195 +5,90 @@ alwaysApply: true
 
 # routerFW — OpenWrtFW Builder
 
-Cross-platform framework for building custom OpenWrt firmware via Docker.
-Version: 4.44 (_Builder.bat + _Builder.sh). License: GPL-3.0. Author: iqubik.
-Remote: https://github.com/iqubik/routerFW.git, branch: main.
+Cross-platform, text-first framework for building custom OpenWrt/ImmortalWrt firmware. Current repository version: **4.71**, read from `system/version.env` (`ROUTERFW_VERSION`). License: GPL-3.0. Author: iqubik. Remote: https://github.com/iqubik/routerFW.git, branch: `main`.
 
-## Two Build Modes
+## Source-of-truth order
 
-1. **Image Builder** (fast, 1–3 min) — uses pre-compiled OpenWrt ImageBuilder SDK. Orchestrated by `system/ib_builder.sh`. Docker config: `system/docker-compose.yaml`.
-2. **Source Builder** (full, 20–60 min) — compiles from OpenWrt source. Orchestrated by `system/src_builder.sh`. Docker config: `system/docker-compose-src.yaml`. Supports kernel patches, custom packages, partition modifications.
+1. Current root-level implementation and `system/version.env` define actual behavior and version.
+2. `CHANGELOG.md` is the historical record: consult the relevant/latest entries when onboarding or when a change needs history; do not assume historical release notes describe current behavior.
+3. `docs/ARCHITECTURE_*.md`, process diagrams, README, and agent notes explain behavior but may lag the code. Verify important claims against implementation.
+4. `nl_test/` and `nw_test/` are disposable unpacked test snapshots, never source of truth.
 
-## Directory Map
+Do not edit generated `_unpacker.*`; update source files and regenerate distribution through `_packer.*` only when explicitly requested.
+
+## Build modes and runtime
+
+- **Image Builder (IB):** `system/ib_builder.sh`, base Compose `system/docker-compose.yaml`, Podman override `system/podman-compose.yaml`. Uses a prebuilt SDK, package archives, overlays, repository/key configuration, and `make image`.
+- **Source Builder (SB):** `system/src_builder.sh`, base Compose `system/docker-compose-src.yaml`, Podman override `system/podman-compose-src.yaml`. Uses a persistent OpenWrt worktree, feeds, mirror patches, hooks, Kconfig, imported/source packages, downloads, CCache, and `make`.
+- Runtime is selected independently: Docker or Podman (`ROUTERFW_RUNTIME=auto|docker|podman`, `--runtime=...`, `-r ...`). Bash under WSL can bridge to `docker.exe` / `podman.exe` when applicable.
+- Current base images: IB modern Ubuntu 24.04, IB legacy Ubuntu 20.04; SB modern Ubuntu 24.04, SB legacy Ubuntu 18.04. Verify `system/*.dockerfile` before changing these facts.
+- Source Builder `build-all` is intentionally rejected. Image Builder `build-all` is supported: Bash runs profiles in parallel (default `ROUTERFW_JOBS=6`); Windows Batch processes them sequentially.
+
+## Directory map
 
 | Path | Purpose |
-|------|---------|
-| `_Builder.sh` / `_Builder.bat` | Main entry points: interactive menu or CLI args (build orchestration, scripted/CI runs) |
-| `tester.sh` / `tester.bat` | First versions of CLI test harnesses (drive builders via args, check output) |
-| `system/` | Core build system (Dockerfiles, compose, builders, wizards) |
-| `system/lang/` | Localization dictionaries (`ru.env`, `en.env` — unified pseudo-format; другие варианты вроде `*.bat.env`/`*.sh.env` могут присутствовать, но билдеры загружают только `ru.env`/`en.env`) |
-| `scripts/` | Utilities (hooks.sh, diag.sh, packager.sh, upgrade.sh, show_pkgs.sh) |
-| `profiles/*.conf` | Build profile configurations |
-| `custom_files/<profile>/` | File overlay (maps to `/` in firmware) |
-| `custom_packages/<profile>/` | .ipk packages for Image Builder |
-| `src_packages/<profile>/` | Source packages for Source Builder |
-| `custom_patches/<profile>/` | Source code patches (mirror overlay) |
-| `firmware_output/` | Compiled firmware output |
-| `dist/` | Generated SVG assets (release-timeline, release-tree, architecture-tetris, release-river, bars, stats, heatmap). Built by workflow or scripts in `system/` (e.g. `architecture-tetris.ps1`). |
-| `docs/` | Tutorials (Russian + English). **Architecture tetris** picture is embedded only in `docs/index.md` and `docs/index.en.md` (not in README). |
-| `_packer.sh` / `_packer.bat` | Packs project into self-extracting distribution |
-| `_unpacker.sh` / `_unpacker.bat` | Self-extracting archives (base64, DO NOT READ) |
-| `.dockerignore` | Excludes `firmware_output/`, `custom_files/`, `custom_packages/`, `src_packages/`, `custom_patches/`, `profiles/`, `.git/`, `docs/`, `_unpacker.*` from Docker build context (критично — `firmware_output/` может весить 10+ ГБ) |
-| `.cursorignore` | Cursor index exclusions: mirrors toxic files, private dirs, `firmware_output/`, test envs (`nl_test/`, `nw_test/`), `.docker_tmp/` — aligns with `.gitignore` and project rules |
+|---|---|
+| `_Builder.sh` / `_Builder.bat` | Host entry points: menu, CLI, profile handling, runtime/Compose orchestration. |
+| `system/` | Builder engines, Compose files, Dockerfiles, profile wizard, package importer, APK scanner, localization, version. |
+| `system/lang/ru.env`, `system/lang/en.env` | Shared RU/EN UI dictionaries (neutral `{C_*}` pseudo-format). |
+| `profiles/*.conf` | Shared profile configuration for IB and SB; profiles are sourced as shell input and must be trusted. |
+| `custom_files/<profile>/` | Firmware rootfs overlay. **Private; do not inspect without explicit user permission.** |
+| `custom_packages/<profile>/` | Binary IPK/APK packages. **Private.** |
+| `src_packages/<profile>/` | Source packages and imported binary package wrappers. **Private.** |
+| `custom_patches/<profile>/` | Source-tree mirror overlay. **Private.** |
+| `firmware_output/` | Firmware artifacts, build logs, `manual_config`; large/generated. Do not inspect unless needed and authorized. |
+| `scripts/` | Router-side utilities and Source Builder hook template. |
+| `docs/` | RU/EN lessons 01–08, architecture descriptions/diagrams, development map, audit. |
+| `_packer.sh` / `_packer.bat` | Build self-extracting distributions from source files. |
+| `_unpacker.sh` / `_unpacker.bat` | Generated Base64 distribution payloads. **Toxic: never read/edit.** |
+| `tester.sh` / `tester.bat` | CLI, runtime-wrapper, and project-health regression harnesses. |
+| `capture_worktree_diff.bat` | Maintainer-only helper: creates `diff.zip` with tracked/untracked worktree changes and diagnostic metadata; not part of runtime distributions. |
+| `.github/workflows/tests.yml` | Current Linux and Windows CI checks. |
 
-## Tech Stack
+## Profile model
 
-- Bash, Batch (.bat), PowerShell (.ps1) — scripts
-- Docker + Docker Compose — build isolation
-- Ubuntu 22.04/24.04 (modern) and 18.04 (legacy) base images
-- CCache (20GB limit) for Source Builder
+- Required/common identity: `PROFILE_NAME`, `TARGET_PROFILE`.
+- IB: `IMAGEBUILDER_URL`, `IMAGE_PKGS`, `IMAGE_EXTRA_NAME`, `CUSTOM_KEYS`, `CUSTOM_REPOS`, `DISABLED_SERVICES`.
+- SB: `SRC_REPO`, `SRC_BRANCH`, `SRC_TARGET`, `SRC_SUBTARGET`, `SRC_ARCH`, `SRC_CORES`, `SRC_PACKAGES`, `SRC_EXTRA_CONFIG`.
+- Shared: `ROOTFS_SIZE`, `KERNEL_SIZE`; legacy `PKGS` and `EXTRA_IMAGE_NAME` are migrated to `IMAGE_PKGS` and `IMAGE_EXTRA_NAME`.
+- `SRC_CORES`: unset = all available cores; `safe` = N-1 (minimum 1); integer = explicit jobs; `debug` = `make -j1 V=s`.
+- `manual_config` in the profile's Source Builder output directory takes precedence over generated Kconfig from profile variables.
 
-## Key Conventions
+Profiles are sourced shell code, not inert data. Hooks, external repositories/keys, source packages, and patches also execute or influence the build. Treat all third-party inputs as untrusted until reviewed.
 
-- Bilingual: Russian (primary) + English — all user-facing text has both languages
-- Windows (.bat/.ps1) and Linux (.sh) scripts are kept in feature parity
-- Profiles are universal `.conf` files shared between both build modes
-- Docker volumes provide caching: SDK cache, package cache, ccache, source workdir
+## Source Builder state and ordering
 
-## CLI, languages, and recent behaviour
+- Persistent per-profile Compose project volumes hold `src-workdir`, `src-dl-cache`, and `src-ccache` (CCache max size 20 GB).
+- The current flow fetches/updates the main repository, updates feeds only when the main commit marker changes, copies `custom_patches` into the persistent tree, runs `custom_files/hooks.sh`, generates/uses `.config`, runs `make defconfig`, copies source packages, then synchronizes `custom_files` into `files/` with `rsync --delete`, downloads sources, and builds.
+- `custom_patches` is currently copied with `rsync -a` (no `--delete`); deleting an overlay file does not guarantee removal of a previously copied untracked file from the persistent worktree.
+- Hooks run before the final `custom_files` → `files/` sync. Files generated by hooks under `files/` can be removed by that later `rsync --delete` unless the same paths are represented in the overlay. Verify ordering before documenting or changing hooks.
+- Any failed parallel `make` (unless `SRC_CORES=debug`) triggers one `make -j1 V=s` retry. The current fallback does not classify storage errors such as `EROFS`/`EIO`; do not treat a retry as recovery from a broken/read-only filesystem.
 
-- **Языки вынесены** — локализация сосредоточена в `system/lang/` (`ru.env`, `en.env`); выбор языка определяется при старте (переменная/окружение), словари подгружаются до меню.
-- **CLI (аргументы командной строки)** — `_Builder.bat` и `_Builder.sh` принимают аргументы командной строки для неинтерактивного запуска: выбор профиля, режима сборки и т.д. без входа в интерактивное меню (скрипты, CI).
-- **Source Builder — исправление определения цели** — в режиме Source Builder исправлен баг с определением цели/устройства сборки (корректное использование target/subtarget/профиля в `src_builder.sh` и при создании профилей).
-- **Тестеры CLI** — `tester.bat` и `tester.sh` — первые версии тестовых оболочек для проверки CLI: запуск билдеров с аргументами, проверка вывода. Логи/артефакты тестов в `.gitignore` (`tester_log_*.md`, `tester_tmp_*_out.txt`).
+## Cleanup and safety invariants
 
-## Profile Variable Naming (current)
+- Global Docker/Podman prune is disabled in both interactive and non-interactive cleanup paths. Never reintroduce global prune.
+- Cleanup is profile/project-scoped. Do not delete volumes, caches, or outputs outside the selected project/profile.
+- Image Builder currently disables APK signature checking in its build invocation to permit local unsigned packages; this affects network APK signature verification too. Keep this security consequence visible in user documentation.
+- Never claim that a green CLI/Compose test proves a firmware image is valid. Current CI does not perform full device firmware builds.
 
-Image Builder variables use `IMAGE_` prefix: `IMAGE_PKGS`, `IMAGE_EXTRA_NAME`.
-Shared (both modes): `ROOTFS_SIZE`, `KERNEL_SIZE`.
-Source Builder variables use `SRC_` prefix: `SRC_REPO`, `SRC_BRANCH`, `SRC_TARGET`, `SRC_SUBTARGET`, `SRC_ARCH`, `SRC_CORES`, `SRC_PACKAGES`, `SRC_EXTRA_CONFIG`.
+## CI and test coverage (current tree)
 
-`_Builder.bat` and `_Builder.sh` both auto-migrate old names (`PKGS` → `IMAGE_PKGS`, `EXTRA_IMAGE_NAME` → `IMAGE_EXTRA_NAME`) in all profiles on startup (idempotent `migrate_profile_vars()` in `.sh`, PowerShell block in `.bat`). `ib_builder.sh` also has fallback compatibility (`${IMAGE_PKGS:-$PKGS}`) for any unmigrated profiles.
+`tests.yml` currently runs:
+- Linux: Bash syntax, custom shell syntax, ShellCheck, localization-key sync, version sync, BOM expectations, global-prune guard, packer determinism, `tester.sh`, and Linux unpacker smoke.
+- Windows: packer smoke/determinism, `tester.bat`, Windows unpacker smoke, and corrupt-payload rejection smoke.
+- It does **not** currently run real firmware builds or Docker/Podman container-build smoke jobs. Historical release notes may describe earlier CI configurations; inspect the current workflow.
 
-`create_profile.sh` and `create_profile.ps1` both generate profiles with correct `IMAGE_PKGS` / `IMAGE_EXTRA_NAME` variable names. Fantastic-packages URLs in the template include the `/packages/` path segment and use the dynamic architecture variable (e.g. `$ARCH` in `.sh`, `$arch` in `.ps1`).
+Release 4.71 fixed Windows `CALL` argument preservation for Menuconfig and profile-editor shell launch. Keep the regression coverage in `tester.bat`; changes to inline shell commands crossing `CALL` must preserve quoting/arguments across the Docker/Podman × Compose invocation variants.
 
-After a successful Source Builder run, both `.bat` and `.sh` detect `*imagebuilder*.tar.zst` in the output folder and offer to update `IMAGEBUILDER_URL` in the profile (enables immediate use as local Image Builder).
+## AI / xZT24m workflow
 
-## _Builder.sh — Linux-специфичные возможности (отсутствуют в .bat)
+`xZT24m` is an adaptive engineering-quality method, not a ritual or a mandatory minimum runtime.
 
-- **Параллельная массовая сборка** — команда `A` запускает все профили одновременно в фоне (`&`), пишет раздельные лог-файлы с timestamp в `firmware_output/.build_logs/YYYYMMDD-HHMMSS/`, отображает спиннер с именами активных сборок и затраченным временем каждой
-- **Docker Credentials Fix** — на старте копирует реальный `~/.docker/config.json` в `$PROJECT_DIR/.docker_tmp/`, удаляя только `credsStore`/`credHelpers`. Это сохраняет proxy-настройки и прочие параметры, но исключает credential store, конфликтующий с безголовым запуском
-- **Ctrl+C handler** — `trap cleanup_exit SIGINT SIGTERM`: принудительно останавливает все контейнеры (`release_locks "ALL"`), удаляет `.docker_tmp/`
-- **Ghost-файлы WSL/NTFS** — при инициализации папок профилей обрабатывает "призрачные" файлы, которые NTFS показывает в WSL
-- **Регистронезависимые команды меню** — `choice="${choice^^}"` нормализует ввод в верхний регистр, все команды (`M`, `E`, `A`, `K`, `C`, `I`, `W`) принимают любой регистр
-- **Выход с паузой** — подтверждение выхода `(Y/n)`, Enter = Yes, 3-секундная пауза перед завершением
-- **`--build` при запуске контейнера** — `docker compose run --build` гарантирует свежий образ с актуальными CA-сертификатами (безопасно благодаря `.dockerignore`)
-
-## Line Endings & Encoding
-
-Governed by `.gitattributes`. System is fully normalised:
-
-| Type | EOL | Rule |
-|---|---|---|
-| `*.bat`, `*.ps1`, `*.cmd` | CRLF | `-text` (stored as-is) |
-| `*.sh`, `*.conf`, `*.yaml`, `Dockerfile` | LF | explicit `eol=lf` |
-| `system/lang/*.env` | LF | explicit `eol=lf` (unified pseudo-format, safe for both bat and sh) |
-| `docs/*.md`, `README*.md`, `LICENSE*`, `pub.md` | CRLF | Windows documents |
-| `.cursor/rules/*.mdc`, `*.json`, `*.yml`, `.gitignore`, `.dockerignore` | LF | config/system files |
-| `*.zip`, `*.zst`, `*.tar`, `*.gz`, `*.bin`, `*.7z` | binary | Git LFS, no EOL processing |
-
-**BOM** — only PowerShell files: `system/create_profile.ps1`, `system/import_ipk.ps1` (UTF-8 BOM required for Cyrillic on Windows).
-
-**`profiles/personal.flag`** — explicitly listed in `.gitattributes` as `text eol=lf` since it has no extension and is not matched by `*.conf`.
-
-## Localization Dictionary System
-
-Dictionaries are stored in **two universal `.env` files** under `system/lang/`, loaded at startup by both builders via custom loaders that substitute color placeholders on the fly:
-
-| File | Format | Loader |
-|---|---|---|
-| `system/lang/ru.env` | `KEY={C_VAL}value{C_RST}` (no quotes, neutral `{C_*}` placeholders) | custom `for /f` block in `_Builder.bat` |
-| `system/lang/en.env` | same | `load_lang()` function in `_Builder.sh` |
-
-**Pseudo-format rules:**
-- Color placeholders: `{C_VAL}`, `{C_RST}`, `{C_ERR}`, `{C_GRY}`, `{C_LBL}`, `{C_KEY}`, `{C_OK}`
-- No quotes around values
-- `#` at line start — comment (ignored by both loaders)
-- Empty lines ignored by both loaders
-- `%s` in values is safe (no conflict with either loader)
-
-**Loader in `_Builder.bat`**:
-```batch
-set "LANG_FILE=system\lang\%SYS_LANG%.env"
-if not exist "%LANG_FILE%" set "LANG_FILE=system\lang\en.env"
-for /f "usebackq eol=# tokens=1,* delims==" %%k in ("%LANG_FILE%") do (
-    set "_v=%%l"
-    set "_v=!_v:{C_VAL}=%C_VAL%!"
-    set "_v=!_v:{C_RST}=%C_RST%!"
-    rem ... (аналогично для всех C_* плейсхолдеров) ...
-    set "%%k=!_v!"
-)
-```
-`%C_VAL%` — ранняя подстановка при парсинге блока `()`. `!_v:{C_VAL}=<ANSI>!` — отложенная замена строки в runtime. Требует `setlocal enabledelayedexpansion`.
-
-**Loader in `_Builder.sh`** — функция `load_lang()`:
-```bash
-load_lang() {
-    local line key val
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "$line" || "$line" == \#* ]] && continue
-        key="${line%%=*}"; val="${line#*=}"
-        val="${val//\{C_VAL\}/$C_VAL}"
-        rem ... (аналогично для всех C_* плейсхолдеров) ...
-        printf -v "$key" '%s' "$val"
-    done < "$1"
-}
-LANG_FILE="system/lang/${SYS_LANG,,}.env"
-[ ! -f "$LANG_FILE" ] && LANG_FILE="system/lang/en.env"
-load_lang "$LANG_FILE"
-```
-`${val//\{C_VAL\}/$C_VAL}` заменяет плейсхолдеры на ANSI-коды. `printf -v` устанавливает глобальную переменную без `eval`.
-
-**Fallback:** both loaders fall back to EN if the file for `SYS_LANG` is missing (future language support).
-
-**Prefixes:** `L_` — all user-facing strings. `H_` — table header labels (`H_PROF`, `H_ARCH`, `H_RES`).
-
-**Feature parity:** both platforms load the same files. Platform-only keys (e.g. `L_PARALLEL_BUILDS_START` for sh, `L_OPEN_EXPL` for bat) coexist in the unified file — each loader loads them all, but only the relevant builder uses them.
-
-**Key naming conventions:**
-- `L_SEPARATOR` / `L_SEPARATOR_EQ` — decorative line separators (`---` / `===`)
-- `L_KILL_CONTAINER` / `L_KILL_ORPHAN` — container kill messages
-- `L_ST_*` — profile analyzer label keys (`L_ST_CONF`, `L_ST_OVER`, `L_ST_IPK`, `L_ST_SRC`, `L_ST_OUTS`, `L_ST_OUTI`) — stored as plain text, formatting added in code
-- `L_ST_SUFFIX_*` — status suffixes for the analyzer (`(files/)`, `(ipk/)`, etc.)
-- `L_FOUND` / `L_MISSING` / `L_EMPTY` — status words in analyzer
-- `L_FINISHED` / `L_BUILD_FATAL` — build result messages (Source Builder)
-- `L_IB_UPDATE_PROMPT` — "Update profile? [y/N]" prompt after Source build
-- `L_IN_EDITOR` — "in editor..." / "в редакторе..." suffix
-- `L_BTN_MENUCONFIG` — "Menuconfig/mc" button label
-- `L_ANALYSIS` — plain text label, both builders wrap with color in code
-- `L_INIT_ROOT` — plain text label, both builders add `  - ` prefix and `: ` suffix in code
-
-**Adding a new language:** create `system/lang/xx.env` with the same pseudo-format, then extend the language detector to set `SYS_LANG=XX`. The loader fallback to EN handles missing files gracefully.
-
-**Bootstrap convention:** strings that run before the dictionary is loaded (Ctrl+C handler, language detector output, FORCE_LANG echo) are left as hardcoded English and marked with:
-```bash
-# Bootstrap — dict not yet available
-```
-
-**Do NOT localize:**
-- Strings inside `cat <<EOF ... EOF` heredocs (run inside containers)
-- `docker exec` / `docker run` command arguments
-- Lines written to generated `.sh` scripts (`echo "..." >> script.sh`)
-- Product constants: `OpenWrt FW Builder`, GitHub URL
-
-## Private / Gitignored Directories — STRICT ACCESS RULES
-
-The following directories are **excluded from git** (listed in `.gitignore`) because they may contain sensitive user data, private credentials, licensed or restricted packages:
-
-| Directory | Why gitignored | AI access rule |
-|---|---|---|
-| `custom_files/<profile>/` | Contains file overlay mapped to `/` in firmware — may include SSH keys, passwords, `/etc/shadow`, private configs | **NEVER read/edit without explicit user request** |
-| `custom_packages/<profile>/` | `.ipk` packages — may contain proprietary/restricted firmware, licensed binaries | **NEVER read/edit without explicit user request** |
-| `src_packages/<profile>/` | Source packages for Source Builder — same risk as above | **NEVER read/edit without explicit user request** |
-| `custom_patches/<profile>/` | Source code patches — may contain proprietary modifications | **NEVER read/edit without explicit user request** |
-| `firmware_output/` | Compiled firmware artifacts — large files (10+ GB), no credentials risk but irrelevant to code analysis | Do not read unless asked |
-
-**Rule:** These are user-private working directories. Do NOT browse, grep, or analyze their contents unless the user explicitly asks. Treat them as a black box. When suggesting changes to overlay files, always describe what to do — never open or read the actual files.
-
-## Test Environments — IGNORE
-
-- `nl_test/` and `nw_test/` — unpacked distribution snapshots used for local testing only. Do NOT read, analyze, or edit. The true source of truth is always the repository root.
-
-## FORBIDDEN
-
-- NEVER read `_unpacker.bat` or `_unpacker.sh` — they contain huge base64-encoded payloads that will poison context
+- `x` means multiple, varied Zero-Trust checks at three gates: input/baseline, after implementation, and final output/artifact. Choose genuinely different perspectives and checks appropriate to the task; do not repeat the same checklist merely to satisfy a count.
+- Scale the depth to risk. A small point fix may need a focused baseline check, a direct regression test, and an independent final review. Broad or high-impact changes warrant deeper, independent audits at all three gates.
+- Audits are valuable because they uncover actionable defects. Verify each finding, establish its cause, fix it when authorized, and add a regression test where practical. If several independent, varied checks reveal no new actionable issue, accept the result; do not manufacture more audit rounds.
+- The 24-minute quantum is an ideal work budget, not a timer to fill. Roughly 18 minutes of implementation plus 6 minutes of hardening is a planning guide. Finish earlier when the objective is complete and adequately verified.
+- If the scoped task is complete and time remains, consider only directly related, low-risk improvements with clear practical value. Do not add unrelated scope or churn merely to use the remaining time.
+- For a full quantum, create `overlay.zip` around the 18-minute checkpoint; for a shorter task, export at completion. The archive contains only changed files at repository-relative paths so extraction at the repository root reproduces the changes. Never include unchanged files, private data, generated unpackers, or build artifacts.
+- Before implementation, inspect the relevant baseline and history. After implementation, run applicable tests, review the actual diff independently, and validate the final archive. Preserve existing safety behavior and never weaken tests to make them pass.
+- Do not modify source unless the user explicitly authorizes implementation.

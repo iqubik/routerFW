@@ -26,7 +26,7 @@ Both entry points are **feature-parity** wrappers: same menus, same logic, diffe
 | Command (aliases) | Arguments | Description |
 |-------------------|-----------|-------------|
 | `build`, `b` | `<id>` | Build selected profile (id = number or name). |
-| `build-all`, `a`, `all` | — | Build all profiles in the current mode; parallelism is controlled by `ROUTERFW_JOBS` (Bash default: 6). |
+| `build-all`, `a`, `all` | — | Image Builder only; Bash runs in parallel (`ROUTERFW_JOBS`, default 6), Windows runs sequentially. Rejected in Source Builder. |
 | `edit`, `e` | `[id]` | Edit profile in $EDITOR; without id → interactive choice. |
 | `menuconfig`, `k` | `<id>` | Run menuconfig (Source Builder only). |
 | `import`, `i` | `<id>` | Import .ipk/.apk into profile tree (Source Builder only, APK support since v4.50). |
@@ -93,8 +93,9 @@ Main Menu
   ├─ [number]     Build selected profile
   ├─ [M]          Switch build mode: IMAGE ↔ SOURCE
   ├─ [E]          Editor: open profile folder and profile in $EDITOR
-  ├─ [A]          Parallel build ALL profiles in the current mode
-  │               (ROUTERFW_JOBS limit, logs in firmware_output/.build_logs/)
+  ├─ [A]          Build all profiles in IMAGE mode only
+  │               Bash: parallel (`ROUTERFW_JOBS`, default 6); Windows: sequential
+  │               SOURCE build-all is rejected by both host builders
   ├─ [K]          Menuconfig (Source Builder only)
   ├─ [C]          Cleanup Wizard (cache, volumes, full reset)
   ├─ [W]          Create new profile wizard  →  system/create_profile.sh / .ps1  (exit: 0, same as main menu)
@@ -194,8 +195,8 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │                       ROOTFS_SIZE, KERNEL_SIZE, CUSTOM_REPOS, CUSTOM_KEYS,
   │                       DISABLED_SERVICES
   │
-  ├─ Legacy check: URL contains /17. /18. /19.  → builder-oldwrt (Ubuntu 18.04)
-  │                 else                          → builder-openwrt (Ubuntu 22.04)
+  ├─ Legacy check: URL contains /17. /18. /19.  → builder-oldwrt (Ubuntu 20.04)
+  │                 else                          → builder-openwrt (Ubuntu 24.04)
   │
   ├─ Export env vars: SELECTED_CONF, HOST_FILES_DIR, HOST_PKGS_DIR, HOST_OUTPUT_DIR
   │
@@ -212,6 +213,9 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     │    profiles:/profiles
   │     │
   │     └─ runs: /bin/bash /ib_builder.sh
+  │
+  │  Security: the current IB make invocation disables APK signature checking to
+  │  allow local unsigned APKs; this also affects network APK signature verification.
   │               │
   │               ├─ [1] Normalize profile (strip BOM, strip \r)
   │               ├─ [2] Clean workspace without deleting dl/ and download/cache SDK (.tar.zst or .tar.xz)
@@ -248,7 +252,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     (for Podman, system/podman-compose-src.yaml is added;
   │      SourceBuilder uses keep-id uid/gid for the build user)
   │     │
-  │     │  Volume mounts (persistent Docker volumes):
+  │     │  Volume mounts (persistent named runtime volumes):
   │     │    src-workdir:/home/build/openwrt        ← OpenWrt source tree
   │     │    src-dl-cache:/home/build/openwrt/dl    ← downloaded tarballs cache
   │     │    src-ccache:/ccache                      ← compiler cache (20 GB)
@@ -264,20 +268,19 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─ [2] git init / fetch / checkout FETCH_HEAD (reset --hard)
   │               ├─ [3] Mirror feeds (git.openwrt.org → github.com)
   │               ├─ [4] Feeds update/install (skipped if commit unchanged — cached)
-  │               ├─ [5] Apply patches (/patches → rsync overlay onto source tree)
-  │               ├─ [6] VERMAGIC Rollback check (if hooks.sh missing)
-  │               │        Detects patched kernel-defaults.mk → restores backup
-  │               ├─ [7] Execute scripts/hooks.sh (custom pre-build hook)
-  │               │        hooks.sh can: modify DTS/Makefiles, add feeds,
-  │               │        apply vermagic hack, smart cache clean
-  │               ├─ [8] Generate .config from profile vars
+  │               ├─ [5] Apply patches (/patches → rsync -a overlay onto source tree; does not delete removed untracked files)
+  │               ├─ [6] Branch on hooks.sh:
+  │               │        if present, execute the hook; if absent, check Vermagic
+  │               │        markers and roll back the supported modified state
+  │               ├─ [7] Generate .config from profile vars
   │               │        (or use manual_config if present)
-  │               ├─ [9] make defconfig
-  │               ├─[10] Copy src_packages → package/
-  │               ├─[11] rsync overlay_files → files/  (custom_files overlay)
-  │               ├─[12] make download (with retry)
-  │               ├─[13] make -j<SRC_CORES>  →  fallback make -j1 V=s on error
-  │               └─[14] Copy artifacts → firmware_output/sourcebuilder/<profile>/<timestamp>/
+  │               ├─ [8] make defconfig
+  │               ├─ [9] Copy src_packages → package/
+  │               ├─[10] rsync overlay_files → files/ with --delete (custom_files overlay; can remove hook-generated files absent from the overlay)
+  │               ├─[11] make download (with retry)
+  │               ├─[12] make -j<SRC_CORES> → one make -j1 V=s retry after parallel failure
+  │               │        (unless SRC_CORES=debug initially); fallback does not repair EROFS/EIO
+  │               └─[13] Copy artifacts → firmware_output/sourcebuilder/<profile>/<timestamp>/
   │
   ├─ Runtime-aware output permission fix to host UID, same as Image Builder
   ├─ Post-build: detect *imagebuilder*.tar.zst → offer to update IMAGEBUILDER_URL in profile
@@ -345,8 +348,8 @@ profiles/*.conf  (shared between Image Builder and Source Builder)
 
 ```
 Image Builder:
-  system/dockerfile         → Ubuntu 22.04  (builder-openwrt)
-  system/dockerfile.legacy  → Ubuntu 18.04  (builder-oldwrt)
+  system/dockerfile         → Ubuntu 24.04  (builder-openwrt)
+  system/dockerfile.legacy  → Ubuntu 20.04  (builder-oldwrt)
 
 Source Builder:
   system/src.dockerfile         → Ubuntu 24.04  (builder-src-openwrt)
@@ -391,3 +394,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
+# checksum:MD5=0f60137eeed45d53c9d65fe6d9d6be21

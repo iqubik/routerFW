@@ -21,12 +21,12 @@
 
 Оба файла — **паритетные обёртки**: одинаковые меню, одинаковая логика, разный синтаксис оболочки. Они также принимают **аргументы CLI** для неинтерактивного запуска — для скриптов и CI.
 
-**CLI-команды (регистр не учитывается).** Необязательный первый аргумент задаёт режим: `ib` / `image` → Image Builder, `src` / `source` → Source Builder. Далее — команда и аргументы:
+**CLI-команды (регистр не учитывается).** Необязательный первый аргумент задаёт режим: `ib` / `image` → Image Builder, `src` / `source` → Source Builder. Далее — команда и аргументы. `build-all` поддерживается только в режиме Image Builder; Source Builder массовую сборку отклоняет:
 
 | Команда (алиасы) | Аргументы | Описание |
 |------------------|-----------|----------|
 | `build`, `b` | `<id>` | Сборка выбранного профиля (id — номер или имя). |
-| `build-all`, `a`, `all` | — | Сборка всех профилей в текущем режиме; параллелизм управляется `ROUTERFW_JOBS` (по умолчанию 6 в Bash). |
+| `build-all`, `a`, `all` | — | Массовая сборка только в режиме Image Builder; Bash — параллельно (`ROUTERFW_JOBS`, default 6), Windows — последовательно. В Source Builder команда отклоняется. |
 | `edit`, `e` | `[id]` | Редактирование профиля в $EDITOR; без id — интерактивный выбор. |
 | `menuconfig`, `k` | `<id>` | Запуск menuconfig (только Source Builder). |
 | `import`, `i` | `<id>` | Импорт .ipk/.apk в дерево профиля (только Source Builder, поддержка APK с v4.50). |
@@ -93,8 +93,9 @@
   ├─ [номер]      Собрать выбранный профиль
   ├─ [M]         Переключить режим сборки: IMAGE ↔ SOURCE
   ├─ [E]         Редактор: открыть папку профиля и профиль в $EDITOR
-  ├─ [A]         Параллельная сборка ВСЕХ профилей в текущем режиме
-  │              (лимит ROUTERFW_JOBS, логи в firmware_output/.build_logs/)
+  ├─ [A]         Массовая сборка профилей только в режиме IMAGE
+  │              Bash: параллельно (ROUTERFW_JOBS, по умолчанию 6); Windows: последовательно
+  │              SOURCE build-all отклоняется обоими билдерами
   ├─ [K]         Menuconfig (только Source Builder)
   ├─ [C]         Мастер очистки (кэш, тома, полный сброс)
   ├─ [W]         Мастер создания нового профиля  →  system/create_profile.sh / .ps1  (выход: 0, как в главном меню)
@@ -194,8 +195,8 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │                              ROOTFS_SIZE, KERNEL_SIZE, CUSTOM_REPOS, CUSTOM_KEYS,
   │                              DISABLED_SERVICES
   │
-  ├─ Проверка Legacy: URL содержит /17. /18. /19.  → builder-oldwrt (Ubuntu 18.04)
-  │                    иначе                         → builder-openwrt (Ubuntu 22.04)
+  ├─ Проверка Legacy: URL содержит /17. /18. /19.  → builder-oldwrt (Ubuntu 20.04)
+  │                    иначе                         → builder-openwrt (Ubuntu 24.04)
   │
   ├─ Экспорт переменных: SELECTED_CONF, HOST_FILES_DIR, HOST_PKGS_DIR, HOST_OUTPUT_DIR
   │
@@ -212,6 +213,9 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     │    profiles:/profiles
   │     │
   │     └─ запускает: /bin/bash /ib_builder.sh
+  │
+  │  Безопасность: текущий make-вызов IB отключает проверку APK-подписей для
+  │  локальных неподписанных APK; это также затрагивает проверку сетевых APK.
   │               │
   │               ├─ [1] Нормализация профиля (удаление BOM, удаление \r)
   │               ├─ [2] Очистка рабочей области без удаления dl/ и скачивание/кэширование SDK (.tar.zst или .tar.xz)
@@ -248,7 +252,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     (для Podman добавляется system/podman-compose-src.yaml;
   │      SourceBuilder использует keep-id uid/gid для build-пользователя)
   │     │
-  │     │  Монтирование томов (постоянные тома Docker):
+  │     │  Монтирование томов (постоянные именованные volumes runtime):
   │     │    src-workdir:/home/build/openwrt        ← дерево исходников OpenWrt
   │     │    src-dl-cache:/home/build/openwrt/dl    ← кэш скачанных архивов
   │     │    src-ccache:/ccache                      ← кэш компилятора (20 ГБ)
@@ -264,20 +268,19 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─ [2] git init / fetch / checkout FETCH_HEAD (reset --hard)
   │               ├─ [3] Зеркалирование фидов (git.openwrt.org → github.com)
   │               ├─ [4] Обновление/установка фидов (пропуск при неизменном коммите — кэш)
-  │               ├─ [5] Применение патчей (/patches → rsync оверлей на дерево исходников)
-  │               ├─ [6] Проверка VERMAGIC Rollback (если hooks.sh отсутствует)
-  │               │        Обнаруживает пропатченный kernel-defaults.mk → восстанавливает бэкап
-  │               ├─ [7] Выполнение scripts/hooks.sh (хук перед сборкой)
-  │               │        hooks.sh умеет: правка DTS/Makefile, добавление фидов,
-  │               │        применение vermagic hack, умная очистка кэша
-  │               ├─ [8] Генерация .config из переменных профиля
+  │               ├─ [5] Применение патчей (/patches → rsync -a на дерево исходников; без удаления ранее скопированных untracked-файлов)
+  │               ├─ [6] Ветвление по hooks.sh:
+  │               │        если есть — выполнить hook; если нет — проверить маркеры
+  │               │        Vermagic и при необходимости откатить поддерживаемое состояние
+  │               ├─ [7] Генерация .config из переменных профиля
   │               │        (или использование manual_config, если присутствует)
-  │               ├─ [9] make defconfig
-  │               ├─[10] Копирование src_packages → package/
-  │               ├─[11] rsync overlay_files → files/  (оверлей custom_files)
-  │               ├─[12] make download (с повтором)
-  │               ├─[13] make -j<SRC_CORES>  →  резервный make -j1 V=s при ошибке
-  │               └─[14] Копирование артефактов → firmware_output/sourcebuilder/<профиль>/<метка времени>/
+  │               ├─ [8] make defconfig
+  │               ├─ [9] Копирование src_packages → package/
+  │               ├─[10] rsync overlay_files → files/ с --delete (оверлей custom_files; может удалить hook-generated файлы, отсутствующие в overlay)
+  │               ├─[11] make download (с повтором)
+  │               ├─[12] make -j<SRC_CORES> → одна попытка make -j1 V=s при ошибке параллельной сборки
+  │               │        (кроме исходного SRC_CORES=debug); fallback не исправляет EROFS/EIO
+  │               └─[13] Копирование артефактов → firmware_output/sourcebuilder/<профиль>/<метка времени>/
   │
   ├─ Runtime-aware исправление прав вывода под UID хоста, как в Image Builder
   ├─ После сборки: поиск *imagebuilder*.tar.zst → предложение обновить IMAGEBUILDER_URL в профиле
@@ -341,12 +344,12 @@ profiles/*.conf  (общий формат для Image Builder и Source Builder
 
 ---
 
-## 10. Контейнерные образы и compose
+## 10. Контейнерные образы и Compose
 
 ```
 Image Builder:
-  system/dockerfile         → Ubuntu 22.04  (builder-openwrt)
-  system/dockerfile.legacy  → Ubuntu 18.04  (builder-oldwrt)
+  system/dockerfile         → Ubuntu 24.04  (builder-openwrt)
+  system/dockerfile.legacy  → Ubuntu 20.04  (builder-oldwrt)
 
 Source Builder:
   system/src.dockerfile         → Ubuntu 24.04  (builder-src-openwrt)
@@ -391,3 +394,4 @@ _packer.sh / _packer.bat  (v2.7MT)
 ## 13. Полная карта процессов (Mermaid)
 
 См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).
+# checksum:MD5=21ca140c85be99a2f71b04b4b4ce4b25

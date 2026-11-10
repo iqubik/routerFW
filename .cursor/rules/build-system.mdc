@@ -1,48 +1,63 @@
 ---
-description: Build system internals — Docker, compose, builder scripts
+description: Build system internals — Image Builder, Source Builder, Docker/Podman Compose
 globs: "system/**"
 alwaysApply: false
 ---
 
-# Build System (system/ directory)
+# Build System (`system/`)
 
-## Image Builder Flow
+## Image Builder flow
 
-`docker-compose.yaml` -> `ib_builder.sh` (runs inside container):
-1. Normalize config (strip BOM, CRLF)
-2. Download/extract ImageBuilder SDK (with caching in `/cache` volume)
-3. Apply custom packages from `/input_packages`
-4. Apply file overlay from `/overlay_files`
-5. Configure custom repos/keys if defined
-6. Modify partition sizes (ROOTFS_SIZE, KERNEL_SIZE) if set
-7. Run `make image` with `IMAGE_PKGS` (fallback compatible with old `PKGS`)
-8. Copy output to `/output/<profile>/`
+`system/docker-compose.yaml` (plus `system/podman-compose.yaml` for Podman) starts `ib_builder.sh`:
+1. Normalize the selected profile (BOM/CRLF handling) and load IB variables.
+2. Obtain the ImageBuilder SDK archive from a URL or local output path; cache it in `imagebuilder-cache`.
+3. Extract the SDK and apply compatibility/OpenSSL setup.
+4. Add local IPK/APK packages; validate APK metadata/availability when the SDK provides the APK tooling.
+5. Apply package keys/repositories, partition-size settings, and a cleaned firmware overlay.
+6. Run `make image` (two attempts total) and copy artifacts to `firmware_output/imagebuilder/<profile>/<timestamp>/`.
 
-## Source Builder Flow
+Security note: the current IB path disables APK signature checking in its make invocation to permit local unsigned APKs. This also affects network APK signature verification; do not describe this as a local-package-only exception.
 
-`docker-compose-src.yaml` -> `src_builder.sh` (runs as user `build` inside container):
-1. Fix volume permissions (optimized: skips if `.git` exists and ownership correct)
-2. Git clone or fetch `SRC_REPO` at `SRC_BRANCH`
-3. Update feeds (optimized: skips if commit unchanged)
-4. Apply patches from `custom_patches/<profile>/` (CRLF->LF conversion)
-5. Run hooks from `scripts/hooks.sh`
-6. Generate `.config` from profile's `SRC_EXTRA_CONFIG`
-7. Compile with `make -j<cores>` (CCache enabled, 20GB limit)
-8. Copy output firmware to `/output/<profile>/`
+## Source Builder flow
 
-## Docker Images
+`system/docker-compose-src.yaml` (plus `system/podman-compose-src.yaml` for Podman) starts `src_builder.sh`:
+1. The container starts as root, checks volume ownership, then runs the build body as user `build`.
+2. Initialize/fetch the configured `SRC_REPO`/`SRC_BRANCH`, then reset to `FETCH_HEAD`.
+3. Mirror standard OpenWrt feed URLs when applicable. Feed update/install is skipped when the main-repository commit matches the marker in `/ccache`.
+4. Copy `custom_patches/<profile>` into the persistent source tree with `rsync -a` and normalize line endings. This copy currently does not delete files removed from the host overlay.
+5. Run `/overlay_files/hooks.sh` if present; otherwise inspect and roll back the supported Vermagic dirty-state markers.
+6. Create `.config` from profile variables or use `/output/manual_config`; run `make defconfig`.
+7. Copy imported/source packages into `package/`, then sync `/overlay_files/` to `files/` with `rsync -a --delete` and remove `files/hooks.sh`.
+8. Run `make download` with a verbose retry on failure, then compile. A failed parallel build triggers one `make -j1 V=s` retry unless `SRC_CORES=debug` was requested initially.
+9. Copy firmware and `build.config` to `/output/<timestamp>/`.
 
-| Dockerfile | Base | Purpose |
+Important ordering: hooks run before the final `files/` overlay sync. Hook-generated files under `files/` can be removed by `rsync --delete` unless also present in `/overlay_files`. The current parallel-build fallback does not classify `EROFS`/`EIO`; a read-only or failing filesystem is not repaired by retrying `make`.
+
+## Container images
+
+| Dockerfile | Base image | Purpose |
 |---|---|---|
-| `dockerfile` | Ubuntu 22.04 | Modern Image Builder |
-| `dockerfile.legacy` | Ubuntu 18.04 | Legacy Image Builder |
-| `src.dockerfile` | Ubuntu 24.04 | Modern Source Builder (GCC 13, ccache) |
-| `src.dockerfile.legacy` | Ubuntu 18.04 | Legacy Source Builder |
+| `system/dockerfile` | Ubuntu 24.04 | Modern Image Builder |
+| `system/dockerfile.legacy` | Ubuntu 20.04 | Legacy Image Builder |
+| `system/src.dockerfile` | Ubuntu 24.04 | Modern Source Builder (GCC 13 toolchain, CCache) |
+| `system/src.dockerfile.legacy` | Ubuntu 18.04 | Legacy Source Builder |
 
-## Docker Volumes
+Do not collapse the two legacy bases into one: Image Builder and Source Builder have different compatibility requirements.
 
-- `imagebuilder-cache` — SDK archives
-- `ipk-cache` — downloaded packages
-- `src-workdir` — OpenWrt source tree (persistent across builds)
-- `src-dl-cache` — source download cache
-- `src-ccache` — compiler cache
+## Compose and runtime
+
+- Base Compose files: `docker-compose.yaml` (IB), `docker-compose-src.yaml` (SB).
+- Podman overrides: `podman-compose.yaml` (IB), `podman-compose-src.yaml` (SB).
+- Runtime selection is handled by host builders (`auto`, `docker`, `podman`), not by ImageBuilder URL selection alone.
+- Compose resolution supports Docker Compose plugin/standalone and Podman Compose plugin/standalone, plus Windows `.exe` bridges where available.
+
+## Persistent volumes
+
+- IB: `imagebuilder-cache`, `ipk-cache`.
+- SB: `src-workdir`, `src-dl-cache`, `src-ccache` (CCache max size 20 GB).
+- SB worktrees and caches are persistent; state cleanup must be scoped to the selected profile/Compose project.
+- Global Docker/Podman prune is intentionally disabled.
+
+## Mass build
+
+`build-all` is Image Builder only. Bash runs IB profiles in parallel, controlled by `ROUTERFW_JOBS` (default 6); Windows Batch runs IB profiles sequentially. Source Builder mass builds are rejected by both host builders.

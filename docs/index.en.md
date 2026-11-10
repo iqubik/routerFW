@@ -14,8 +14,8 @@ This is a series of lessons designed to help you master the Universal Builder, f
 1.  [**Lesson 1: Introduction to the Builder**](./01-introduction.en.md)
     *   *What is this tool, what problems does it solve, and what are its key advantages.*
 
-2.  [**Lesson 2: Cemented Backup of Your Settings**](./02-digital-twin.en.md)
-    *   *A practical guide to creating a firmware "clone" of your router, including all packages and settings.*
+2.  [**Lesson 2: Digital Twin of Your Router Settings**](./02-digital-twin.en.md)
+    *   *A practical guide to capturing router configuration in a reusable profile and firmware build.*
 
 3.  [**Lesson 3: Building from Source: Maximum Control**](./03-source-build.en.md)
     *   *Mastering the `Source Builder` mode using a real-world example: utilizing `defconfig` and `menuconfig` for complex builds.*
@@ -44,10 +44,10 @@ This is a series of lessons designed to help you master the Universal Builder, f
 </picture>
 
 *   [**Architecture & Process Flow**](./ARCHITECTURE_en.md) — text diagrams of all build stages.
-*   [**Mermaid Diagrams**](./ARCHITECTURE_diagram_en.md) — full interactive flowcharts: startup, menu, build, cleanup, menuconfig.
+*   [**Mermaid Diagrams**](./ARCHITECTURE_diagram_en.md) — process flowcharts for startup, menu, build, cleanup, and Menuconfig.
 *   [**Project development map**](./map.en.md) — release eras and versions from CHANGELOG, growth visualization.
 
 ---
 
 [**Project audit**](audit.md#routerfw-project-audit) — repo state, conventions, risks.
-# checksum:MD5=29c581fc8ee34f217edad78b0062d902
+# checksum:MD5=d4a766ec1a4ff025d506ff5e178080d7

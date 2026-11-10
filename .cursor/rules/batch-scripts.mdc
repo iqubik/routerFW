@@ -9,7 +9,7 @@ alwaysApply: false
 ## Style
 
 - Header: `@echo off` then `rem file: <name>`
-- `setlocal enabledelayedexpansion` for variable expansion in blocks
+- `setlocal enabledelayedexpansion` for variable expansion in blocks, unless preserving arbitrary external path values (for example, `capture_worktree_diff.bat`, where delayed expansion must remain disabled to preserve `!` in filenames).
 - Console: `chcp 65001 >nul` (UTF-8), `mode con: cols=120 lines=40`
 - ANSI colors via ESC codes: `C_KEY`, `C_LBL`, `C_GRY`, `C_VAL`, `C_ERR`, `C_RST`, `C_OK` (alias of C_VAL)
 
@@ -21,7 +21,7 @@ Same weighted language detection as `.sh` but uses Windows-specific checks:
 - PowerShell: `Get-Culture`, `Get-WinUserLanguageList`
 - Console codepage: CP866 = Russian
 
-Dictionary is loaded from unified `.env` files (`system/lang/RU.env` / `system/lang/en.env`).
+Dictionary is loaded from unified `.env` files (`system/lang/ru.env` / `system/lang/en.env`).
 Format: `KEY={C_VAL}value{C_RST}` — neutral pseudo-format, no quotes, `{C_*}` placeholders.
 Loader: custom `for /f "usebackq eol=# tokens=1,* delims==" %%k` block — expands `{C_*}` to ANSI codes via `!_v:{C_VAL}=%C_VAL%!` (early+late expansion). Fallback to `en.env` if file missing.
 
@@ -39,7 +39,13 @@ When executing a complex PowerShell command from a `.bat` script (e.g., in `test
 - `_Builder.bat` <-> `_Builder.sh`
 - `_packer.bat` <-> `_packer.sh`
 
-When modifying one, the other must be updated with equivalent logic.
+When modifying one, inspect the other and preserve equivalent user-visible behavior where the platform supports it; platform-specific implementation differences are allowed.
+
+Windows regression requirement (4.71): inline shell commands passed through `CALL` must preserve arguments and quoting after CMD reparses the command. Keep the regression coverage in `tester.bat`; the current release tests 16 Docker/Podman × Compose plugin/standalone combinations. Re-run the relevant tester after any change to these call sites.
+
+## Maintainer diff-capture helper
+
+`capture_worktree_diff.bat` is a root-level maintainer tool and must stay out of both runtime packers. Keep delayed expansion disabled while handling Git paths so filenames containing `!` remain intact. It uses PowerShell `Compress-Archive`, whose destination path must end in `.zip` even for a temporary archive (use `diff.new.zip`, not `diff.zip.new`). Keep a Windows regression check in `tester.bat` for the configured extension and a small `Compress-Archive` ZIP smoke test. Preserve the previous `diff.zip` until the new ZIP has been created successfully.
 
 ## FORBIDDEN
 

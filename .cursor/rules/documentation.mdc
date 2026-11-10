@@ -6,35 +6,52 @@ alwaysApply: false
 
 # Documentation Conventions
 
-## Bilingual Structure
+## Bilingual structure
 
-All documentation exists in two versions:
-- `filename.md` — Russian (primary)
-- `filename.en.md` — English
+- `filename.md` is the primary Russian version.
+- `filename.en.md` is the paired English version.
+- User-facing documentation changes must be mirrored in both languages in the same slice. Keep technical meaning, caveats, examples, and links equivalent.
 
-When editing docs, update both language versions.
+## Documentation set
 
-## Tutorial Structure (docs/)
+- `README.md` / `README.en.md` — project overview, installation, CLI, features, safety notes.
+- `docs/01`–`docs/08` — eight paired RU/EN lessons. Do not describe the lesson set as ending at 05.
+- `docs/index.md` / `docs/index.en.md` — bilingual lesson indexes.
+- `docs/ARCHITECTURE_ru.md` / `_en.md` — detailed architecture and process descriptions.
+- `docs/ARCHITECTURE_diagram_ru.md` / `_en.md` — matching Mermaid process diagrams.
+- `docs/map.md` / `map.en.md` — historical development map; distinguish historical release facts from current state.
+- `docs/audit.md` — dated, evidence-based repository health snapshot; never carry forward stale “all OK” claims without rechecking.
+- `pub.md` — current public release announcement; `CHANGELOG.md` remains the historical release record.
+- `GEMINI.md` and `.cursor/rules/*.mdc` — agent-facing project context and constraints; keep them aligned with current source and CI.
 
-Lessons are numbered sequentially: `01-introduction.md`, `02-digital-twin.md`, … `05-patch-sys.md` (and `.en.md`).
-Each has an index file: `docs/index.md` / `docs/index.en.md`.
+## Architecture documentation
 
-**Lesson page UI:** Every lesson page (01–05, both RU and EN) must start with the language switcher block (centered): `🇷🇺 Русский | 🇺🇸 English` with a link to the other language version, then `---` before the main heading.
+When build/runtime behavior changes, check all four architecture files together:
+- `docs/ARCHITECTURE_ru.md`
+- `docs/ARCHITECTURE_en.md`
+- `docs/ARCHITECTURE_diagram_ru.md`
+- `docs/ARCHITECTURE_diagram_en.md`
 
-## Architecture diagrams
+Keep diagrams consistent with actual host behavior. In particular, `build-all` is Image Builder only (Bash parallel, Windows sequential); Source Builder `build-all` is rejected. Current bases are IB 24.04/20.04 and SB 24.04/18.04.
 
-Diagram set is split by language (no single combined file):
-- `docs/ARCHITECTURE_diagram_en.md` — §1–5 (Startup, Menu, Build, Cleanup, Menuconfig) + Legend
-- `docs/ARCHITECTURE_diagram_ru.md` — §1–5 (same content in Russian) + Легенда
-Index and text docs link to these; ARCHITECTURE_en.md → diagram_en, ARCHITECTURE_ru.md → diagram_ru.
+## Lesson page layout
 
-## README
+Each lesson begins with a centered RU/EN language switcher, a horizontal rule, then its main heading. Lesson numbers and links must match the index in both languages.
 
-- `README.md` — Russian, primary
-- `README.en.md` — English
+## Version and current-state claims
 
-## Audit Files
+- Read the current version from `system/version.env`; do not infer it from the newest filename or a historical changelog section.
+- Keep historical version numbers when explaining when a feature was introduced, but label them as historical.
+- Verify Docker/Podman, base-image, CLI, cleanup, CI, and test claims against current source/workflows before changing prose.
+- Never advertise global prune: it is intentionally disabled.
+- Distinguish CLI/packaging tests from real firmware builds. Current CI does not build firmware images or run Docker/Podman container-build smoke jobs.
 
-- `docs/audit.md` — project analysis document (при необходимости: `audit_cto.md`, `rax_audit.md`)
-- `GEMINI.md` — AI-generated architecture overview
-- `pub.md` — release notes
+## Offline documentation packaging
+
+Both `_packer.sh` and `_packer.bat` must include every Markdown page linked from `README` or `docs/index` (lessons 01–08, both architecture descriptions, both Mermaid diagrams, `map`, `audit`, and both indexes). Keep the two packer file lists in parity. Extend both `tester.sh` and `tester.bat` packer-roundtrip assertions whenever a documentation page is added or moved.
+
+## Markdown and generated artifacts
+
+- Preserve `.gitattributes`: Markdown files use CRLF; `.mdc` agent rules use LF.
+- Recalculate a file's trailing `checksum:MD5` footer when editing a file that has one. The checksum is over the normalized content before the footer, including its final line ending.
+- Do not edit generated tester logs, test snapshots, or `CHANGELOG.md` merely to make old historical output look current.

@@ -36,9 +36,9 @@ Loader: `load_lang()` function — `while read` loop + `${val//\{C_VAL\}/$C_VAL}
 - `CONF_FILE` — selected profile filename (e.g. `rax3000m_emmc_test_new.conf`)
 - `VER_NUM` — version number string
 
-## Docker Integration
+## Container Runtime Integration
 
-Builder scripts run inside Docker containers. They receive configuration via:
+Builder scripts orchestrate Docker or Podman containers. The host builders resolve the selected runtime and Compose command. Container scripts receive configuration via:
 - Environment variables from docker-compose (`CONF_FILE`, `HOST_OUTPUT_DIR`)
 - Mounted volumes for profiles, packages, files, output, and cache
 

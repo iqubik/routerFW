@@ -62,9 +62,9 @@ The main menu features a "surgical" resource panel **`[F P S M H X | OI OS]`** f
 ### 🛡️ APK Scanner (v4.70+)
 Built-in scanner for automatic validation and renaming of `.apk` files before building in Image Builder mode.
 
-*   **Why:** Image Builder rejects packages if the filename doesn't match the internal version (the `luci-i18n-podkop-ru` bug). The scanner reads metadata via Docker (`apk adbdump`) and fixes filenames automatically.
+*   **Why:** Image Builder rejects packages if the filename doesn't match the internal version (the `luci-i18n-podkop-ru` bug). The scanner uses the selected Docker or Podman runtime (`apk adbdump`) and offers to correct filenames using package metadata.
 *   **noarch/all:** Packages with universal architecture (scripts, LuCI, configs) are now correctly passed for any device.
-*   **Auto-launch:** Triggers before `docker compose up` when `.apk` files are present in `custom_packages/`.
+*   **Auto-launch:** Runs before the selected Compose runtime starts in IB mode when `.apk` files are present in `custom_packages/`.
 *   **Manual launch:** **`[S] APK Scanner`** button in the main menu — profile selection, scan, report.
 
 👉 **[Lesson 8: Embedding APK/IPK in Image Builder](docs/08-ib-apk-import-embed.en.md)** — step-by-step guide, real-world issues, and FAQ.
@@ -81,25 +81,25 @@ You can run the builder with arguments **without entering the interactive menu**
 ### Trusted profile and package model
 *   `profiles/*.conf` files are treated as **trusted input**: the builder consumes values from the profile and related shell-side resources. Do not run third-party `.conf`, `hooks.sh`, patches, or packages without reviewing them first.
 *   If you enable external repositories and signing keys via `CUSTOM_REPOS` / `CUSTOM_KEYS`, you are explicitly trusting those sources.
-*   For local third-party packages in Image Builder mode, signature checks inside the container may be relaxed, so unsigned packages should be used only when you intentionally trust their origin.
+*   The current Image Builder make invocation disables APK signature checking to allow local unsigned packages. This also disables signature verification for network APKs in that build invocation. APK Scanner validates metadata and filenames; it does not establish cryptographic package authenticity. Use only trusted repositories and packages.
 
 ### Build mode (Image Builder / Source)
 *   **Prefix before command:** `ib` or `image` — Image Builder, `src` or `source` — Source Builder. Without a prefix, **Image Builder** is used by default.
 *   **Build profile 1 in IB:** `_Builder.bat build 1` or `_Builder.bat ib build 1`
 *   **Build profile 1 in Source:** `_Builder.bat src build 1`
-*   **Build all:** `_Builder.bat ib build-all`, `_Builder.bat src build-all`
+*   **Build all:** supported only for Image Builder: `_Builder.bat ib build-all`. Source Builder `build-all` is intentionally rejected.
 
 ### Main commands
 
 | Command | Short | Arguments | Action |
 |--------|--------|-----------|--------|
 | `build` | `b` | profile number or name | Build one profile |
-| `build-all` | `a`, `all` | — | Build all profiles |
+| `build-all` | `a`, `all` | — | Build all Image Builder profiles; Bash runs in parallel, Windows runs sequentially |
 | `edit` | `e` | [id] | Profile editor |
 | `menuconfig` | `k` | \<id\> | Menuconfig (Source only) |
 | `import` | `i` | \<id\> | Import IPK (Source only) |
 | `wizard` | `w` | — | Profile creation wizard |
-| `clean` | `c` | [type] [target] | Clean (type 1–6 SRC / 1–3 IMG, 9=prune) |
+| `clean` | `c` | [type] [target] | Clean (type 1–6 SRC / 1–3 IMG); global prune item 9 is disabled |
 | `state` | `s` | — | Profile table with flags (F,P,S,M,H,X,OI,OS) |
 | `check` | — | `<id>` | Add/update checksum in profiles/ID.conf |
 | `check-all` | — | — | Add/update checksum:MD5 in all unpacker files |
@@ -108,7 +108,7 @@ You can run the builder with arguments **without entering the interactive menu**
 
 **Positional:** `_Builder.bat 2` = build profile #2 (default mode — IB). Commands are case-insensitive.
 
-**Examples:** `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat --help`
+**Examples:** `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat --help`. `src build-all` is not supported.
 
 For more details, see [Architecture diagrams — Command-line section](docs/ARCHITECTURE_diagram_en.md#command-line-interface-windows).
 
@@ -133,7 +133,7 @@ Ready-made images for specific devices: see the 4pda discussion and [Releases](h
 
 ## ⚡ About the Project
 
-Building takes place in isolated **Docker containers**. The system does not clutter System and can be removed with a single click.
+Builds run in isolated **Docker or Podman containers**. Work data and caches live in persistent named volumes, so deleting the project folder does not remove those volumes. Use the profile-scoped `[C] CLEAN` wizard to remove project data; global prune is disabled.
 
 ### Two operating modes:
 
@@ -146,7 +146,7 @@ Building takes place in isolated **Docker containers**. The system does not clut
 *   **Speed:** First run ~20-60 min, subsequent runs ~3-5 min (thanks to **CCache**).
 *   **Purpose:** 16MB mods, kernel patches, compiling programs from source.
 *   **Features:**
-    *   **Vermagic Hack:** Official drivers (`kmod-`) install without errors.
+    *   **Vermagic Hack:** attempts to align vermagic with the official repository and can improve compatibility with matching `kmod-*` packages. It cannot guarantee compatibility with every kernel, configuration, or ABI.
     *   **Persistence:** Isolated folders and caches for each profile.
     *   **Binary-to-Source Import:** Allows embedding ready-made `.ipk` packages (even without source code) directly into firmware compiled from source.
     *   Support for any Git branches and forks (ImmortalWrt, Padavan).
@@ -200,13 +200,15 @@ Forgot your router's architecture or afraid of syntax errors? Use the **[W] Prof
 *   `custom_packages/profile_name/` — Folder for `.ipk/apk` packages. Used in **ImageBuilder** (direct inclusion, auto-scanner validation) and as a source for import in **SourceBuilder**.
 *   `src_packages/profile_name/` — For source code. Used for third-party packages from GitHub and as the **output folder** for `.ipk` files processed by the importer.
 *   `firmware_output/` — Ready firmwares and build logs.
-*   `system/` — Folder with Dockerfiles, scripts, and the builder core.
+*   `system/` — Builder engines, Dockerfiles, Docker/Podman Compose files, scripts, localization, and version metadata.
 
 ---
 
 ## ⚙️ Source Code Patching System (v4.3+)
 
 This feature allows you to directly modify the OpenWrt source code before compilation. It works on a **"mirror overlay"** principle. Any file you place in the `custom_patches/<PROFILE_ID>/` directory will overwrite the original file, preserving the path structure. This is perfect for replacing `Makefiles` and, most importantly, for applying `.patch` files **natively**. The build system automatically picks up patches for the kernel or packages if they are placed in the correct directory, **eliminating the need for `hooks.sh` in most cases**.
+
+> **Persistent-worktree limitation:** the overlay is currently copied with `rsync -a` (without `--delete`). If you remove a file from `custom_patches`, a previously copied untracked file may remain in the worktree. Removing it from the overlay alone does not guarantee rollback; use the profile-scoped `src-workdir` cleanup when a reset is required.
 
 The system **automatically converts Windows line endings (CRLF)** to Unix (LF), so you can edit files in any text editor without worrying about breaking the build.
 
@@ -244,27 +246,24 @@ SRC_CORES="safe"
 
 ## 🪝 Smart Hooks and Vermagic Hack
 
-The package includes a smart script `scripts/hooks.sh`.
-When placed in the `custom_files/your_profile/` folder, it activates several powerful functions:
+The package includes the `scripts/hooks.sh` template. To enable it for a profile, copy it to `custom_files/your_profile/hooks.sh`. Source Builder runs it before `make defconfig`; it can modify the source tree.
 
-1.  **Auto-Enable Wi-Fi on First Boot:** The script automatically creates a `uci-defaults` script that enables all wireless radios when the router first starts up. This saves you from needing a wired connection for initial setup.
-2.  **Git-Safe Patching:** Safely modifies source code before building. Allows changing DTS, Makefiles (e.g., for 16MB mods). Automatic backups protect against breaking the source tree when changing versions.
+> **Stage-order warning:** after hooks run, Source Builder syncs `custom_files` to `files/` with `rsync -a --delete`. Files generated by a hook under `files/` can be removed if they are absent from the `custom_files` overlay.
+
+1.  **Auto-Enable Wi-Fi on First Boot:** the template can create a `uci-defaults` script that enables detected wireless radios on first boot. Verify that it is appropriate for your device and final overlay.
+2.  **Git-Safe Patching:** Safely modifies source code before building. Allows changing DTS and Makefiles (e.g., for 16MB mods). Automatic backups protect selected modifications.
 3.  **Vermagic Hack (Repository Compatibility):**
     *   *The Problem:* Normally, when you build your own kernel (SourceBuilder), its "fingerprint" (vermagic) differs from the official one. This prevents you from installing `kmod-*` (driver) packages from the official repository.
-    *   *The Solution:* The script **automatically downloads the official manifest** for your OpenWrt version, extracts the correct hash, and "tricks" the build system.
-    *   *Result:* You get custom firmware where **official drivers can be installed** (USB, Wireguard, FS) without errors!
+    *   *The Solution:* the script attempts to retrieve the official manifest for the selected OpenWrt version and apply the matching hash to the build logic.
+    *   *Result:* this can improve compatibility with matching official kernel modules, but it is not a guarantee across different kernels, configurations, or ABIs.
 
 ### 🛡️ Reliability Architecture (v4.09+)
 
 Starting with version 4.09, the builder's architecture has been significantly redesigned with a focus on predictability and stability.
 
-*   **"Self-Healing" Mechanism (Source Builder):**
-    *   **The Problem:** Using patches (`hooks.sh`) to modify source code (e.g., for the Vermagic Hack) leaves a "dirty" trace in the build environment. If you then built firmware without these patches, the residual changes could lead to errors.
-    *   **The Solution:** The builder now **automatically** detects this state. If `hooks.sh` is missing but the system has been modified, it initiates a **full rollback cycle**: restoring clean Makefiles, clearing the kernel cache, and resetting CCACHE. This ensures that every build starts in a predictably clean environment.
+*   **Supported Vermagic rollback (Source Builder):** when `hooks.sh` is absent, the builder checks specific markers and the backup for `include/kernel-defaults.mk`. If the supported modified state is detected, it restores the backup, cleans related kernel build directories, and resets CCache. This is not a universal rollback of arbitrary files left by custom hooks or overlays.
 
-*   **Docker Stability on WSL/Linux:**
-    *   **The Problem:** Docker's interaction with the Windows file system (via WSL) could lead to file locking errors, interrupting the build.
-    *   **The Solution:** A new, more robust container management cycle has been implemented. Before starting a build, the system forcibly stops and removes old containers, giving the file system time to "breathe." This almost completely eliminates this class of errors.
+*   **Container storage on WSL/Linux:** persistent volumes and WSL/Docker/Podman virtual disks depend on healthy storage and sufficient free space. `EROFS`, `EIO`, or a full disk cannot be repaired by retrying `make`; inspect the runtime, volume, filesystem, and host disk first.
 
 ---
 
@@ -345,14 +344,14 @@ This feature turns closed-source software integration from a complex engineering
 > *   **SourceBuilder:** (20–60+ minutes). Necessary for deep modding: creating firmware for 4MB flash drives (compression), changing kernel settings, integrating specific drivers, or creating firmware with non-standard partition sizes (e.g., 16MB mod).
 
 ### ❓ Is parallel building of multiple profiles safe?
-> **Yes, completely.** The system implements **Atomic Downloads** and **Global Locks** technology.
-> *   If you start 5 builds simultaneously using the same SDK, only the first process will download it.
-> *   The others will wait for the download to complete and use the ready cache. "File in use" conflicts or archive corruption are excluded.
+> **Yes, completely.** Image Builder coordinates shared downloads/cache access and supports bounded concurrency.
+> *   If several Image Builder profiles need the same SDK, cache coordination is intended to avoid redundant concurrent downloads.
+> *   Other builds can reuse the completed cache. This reduces races but does not eliminate failures caused by storage, filesystem, memory, or runtime problems.
 
 ### ❓ What to do in case of network errors (wget error 4)?
 > The system is adapted for unstable communication channels thanks to **Smart Retries**:
 > *   An aggressive `wgetrc` is configured inside the containers (5 attempts for each file).
-> *   If the build is interrupted due to a critical network error, the main script will automatically perform up to **3 full restarts** of the process.
+> *   `ib_builder.sh` retries each `wget` request (up to 5 attempts) and runs `make image` at most twice. Source Builder retries `make download` with verbose output; after a failed parallel compile it makes one `make -j1 V=s` attempt. There are no three automatic full-build restarts.
 
 ---
 
@@ -377,7 +376,7 @@ This feature turns closed-source software integration from a complex engineering
 *   `upgrade.sh` — Bulk update of all packages on the router.
 *   `packager.sh` — Generates a clean list of only user-installed packages.
 *   `show_pkgs.sh` — Alternative way to get a package list from the lessons.
-*   `99-permissions.sh` — Auto-fix permissions for files (Dropbear/SSH).
+*   `scripts/etc/uci-defaults/99-permissions.sh` — fixes permissions for selected files (Dropbear/SSH).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iqubik/routerFW/output/release-tree-dark.svg">
@@ -422,4 +421,4 @@ Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse b
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=6ed191c1d1256dbe70a559e1a9fa0898
+# checksum:MD5=02dde3c2c4c78d76c83c349313580586

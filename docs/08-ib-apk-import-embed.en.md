@@ -73,19 +73,23 @@ Previously this had to be done manually by extracting the version via `unzip -p 
 
 **What `noarch` and `all` mean:** These are **universal** architectures — packages without machine code (LuCI scripts, Lua files, configs). They work on **any** device.
 
-**Solution (v4.70+):** The builder now passes `noarch` and `all` as universal architectures without errors.
+**Solution (introduced in v4.70):** The builder recognizes `noarch` and `all` as architecture-independent package labels. This does not guarantee that a package’s dependencies or ABI are compatible with every device.
 
 ---
 
 ## 4. APK Scanner: Automatic Validation and Correction
 
-Starting with **v4.70**, the builder includes an **APK Scanner** — a utility that checks and fixes your `.apk` files before the build.
+Introduced in **v4.70**, the builder includes an **APK Scanner** (the current release is 4.71) — a utility that checks and fixes your `.apk` files before the build.
 
 ### What It Does
 
-1. **Extracts metadata** via Docker:
+> **Security boundary:** APK Scanner reads package metadata and checks filename/architecture; it does not verify the package’s cryptographic signature. The current Image Builder make invocation disables APK signature checking to allow local unsigned APKs, and this also affects network APKs. Use only trusted repositories and packages.
+
+
+1. **Extracts metadata** through the selected Docker or Podman runtime:
    ```bash
    docker run --rm alpine:latest apk adbdump -- /package.apk
+   # or podman run --rm ...
    ```
    This reads `.PKGINFO` inside the APK without unzip — the only reliable way to get the actual version and architecture.
 
@@ -97,7 +101,7 @@ Starting with **v4.70**, the builder includes an **APK Scanner** — a utility t
 
 ### When It Runs
 
-- **Automatically:** before `docker compose up` in IB mode, if `.apk` files are present in `custom_packages/`.
+- **Automatically:** before Compose starts in IB mode, if `.apk` files are present in `custom_packages/`. The selected runtime is used.
 - **Manually:** via the **`[S] APK Scanner`** button in the builder's main menu.
 
 ### Example Output
@@ -167,10 +171,10 @@ If you want to validate packages without building — press **`S`** in the main 
 Yes, Image Builder compares the filename against internal metadata. The scanner does this for you automatically.
 
 **Q: What if the scanner can't read metadata?**  
-A `Parse Fail` error means `apk adbdump` couldn't read `.PKGINFO`. Make sure the file is a valid APK (not a renamed `.ipk` or `.deb`). The `alpine:latest` Docker image must be available.
+A `Parse Fail` error means `apk adbdump` could not read `.PKGINFO`. Make sure the file is a valid APK (not a renamed `.ipk` or `.deb`) and that the selected runtime can access the `alpine:latest` image.
 
-**Q: Is `noarch` really safe?**  
-Yes. `noarch`/`all` means the package contains no machine code — it's scripts, configs, LuCI interfaces. They are compatible with any architecture.
+**Q: Does `noarch` guarantee compatibility?**\
+`noarch`/`all` mean the package metadata is not tied to a specific CPU architecture. Dependencies, system APIs, ABI, and OpenWrt-version requirements must still be compatible.
 
 **Q: Can I disable the auto-scanner?**  
 The auto-scanner only runs in IB mode and only when `.apk` files are present. It doesn't slow down the build — validation takes 2-5 seconds per package.
@@ -179,14 +183,14 @@ The auto-scanner only runs in IB mode and only when `.apk` files are present. It
 This is a **warning**, not an error. The package will be checked and added if you confirm. The scanner simply informs you that the package architecture differs from the target (e.g. package is `x86_64`, profile is `aarch64_generic`).
 
 **Q: Where is the `alpine:latest` image stored, can I delete it?**  
-`alpine:latest` is a service image used for scanning. **Do not delete** it — it's required for the scanner to work. It's only ~7 MB.
+`alpine:latest` is a service image for scanning. You may delete it; the runtime will pull it again on the next scan. It is needed only while validating APK files.
 
 ---
 
 ## 7. Under the Hood: How the Scanner Works
 
 ```
-┌──────────────┐     docker run       ┌──────────────────┐
+┌──────────────┐  Docker/Podman run   ┌──────────────────┐
 │  custom_     │  alpine:latest       │  apk adbdump     │
 │  packages/   │ ──────────────────►  │  (reads .PKGINFO)│
 │  *.apk       │                      │  name, version,  │
@@ -218,3 +222,4 @@ This is a **warning**, not an error. The package will be checked and added if yo
 *   **Troubleshooting and FAQ** — [Lesson 7](07-troubleshooting-faq.en.md).
 
 Back to [lessons index](index.en.md).
+# checksum:MD5=d7034532f905931555e62ef9b37deb49

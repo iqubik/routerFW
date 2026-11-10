@@ -12,7 +12,7 @@
 
 Version **4.33** introduces a new system for modifying the OpenWrt source code. It's designed to solve one of the most challenging tasks in firmware building: **how to change the project's source code without losing those changes when the container is recreated?**
 
-Previously, this required writing complex scripts in `hooks.sh` or manually editing files inside the Docker container. Now, the process is transparent and automated.
+Previously, this required writing complex scripts in `hooks.sh` or manually editing files inside the Docker/Podman container. Now, the process is transparent and automated.
 
 ### What is this for?
 *   **Build Modification:** Changing a `Makefile` to enable hidden compilation options.
@@ -31,7 +31,7 @@ The system operates on a **mirroring** principle. The `custom_patches/<PROFILE_I
 ### 🛡 Automatic CRLF Fix (Windows Fix)
 One of the main problems when developing on Windows is line endings (CRLF), which break builds in Linux.
 **Our system solves this automatically:**
-Before applying patches, a special utility, `dos2unix`, recursively processes all your files, converting them to the safe Unix format (LF). You can edit files in Notepad and not worry about compilation errors.
+Before applying patches, `dos2unix` recursively processes files in the patch directory. Therefore, put text files only in this directory: binary assets must not be passed through line-ending conversion. Text files with CRLF are converted to LF.
 
 ---
 
@@ -39,11 +39,13 @@ Before applying patches, a special utility, `dos2unix`, recursively processes al
 
 1.  **Preparation:** You create a folder structure inside `custom_patches/<PROFILE_ID>/` that mirrors the path to the target file.
 2.  **Detection:** When `_Builder.bat` starts, it checks for patches. If they exist, the **X** (Patches) indicator lights up next to the profile in the menu.
-3.  **Isolation:** The folder with your patches is mounted into the Docker container in a safe location (`/patches`).
+3.  **Isolation:** The patch folder is mounted into the selected Docker or Podman container at `/patches`.
 4.  **Application:**
     *   The script converts files to Unix format.
     *   The `rsync` utility overlays your files onto the OpenWrt source code.
-5.  **Build:** The compilation (`make`) starts on the already modified code.
+5.  **Build:** Compilation (`make`) starts on the already modified code.
+
+> **Persistent-worktree caveat:** the current implementation copies the patch overlay with `rsync -a`, without `--delete`. If a file is removed from `custom_patches`, a previously copied untracked file may remain in the OpenWrt worktree. Removing it from the overlay alone does not guarantee rollback; when necessary, use the supported `src-workdir` cleanup, noting that it removes the profile worktree.
 
 ---
 
@@ -126,4 +128,4 @@ OpenWrt automatically looks for `.patch` files in `patches-x.x` folders inside `
 
 **Q: I get `mkdir: cannot create directory '/tmp_patches': Permission denied` when building with patches. What should I do?**
 *   This error was fixed in newer builder versions (where patch application runs with correct permissions). Update the builder to the latest version from [Releases](https://github.com/iqubik/routerFW/releases) or the repository.
-# checksum:MD5=4825415fca73c3e367cead9cb6ee23c4
+# checksum:MD5=8f849e878bef35a663ba1de32832f136

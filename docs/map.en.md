@@ -7,7 +7,7 @@
 
 # routerFW project development map
 
-Based on CHANGELOG.md (release tags) and the current 4.70 branch diff. Map update date: 2026-07-14.
+Based on CHANGELOG.md (release tags) and the current source tree. Map update date: 2026-11-11. Current version: 4.71.
 
 ![Growth and evolution — eras and version branching](https://raw.githubusercontent.com/iqubik/routerFW/output/architecture-growth-dark.svg)
 
@@ -23,7 +23,7 @@ Based on CHANGELOG.md (release tags) and the current 4.70 branch diff. Map updat
 | **II**| 2.0 – 2.51    | 2025-12-27 – 29 | Source Builder, universal profiles, hooks, Vermagic, unpacker |
 | **III**| 3.2 – 3.9   | 2026-01-02 – 09 | Unified _Builder, wizards, IPK/APK pipeline, RU/EN, system/ isolation |
 | **IV**| 4.0 – 4.43    | 2026-01-11 – 02-18 | Linux (Bash), localization, patches, local IB, variable migration, unified dictionaries |
-| **V** | 4.50 – 4.70   | 2026-03 – 07-14 | APK Scanner, Docker/Podman runtime, CI/CD, faster mass build, hardened packer/unpacker |
+| **V** | 4.50 – 4.71   | 2026-03 – 11-09 | APK Scanner, Docker/Podman runtime, CI/CD, Image Builder mass build, hardened packer/unpacker, Windows CALL regression fix |
 
 ---
 
@@ -69,15 +69,16 @@ Based on CHANGELOG.md (release tags) and the current 4.70 branch diff. Map updat
 - **4.42:** migrate_profile_vars() in _Builder.sh; case-insensitive menu input; Enter=Yes on exit; Docker Credentials Fix (copy config without credsStore); full _Builder.sh localization (L_*), 40+ keys; create_profile.sh IMAGE_*, fantastic-packages/$ARCH; UTF-8 BOM in create_profile.ps1; .dockerignore (firmware_output etc.); .gitattributes; docker compose up in .sh; ImmortalWrt mirrors in hooks and wizards; tr -d '\r' for profile.
 - **4.43:** Unified dictionaries ru.env/en.env with {C_*} placeholders; loaders in bat/sh; file-header.mdc convention; hooks.sh v1.7 — vermagic mirror chain, openwrt-24.10-6.6 branch kmods only; create_profile 4 IB sources for ImmortalWrt.
 
-### Era V — Runtime portability and CI/CD (4.50 – 4.70)
+### Era V — Runtime portability and CI/CD (4.50 – 4.71)
 - **4.50+:** APK package support and APK Scanner for Image Builder; profile preparation for newer OpenWrt/ImmortalWrt branches.
 - **4.70:** Version is loaded from `system/version.env`; the menu shows the current build mode and selected engine: Docker or Podman.
 - **4.70:** `--runtime=auto|docker|podman`, `-r`, and `ROUTERFW_RUNTIME`; WSL fallback to `docker.exe` / `podman.exe`; compose wrapper for `docker compose`, `docker-compose`, `podman compose`, `podman-compose`, and `.exe` bridge.
 - **4.70:** Podman compose overlays, SELinux bind suffix `:z/:ro,z`, keep-id for SourceBuilder, and env-file bridge for Windows CLI from Bash.
 - **4.70:** Selective startup unpack instead of long recovery checks on every launch; `ROUTERFW_REPAIR=1` forces repair.
-- **4.70:** Mass builds and test harnesses are parallelized; Bash `build-all` defaults to `ROUTERFW_JOBS=6`, with logs under `firmware_output/.build_logs/`.
+- **4.70:** Bash Image Builder `build-all` defaults to `ROUTERFW_JOBS=6`, with logs under `firmware_output/.build_logs/`. Source Builder `build-all` is not supported.
 - **4.70:** `_packer.bat` and `_packer.sh` updated to `2.7MT`: strict Base64/MD5 validation, determinism, correct failures, PowerShell worker on Windows.
-- **4.70:** New CI/CD: Linux/Windows testers, Docker smoke, Podman smoke, packer/unpacker roundtrip, global-prune guard, uploaded logs, and Node 24 Actions.
+- **4.70:** CI/CD was expanded with Linux/Windows testers, packer/unpacker checks, and a global-prune guard. The 4.70 workflow also contained Docker/Podman smoke jobs; check the current workflow before assuming those jobs are still present.
+- **4.71 (2026-11-09):** Fixed Windows `CALL` argument escaping for Menuconfig and the profile-editor shell launch. Added regression coverage for four inline shell commands across 16 Docker/Podman × Compose plugin/standalone combinations; Windows tester: 53 passed, 0 failed. No real firmware build was run as part of the release checks.
 
 ---
 
@@ -93,10 +94,10 @@ Based on CHANGELOG.md (release tags) and the current 4.70 branch diff. Map updat
 | **IPK and packages** | 3.8, 3.9, 4.20 | .ipk/.apk wrapping, per-profile sandbox, libopenssl |
 | **Unified launcher** | 3.2, 4.0 | _Builder.bat → _Builder.sh, M/E/A/C/K menu |
 | **Localization** | 3.9, 4.42, 4.43 | RU/EN, L_* dictionaries, ru.env/en.env, {C_*} |
-| **Runtime and OS** | 2.0–4.70 | Docker/Podman, WSL `.exe` bridge, volumes, SELinux bind suffix, Ubuntu 18/22/24, seccomp, credsStore |
+| **Runtime and OS** | 2.0–4.71 | Docker/Podman, WSL `.exe` bridge, persistent volumes, SELinux bind suffix, IB Ubuntu 24/20, SB Ubuntu 24/18, seccomp, credsStore |
 | **Repo structure** | 3.6, 4.09, 4.41, 4.42 | system/, docs/, .dockerignore, .gitattributes, variable migration |
-| **CI/CD and quality** | 4.70 | Linux/Windows/Docker/Podman checks, smoke tests, deterministic packer/unpacker |
-| **Distribution** | 2.1–4.70 | `_packer` / `_unpacker`, strict checksum/Base64, `2.7MT`, personal install and repair |
+| **CI/CD and quality** | 4.70–4.71 | Linux/Windows suites, ShellCheck, version/localization/BOM checks, packer determinism, unpacker smoke, Batch CALL regression coverage |
+| **Distribution** | 2.1–4.71 | `_packer` / `_unpacker`, strict checksum/Base64, `2.7MT`, personal install and repair |
 
 ---
 
@@ -136,10 +137,11 @@ Based on CHANGELOG.md (release tags) and the current 4.70 branch diff. Map updat
 | 4.42 | 2026-02-18 | Migration in .sh, .sh localization, docker up |
 | 4.43 | 2026-02-18 | ru.env/en.env, file-header, vermagic mirrors |
 | 4.70 | 2026-07-14 | Docker/Podman runtime, CI/CD, packer 2.7MT, profiles and mass builds |
+| 4.71 | 2026-11-09 | Windows CALL/Menuconfig fixes, 53 Batch tests, 16 runtime/Compose argument combinations |
 
 ---
 
-## 5. Current state (as of 4.70)
+## 5. Current state (as of 4.71)
 
 - **Platforms:** Windows (.bat, PowerShell), Linux (.sh).
 - **Modes:** Image Builder (fast build), Source Builder (full compile).
@@ -148,6 +150,7 @@ Based on CHANGELOG.md (release tags) and the current 4.70 branch diff. Map updat
 - **Profiles:** Universal `.conf` (IMAGE_*, SRC_*, shared); PKGS/EXTRA_IMAGE_NAME migration on startup.
 - **Customization:** custom_files, custom_packages, src_packages, custom_patches, hooks.sh.
 - **Forks:** OpenWrt, ImmortalWrt (including mt798x 6.6 branch), multiple IB and vermagic mirrors.
-- **Quality:** CI validates Linux/Windows, Docker/Podman smoke, packer/unpacker roundtrip, and blocks dangerous global prune.
+- **Quality:** current CI runs Linux/Windows testers, Bash syntax, ShellCheck, localization, version, BOM, global-prune guard, packer determinism, and unpacker smoke. It does not run real firmware builds and the current workflow has no separate Docker/Podman container-build smoke jobs.
 
 The map may be updated as new tags, release notes, and CHANGELOG entries appear.
+# checksum:MD5=9ea72604c5c35444c880e7685fb8d22b

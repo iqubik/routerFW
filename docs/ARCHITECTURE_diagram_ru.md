@@ -59,7 +59,9 @@ flowchart TD
     E_ANALYZE --> E_EDIT["$EDITOR (nano)\nprofiles/<id>.conf"]
     E_EDIT --> MENU
 
-    CHOICE --> |A| A_RUN[Каталог логов: firmware_output/.build_logs/<ts>\nЗапуск build_routine по каждому профилю\nпараллельно; лимит ROUTERFW_JOBS]
+    CHOICE --> |A| A_MODE{Режим IMAGE?}
+    A_MODE --> |нет| A_BLOCKED[Source build-all отключён\nвозврат в меню]
+    A_MODE --> |да| A_RUN[Каталог логов: firmware_output/.build_logs/<ts>\nBash: параллельно, лимит ROUTERFW_JOBS\nWindows: последовательно]
     A_RUN --> A_WAIT[Спиннер, ожидание всех\nрезультат и время по профилю]
     A_WAIT --> MENU
 
@@ -115,7 +117,7 @@ flowchart TD
 - **Префикс перед командой** (опционально): `ib` или `image` — Image Builder, `src` или `source` — Source Builder. Без префикса используется **Image Builder** по умолчанию.
 - **Собрать IB профиль 1:** `_Builder.bat ib build 1` или `_Builder.bat build 1` (по умолчанию IB).
 - **Собрать Source профиль 1:** `_Builder.bat src build 1`.
-- **Массовая сборка в нужном режиме:** `_Builder.bat ib build-all`, `_Builder.bat src build-all`.
+- **Массовая сборка:** только `_Builder.bat ib build-all`. Команда `src build-all` отклоняется.
 Для явного выбора режима в одной команде используйте префикс `ib`/`src`. Переключение режима (клавиша **M** в меню) — только в интерактивном режиме.
 
 **Runtime:** `--runtime=auto|docker|podman`, `-r auto|docker|podman` или `ROUTERFW_RUNTIME`. В `auto` интерактивный запуск спрашивает выбор, если доступны Docker и Podman. Bash в WSL умеет использовать `docker.exe` / `podman.exe`, если нативного CLI нет.
@@ -123,7 +125,7 @@ flowchart TD
 | Команда | Краткий ключ | Аргументы | Действие |
 |--------|--------------|-----------|----------|
 | `build` | `b` | \<id\> — номер или имя профиля | Сборка одного профиля |
-| `build-all` | `a`, `all` | — | Массовая сборка (режим: префикс ib/src или по умолчанию IB) |
+| `build-all` | `a`, `all` | — | Только Image Builder; Bash — параллельно, Windows — последовательно; Source Builder отклоняет команду |
 | `edit` | `e` | [id] | Редактор профиля (без id — интерактивный выбор по списку) |
 | `menuconfig` | `k` | \<id\> | Menuconfig (только SOURCE) |
 | `import` | `i` | \<id\> | Импорт IPK/APK (только SOURCE, поддержка APK с v4.50) |
@@ -139,7 +141,7 @@ flowchart TD
 
 **Позиционный вызов:** `_Builder.bat 2` трактуется как `build 2` (режим по умолчанию — IB). Регистр команд не учитывается.
 
-**Примеры:** `_Builder.bat build 1`, `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build 1`, `_Builder.bat src build-all`, `_Builder.bat clean 2 3`, `_Builder.bat check 1`, `_Builder.bat check-all`, `_Builder.bat --help`
+**Примеры:** `_Builder.bat build 1`, `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat check 1`, `_Builder.bat check-all`, `_Builder.bat --help`
 
 **Тестовые оболочки CLI:** `tester.bat` / `tester.sh` запускают билдеры с аргументами и проверяют коды выхода и вывод; только безопасные проверки (без сборок, очистки и menuconfig). Логи в `.gitignore`.
 
@@ -222,8 +224,8 @@ flowchart TD
     BR([build_routine\nprofile.conf])
     BR --> READ_PROFILE["Чтение переменных профиля\nIMAGE или SRC"]
     READ_PROFILE --> LEGACY{"Проверка Legacy\nURL 17/18/19 или ветка 19.07/18.06?"}
-    LEGACY --> |да img| OLD_IMG["builder-oldwrt\nUbuntu 18.04"]
-    LEGACY --> |нет img| NEW_IMG["builder-openwrt\nUbuntu 22.04"]
+    LEGACY --> |да img| OLD_IMG["builder-oldwrt\nUbuntu 20.04"]
+    LEGACY --> |нет img| NEW_IMG["builder-openwrt\nUbuntu 24.04"]
     LEGACY --> |да src| OLD_SRC["builder-src-oldwrt\nUbuntu 18.04"]
     LEGACY --> |нет src| NEW_SRC["builder-src-openwrt\nUbuntu 24.04"]
 
@@ -328,3 +330,4 @@ flowchart TD
 | X | custom_patches/<id> non-empty |
 | OI | firmware_output/imagebuilder/<id> has files |
 | OS | firmware_output/sourcebuilder/<id> has files |
+# checksum:MD5=f07aaec86497bd26b92f2804a03a43b6

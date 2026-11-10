@@ -96,14 +96,14 @@ The **padavanonly** repository is used in this lesson for a reason. For MediaTek
 
 *   **Proprietary MTK Wi‑Fi drivers:** stable 160 MHz, proper Beamforming and MU-MIMO, unlike the open mt76 stack.
 *   **Hardware offload (HWNAT + WED):** traffic is offloaded from the CPU — the router can do gigabit with 2–5% CPU load.
-*   **Vermagic in the build:** the builder profile includes a hack so you can install `kmod-` packages from official repos without kernel compatibility errors.
+*   **Vermagic in the build:** the profile/hook can attempt to align vermagic with the official repository. This may improve compatibility with matching `kmod-*` packages, but it cannot guarantee compatibility when the kernel, configuration, or ABI differs.
 *   **Overlay on eMMC:** the overlay partition mounts correctly on eMMC variants.
 
 For ready-made images for other models or vanilla OpenWrt, see the 4pda discussion and [Releases](https://github.com/iqubik/routerFW/releases); for your own customization, use the builder and the appropriate repository in the profile.
 
 ---
 
-**Summary:** You have mastered the most reliable method for building complex and custom firmwares, which ensures all dependencies and source author recommendations are taken into account. This method is significantly more reliable than simply editing `SRC_EXTRA_CONFIG`.
+**Summary:** You have completed a Source Builder workflow using `make defconfig` and a source compilation. It lets the OpenWrt build system resolve configuration dependencies, but it cannot guarantee compatibility of every third-party package or modification. This is a more complete workflow than simply editing `SRC_EXTRA_CONFIG`.
 
 In the next advanced lesson, we will show you how to embed your own files into SourceBuild and how to work with build files and VerMagic.
-# checksum:MD5=6758ac7b081c5ee29a979167ad9e2579
+# checksum:MD5=fe8d505115590934b97091d3d51ef18e
