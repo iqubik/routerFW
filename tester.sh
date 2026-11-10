@@ -131,29 +131,42 @@ container_smoke() (
     }
     trap smoke_cleanup EXIT
 
+    local ib_output="/output/imagebuilder/$project"
+    local ib_restore='' src_restore=''
+    if [ "$runtime" = docker ]; then
+        # Docker writes as root/build. Restore the bind directory's owner even on failure.
+        ib_restore="trap \"chown -R \$(stat -c %u:%g $ib_output) $ib_output\" EXIT; "
+        src_restore='trap "chown -R $(stat -c %u:%g /output) /output" EXIT; '
+    fi
+
+    check_smoke_output() {
+        local file="$1"
+        if [ ! -f "$file" ] || [ ! -w "$file" ]; then
+            echo "[ERROR] Smoke output missing or not writable by UID $(id -u): $file" >&2
+            return 1
+        fi
+        if [ "$runtime" = podman ] && [ "$(stat -c '%u' "$file")" != "$(id -u)" ]; then
+            echo "[ERROR] Podman smoke output has an unexpected owner: $file" >&2
+            return 1
+        fi
+    }
+
     export ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose.yaml
     ROUTERFW_TEST_COMPOSE_ARGS=config bash ./_Builder.sh help
     ROUTERFW_TEST_COMPOSE_ARGS="-p $project build builder-openwrt" bash ./_Builder.sh help
-    local command="-p $project run --rm -T builder-openwrt sh -ec 'id; touch /builder_workspace/.routerfw-write-test; touch /output/imagebuilder/$project/.routerfw-output-test; getconf GNU_LIBC_VERSION > /output/imagebuilder/$project/glibc.txt'"
+    local command="-p $project run --rm -T builder-openwrt sh -ec '${ib_restore}id; touch /builder_workspace/.routerfw-write-test; touch $ib_output/.routerfw-output-test; getconf GNU_LIBC_VERSION > $ib_output/glibc.txt'"
     ROUTERFW_TEST_COMPOSE_ARGS="$command" bash ./_Builder.sh help
-    test -f "firmware_output/imagebuilder/$project/.routerfw-output-test"
-    test -w "firmware_output/imagebuilder/$project/.routerfw-output-test"
-    if [ "$runtime" = podman ]; then
-        test "$(stat -c '%u' "firmware_output/imagebuilder/$project/.routerfw-output-test")" = "$(id -u)"
-    fi
+    check_smoke_output "firmware_output/imagebuilder/$project/.routerfw-output-test"
 
     export HOST_PKGS_DIR="./src_packages/${SELECTED_CONF%.conf}"
     mkdir -p "$HOST_PKGS_DIR"
     export ROUTERFW_TEST_COMPOSE_BASE=system/docker-compose-src.yaml
     ROUTERFW_TEST_COMPOSE_ARGS=config bash ./_Builder.sh help
     ROUTERFW_TEST_COMPOSE_ARGS="-p $project build builder-src-openwrt" bash ./_Builder.sh help
-    command="-p $project run --rm -T builder-src-openwrt sh -ec 'id; chown build:build /output; sudo -u build sh -ec \"id; echo ok > /output/result.txt; getconf GNU_LIBC_VERSION > /output/glibc.txt\"'"
+    command="-p $project run --rm -T builder-src-openwrt sh -ec '${src_restore}id; chown build:build /output; sudo -u build sh -ec \"id; echo ok > /output/result.txt; getconf GNU_LIBC_VERSION > /output/glibc.txt\"'"
     ROUTERFW_TEST_COMPOSE_ARGS="$command" bash ./_Builder.sh help
+    check_smoke_output "$HOST_OUTPUT_DIR/result.txt"
     test "$(cat "$HOST_OUTPUT_DIR/result.txt")" = ok
-    test -w "$HOST_OUTPUT_DIR/result.txt"
-    if [ "$runtime" = podman ]; then
-        test "$(stat -c '%u' "$HOST_OUTPUT_DIR/result.txt")" = "$(id -u)"
-    fi
     local ib_glibc src_glibc
     ib_glibc=$(awk '/^glibc /{print $2; exit}' "firmware_output/imagebuilder/$project/glibc.txt")
     src_glibc=$(awk '/^glibc /{print $2; exit}' "$HOST_OUTPUT_DIR/glibc.txt")
