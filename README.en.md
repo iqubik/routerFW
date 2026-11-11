@@ -138,18 +138,27 @@ Builds run in isolated **Docker or Podman containers**. Work data and caches liv
 ### Two operating modes:
 
 #### 1. 🐇 Image Builder (Fast)
-*   **Speed:** 1-2 minutes.
+*   **Speed:** depends on the profile and cache state; see the RAX3000M baseline test measurements below.
 *   **Purpose:** Add packages (`luci`, `vpn`), embed Wi-Fi/PPPoE configs.
-*   **Features:** **Atomic Downloads** (protection against network failures), smart cache (re-build takes ~30 sec), integration of third-party `.ipk` files (from the `custom_packages` folder), **APK Scanner** (automatic validation and renaming of packages before build).
+*   **Features:** **Atomic Downloads** (protection against network failures), smart caching, integration of third-party `.ipk` files (from the `custom_packages` folder), **APK Scanner** (automatic validation and renaming of packages before build).
 
 #### 2. 🐢 Source Builder (Powerful)
-*   **Speed:** First run ~20-60 min, subsequent runs ~3-5 min (thanks to **CCache**).
+*   **Speed:** depends on the profile and **CCache** state; see the RAX3000M baseline test measurements below.
 *   **Purpose:** 16MB mods, kernel patches, compiling programs from source.
 *   **Features:**
     *   **Vermagic Hack:** attempts to align vermagic with the official repository and can improve compatibility with matching `kmod-*` packages. It cannot guarantee compatibility with every kernel, configuration, or ABI.
     *   **Persistence:** Isolated folders and caches for each profile.
     *   **Binary-to-Source Import:** Allows embedding ready-made `.ipk` packages (even without source code) directly into firmware compiled from source.
     *   Support for any Git branches and forks (ImmortalWrt, Padavan).
+
+### RAX3000M baseline test profile measurements (four builds total)
+
+Each row lists the first build and its repeat; the shell sequence is BAT → SH or SH → BAT. Results depend on the profile, environment, and cache state.
+
+| Build | First | Repeat |
+| --- | ---: | ---: |
+| IB: BAT → SH | 281 s | 50 s |
+| SB: SH → BAT | 2563 s | 182 s |
 
 ---
 
@@ -421,4 +430,4 @@ Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse b
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=02dde3c2c4c78d76c83c349313580586
+# checksum:MD5=51ac9d0afec5f45ba4903ab17220d3e8

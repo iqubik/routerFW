@@ -416,7 +416,8 @@ if not defined CLI_CMD (
 echo    !C_LBL!!L_PROFILES!:!C_RST!
 echo.
 )
-for %%f in (profiles\*.conf) do (
+rem Keep profile IDs in the same bytewise order as Bash with LC_ALL=C.
+for /f "usebackq delims=" %%f in (`powershell -NoProfile -Command "$files = [string[]]@([IO.Directory]::GetFiles('profiles', '*.conf') | ForEach-Object { [IO.Path]::GetFileName($_) }); [Array]::Sort($files, [StringComparer]::Ordinal); $files"`) do (
     set "p_id=%%~nf"
     set "SAFE_TOKEN=!p_id!"
     call :IS_SAFE_PROFILE_TOKEN
@@ -2363,4 +2364,4 @@ if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJlYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
 exit /b
-:: checksum:MD5=354d21550af78bdfaf70ba69c1ca52cf
+:: checksum:MD5=3a1731c2bb0bda06de86c794412a1f23

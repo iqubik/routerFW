@@ -16,6 +16,8 @@
 /firmware_output/
 /bck/
 /reverse/
+.routerfw-compose-*
+
 debug.md
 
 # Generated packer artifacts

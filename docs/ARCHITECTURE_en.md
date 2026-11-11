@@ -288,7 +288,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─[11] make download (with retry)
   │               ├─[12] make -j<SRC_CORES> → one make -j1 V=s retry after parallel failure
   │               │        (unless SRC_CORES=debug initially); fallback does not repair EROFS/EIO
-  │               └─[13] Copy artifacts → firmware_output/sourcebuilder/<profile>/<timestamp>/
+  │               └─[13] Non-destructive artifact export (cp, not mv) → firmware_output/sourcebuilder/<profile>/<timestamp>/
   │
   ├─ Runtime-aware output permission fix to host UID, same as Image Builder
   ├─ Post-build: detect *imagebuilder*.tar.zst → offer to update IMAGEBUILDER_URL in profile
@@ -296,6 +296,11 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 ```
 
 ---
+
+
+**SB artifact export (shared by BAT and SH):** `system/src_builder.sh` copies files from `bin/targets/<target>` into a per-profile staging directory, excluding `packages/`, and publishes only after validation. Source artifacts remain in persistent `src-workdir`: incremental `make` does not necessarily regenerate previously produced BL2 files. Flat output basenames must be unique; collisions, I/O failures and existing timestamp destinations abort publication. `sha256sums` is regenerated for the complete published set, including `build.config`.
+
+**Migration from older `mv` behavior:** an absent `mt*-bl2.bin` may be copied from a previous output of the **same profile** only when `.config`, all three `*.buildinfo` files, at least one existing bootloader binary, and the historical BL2 SHA256 all match. Automatic recovery is disabled when custom patches/hooks exist. Firmware images and package artifacts are never recycled from older outputs. Without a verified prior result, recovery cannot be guaranteed; no source volumes or caches are automatically purged.
 
 ## 7. Menuconfig Flow (Source Builder only)
 
@@ -402,4 +407,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=6ea2c3395b7f9400affb3667d8baff2f
+# checksum:MD5=431f0307ac459652f9c787e1058828d7

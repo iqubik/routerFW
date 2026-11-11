@@ -29,7 +29,7 @@ Security note: the current IB path disables APK signature checking in its make i
 6. Run `/overlay_files/hooks.sh` if present, otherwise inspect the supported Vermagic rollback state. Capture new hook-generated `files/` outputs afterward; changes hooks make elsewhere are not tracked.
 7. Generate `.config` from profile vars or `/output/manual_config`, run `make defconfig`, then copy source packages into `package/`.
 8. Run `make download` with a verbose retry on failure, then compile. A failed parallel build triggers one `make -j1 V=s` retry unless `SRC_CORES=debug` was requested initially.
-9. Copy firmware and `build.config` to `/output/<timestamp>/`.
+9. Copy (never move) artifacts from `bin/targets` into a verified temporary output directory; atomically publish to `/output/<timestamp>/`. Keep source files for later incremental builds, reject duplicate basenames and existing output destinations, regenerate SHA256 for all published files including `build.config`. Restore historical missing `mt*-bl2.bin` only from a same-profile result with matching config/buildinfo, matching current bootloader, and verified old checksum, and only if no custom patches/hooks exist; never salvage old firmware images.
 
 Important ordering: overlay files must be copied **before** hooks so hook-generated firmware outputs are retained. Do not restore the former `rsync --delete`. Never delete unknown or diverged persistent files: abort with `[LIFECYCLE SAFETY]`. SHA256 manifests apply only to routerFW-owned *untracked files*, not arbitrary hook effects, pre-existing unknown files, compiled caches or imported source packages. On an ambiguous legacy workdir, explain the per-profile cleanup path rather than automatically pruning the volume.
 

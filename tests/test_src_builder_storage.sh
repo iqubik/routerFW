@@ -321,3 +321,6 @@ done
 pass 'production call-site wiring present'
 
 printf '\nSource Builder storage tests: %s PASS, 0 FAIL\n' "$OK"
+
+# Shared SB exporter is used by both the BAT and SH container entrypoints.
+bash "$ROOT/tests/test_src_builder_artifact_export.sh"

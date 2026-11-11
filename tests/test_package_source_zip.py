@@ -106,6 +106,13 @@ class SourceZipTests(unittest.TestCase):
         mod.create_source_zip(self.root, self.out)
         self.assertEqual(self._names(), {"README.md"})
 
+    def test_checker_tools_are_excluded_from_source_archive(self):
+        self._write("scripts/checker/checker.py")
+        self._write("scripts/checker/findsni.sh")
+        self._write("scripts/other.py")
+        mod.create_source_zip(self.root, self.out)
+        self.assertEqual(self._names(), {"README.md", "scripts/other.py"})
+
     def test_cyrillic_and_special_characters_preserved(self):
         name = "docs/Кириллица & ! (x).md"
         for newline in ("\n", "\r\n"):

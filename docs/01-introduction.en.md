@@ -28,7 +28,7 @@ The project makes it possible to build custom OpenWrt firmware on Windows or Lin
 
 *   **Why is this better than following the official manual?**  
     The Builder is not a replacement, but a **smart automation** of official OpenWrt tools. It handles all the complex and routine work for you:
-    *   **Speed:** Re-builds take only 1-3 minutes thanks to a powerful caching system.
+    *   **Speed:** depends on the build mode, profile, and cache state. Exact measurements for the RAX3000M baseline test profile are in the [README](../README.en.md).
     *   **Convenience:** A user-friendly menu instead of dozens of console commands.
     *   **Reliability:** selected network and build steps have bounded retries. The Vermagic hook can attempt to improve kernel-module compatibility; when the hook is absent, the builder has a narrow rollback for the supported Vermagic state. This is not general recovery from arbitrary errors or storage failures.
 
@@ -67,4 +67,4 @@ This can be compared to tailoring clothes from scratch. The process is long, but
 ---
 
 In the next lesson, we will move on to practice and create your first "cemented" backup.
-# checksum:MD5=f6df2b100bfba8ca2d42579243041ca5
+# checksum:MD5=7f8f1cd39df9246e9a04ca293f1a2b06

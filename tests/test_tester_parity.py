@@ -9,6 +9,9 @@ would not detect a missing shared regression or provide behavioral parity.
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -43,11 +46,42 @@ def _labels(path: Path, *, windows: bool) -> tuple[set[str], set[str]]:
 
 
 class TesterParity(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Requires POSIX signal behavior")
+    def test_runtime_probe_suppresses_child_signal_diagnostic(self):
+        builder = (REPO / "_Builder.sh").read_text(encoding="utf-8")
+        helper = re.search(r"(?ms)^runtime_probe\(\) \{\n.*?^\}", builder)
+        self.assertIsNotNone(helper, "Runtime probe helper is missing")
+        self.assertIn("runtime_probe docker info", builder)
+        self.assertIn("runtime_probe docker.exe info", builder)
+        with tempfile.TemporaryDirectory(prefix="routerfw-runtime-probe-") as directory:
+            docker = Path(directory) / "docker"
+            docker.write_text("#!/bin/sh\nulimit -c 0\nkill -BUS $$\n", encoding="utf-8")
+            docker.chmod(0o755)
+            proc = subprocess.run(
+                ["bash", "-c", helper.group() + "\nruntime_probe docker info"],
+                env={"PATH": f"{directory}:/usr/bin:/bin"},
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("Bus error", proc.stderr)
+
     def test_cli_labels_mirror(self):
         sh_cli, _ = _labels(REPO / "tester.sh", windows=False)
         bat_cli, _ = _labels(REPO / "tester.bat", windows=True)
         self.assertEqual(sh_cli, bat_cli, "CLI test declarations differ")
         self.assertGreater(len(sh_cli), 30)
+
+    def test_profile_menu_uses_shared_ordinal_sort(self):
+        shell = (REPO / "_Builder.sh").read_text(encoding="utf-8")
+        batch = (REPO / "_Builder.bat").read_text(encoding="utf-8-sig")
+        self.assertIn("LC_ALL=C sort", shell)
+        self.assertIn("[StringComparer]::Ordinal", batch)
+        profiles = ["cmcc_rax3000me_24105_iw_full.conf",
+                    "cmcc_rax3000m_24105_iw_full.conf"]
+        self.assertEqual(sorted(profiles, key=lambda name: name.encode("ascii")),
+                         ["cmcc_rax3000m_24105_iw_full.conf",
+                          "cmcc_rax3000me_24105_iw_full.conf"])
 
     def test_common_health_checks_and_documented_platform_exceptions(self):
         _, sh = _labels(REPO / "tester.sh", windows=False)

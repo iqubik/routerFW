@@ -6,6 +6,8 @@ rem Запуск из любого каталога; путь к репозит�
 rem Требует Git for Windows и Windows PowerShell с модулем Microsoft.PowerShell.Archive.
 rem Не меняет исходные файлы и реальный Git index; создает только служебные outputs.
 rem Output: diff.zip и artifacts\worktree_diffs\<timestamp>\ (оба пути игнорируются Git).
+rem WORKTREE_TREE.md lists workspace paths except root .git, including Git-ignored/generated paths.
+rem Index-only: does not read contents, and never follows reparse-point directories.
 setlocal EnableExtensions DisableDelayedExpansion
 
 chcp 65001 >nul
@@ -55,6 +57,7 @@ set "LATEST_ARCHIVE=%PROJECT_ROOT%\diff.zip"
 set "TEMP_ARCHIVE=%PROJECT_ROOT%\diff.new.zip"
 set "GIT_WARNINGS=%OUT_DIR%\git-warnings.txt"
 set "UNTRACKED_PATHS=%OUT_DIR%\untracked-paths.txt"
+set "TREE_INDEX=%OUT_DIR%\WORKTREE_TREE.md"
 
 mkdir "%OUT_DIR%" >nul 2>nul
 if not exist "%OUT_DIR%" (
@@ -123,6 +126,21 @@ for %%F in ("%OUT_DIR%\diff-check.txt") do if %%~zF GTR 0 set "CHECK_WHITESPACE=
 set "CHECK_RESULT=%CHECK_WHITESPACE%"
 if "%CHECK_COMMAND_ERROR%"=="1" set "CHECK_RESULT=1"
 
+rem The Markdown inventory is path-only and includes ignored, generated and private names.
+rem Do not silently produce a truncated inventory or replace a valid previous diff.zip.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_ROOT%\scripts\write_worktree_tree.ps1" -Root "%PROJECT_ROOT%" -Output "%TREE_INDEX%"
+if errorlevel 1 (
+    echo [ERROR] Не удалось создать ПОЛНЫЙ индекс WORKTREE_TREE.md.
+    echo [INFO] Предыдущий diff.zip не изменен.
+    echo [INFO] Проверьте доступность каталогов или лимит списка путей.
+    echo [INFO] Диагностика сохранена в "%OUT_DIR%".
+    exit /b 1
+)
+if not exist "%TREE_INDEX%" (
+    echo [ERROR] Индекс WORKTREE_TREE.md не создан. Архив не обновлен.
+    exit /b 1
+)
+
 (
     echo routerFW worktree diff bundle
     echo.
@@ -134,14 +152,16 @@ if "%CHECK_COMMAND_ERROR%"=="1" set "CHECK_RESULT=1"
     echo - Untracked files that are not excluded by Git ignore rules.
     echo - Binary patch data where Git supports binary diffs.
     echo - Git status, statistics, whitespace diagnostics and warnings.
+    echo - WORKTREE_TREE.md: full path-only tree of folders and files, including ignored/generated paths except root .git.
     echo.
     echo Not included:
-    echo - Git-ignored files and directories.
+    echo - Contents of Git-ignored/generated/private files; only their NAMES appear in WORKTREE_TREE.md.
     echo - Contents of nested submodule working trees; submodule pointer state may appear in the patch.
     echo - Git repository history and object database.
     echo - Large tracked Git LFS objects may be represented by pointer diffs; attach separately if needed.
     echo.
-    echo Review the patch and status before sharing this archive.
+    echo The tree inventory is NOT an atomic filesystem snapshot; changing files can affect results.
+    echo Review the patch, status and path inventory before sharing this archive.
     echo It may contain credentials, tokens, private profile values, local paths or other sensitive data.
     echo The script does not modify source files or the real Git index; it creates ignored output files only.
 ) >"%OUT_DIR%\README.txt"
@@ -155,6 +175,14 @@ if errorlevel 1 (
     echo [INFO] Предыдущий diff.zip не изменен.
     echo [INFO] Диагностические файлы сохранены в "%OUT_DIR%".
     if exist "%TEMP_ARCHIVE%" del /q "%TEMP_ARCHIVE%" >nul 2>nul
+    exit /b 1
+)
+rem Verify the contract inside the new ZIP BEFORE replacing the previous good archive.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $archive=[IO.Compression.ZipFile]::OpenRead($env:TEMP_ARCHIVE); try { $entry=$archive.GetEntry('WORKTREE_TREE.md'); if ($null -eq $entry -or $entry.Length -lt 64) { throw 'WORKTREE_TREE.md is missing or empty in temporary diff ZIP' } } finally { $archive.Dispose() }"
+if errorlevel 1 (
+    echo [ERROR] Созданный ZIP не содержит полного индекса WORKTREE_TREE.md.
+    echo [INFO] Предыдущий diff.zip сохранен без изменений.
+    echo [INFO] Временный ZIP оставлен для диагностики: "%TEMP_ARCHIVE%".
     exit /b 1
 )
 move /y "%TEMP_ARCHIVE%" "%LATEST_ARCHIVE%" >nul
@@ -181,6 +209,7 @@ echo Untracked файлов: %UNTRACKED_FILES%
 echo Размер patch: %DIFF_BYTES% bytes
 echo Размер ZIP: %ARCHIVE_BYTES% bytes
 echo Папка с диагностикой: %OUT_DIR%
+echo Полное дерево путей: WORKTREE_TREE.md (внутри diff.zip)
 rem PowerShell already required for archiving; Write-Host highlights the handoff artifact on Windows.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Write-Host ('Архив для отправки: ' + $env:LATEST_ARCHIVE) -ForegroundColor Green"
 if "%CHECK_RESULT%"=="0" (
@@ -196,6 +225,7 @@ if "%CHECK_RESULT%"=="0" (
 for %%W in ("%GIT_WARNINGS%") do if %%~zW GTR 0 echo [WARN] Git warnings: "%GIT_WARNINGS%"
 echo.
 echo Перед отправкой diff.zip проверьте его на секреты и приватные данные.
+echo [INFO] Индекс содержит имена путей, включая приватные и generated каталоги; корневой .git исключен.
 echo Реальный Git index не изменялся.
 exit /b 0
 

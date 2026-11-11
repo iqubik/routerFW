@@ -336,6 +336,11 @@ run_container() {
     "${CONTAINER_CMD[@]}" "$@"
 }
 
+# Isolate crashes so a CLI signal (for example, WSL Docker SIGBUS) does not leak Bash's wait diagnostic.
+runtime_probe() {
+    bash -c '"$@" </dev/null >/dev/null 2>&1; exit $?' routerfw-runtime-probe "$@" >/dev/null 2>&1
+}
+
 try_runtime_candidate() {
     local candidate="$1"
     RUNTIME_ERROR_MESSAGE_1=""
@@ -346,12 +351,12 @@ try_runtime_candidate() {
             RUNTIME_ERROR_MESSAGE_1="$L_ERR_DOCKER"
             RUNTIME_ERROR_MESSAGE_2="$L_ERR_DOCKER_MSG"
             DOCKER_WINDOWS_BRIDGE=0
-            if command -v docker >/dev/null 2>&1 && docker info </dev/null >/dev/null 2>&1; then
+            if command -v docker >/dev/null 2>&1 && runtime_probe docker info; then
                 CONTAINER_CMD=(docker)
-                if docker compose version </dev/null >/dev/null 2>&1; then
+                if runtime_probe docker compose version; then
                     COMPOSE_CMD=(docker compose)
                     COMPOSE_LABEL="docker compose"
-                elif command -v docker-compose >/dev/null 2>&1 && docker-compose version </dev/null >/dev/null 2>&1; then
+                elif command -v docker-compose >/dev/null 2>&1 && runtime_probe docker-compose version; then
                     COMPOSE_CMD=(docker-compose)
                     COMPOSE_LABEL="docker-compose"
                 else
@@ -360,10 +365,10 @@ try_runtime_candidate() {
                     RUNTIME_ERROR_MESSAGE_3="$L_ERR_DOCKER_MSG"
                     return 1
                 fi
-            elif is_wsl_environment && command -v docker.exe >/dev/null 2>&1 && docker.exe info </dev/null >/dev/null 2>&1; then
+            elif is_wsl_environment && command -v docker.exe >/dev/null 2>&1 && runtime_probe docker.exe info; then
                 CONTAINER_CMD=(docker.exe)
                 DOCKER_WINDOWS_BRIDGE=1
-                if docker.exe compose version </dev/null >/dev/null 2>&1; then
+                if runtime_probe docker.exe compose version; then
                     COMPOSE_CMD=(docker.exe compose)
                     COMPOSE_LABEL="docker.exe compose"
                 else
@@ -392,11 +397,11 @@ try_runtime_candidate() {
             else
                 return 1
             fi
-            if ! "${podman_cmd[@]}" info </dev/null >/dev/null 2>&1; then
+            if ! runtime_probe "${podman_cmd[@]}" info; then
                 if command -v "${podman_cmd[0]}-machine" >/dev/null 2>&1; then
-                    PODMAN_MACHINE_HINT=$("${podman_cmd[0]}-machine" list </dev/null 2>/dev/null | tr -d '\r' | grep -i "Currently stopped" | head -1)
-                elif "${podman_cmd[@]}" machine list </dev/null >/dev/null 2>&1; then
-                    PODMAN_MACHINE_HINT=$("${podman_cmd[@]}" machine list </dev/null 2>/dev/null | tr -d '\r' | grep -i "Currently stopped" | head -1)
+                    PODMAN_MACHINE_HINT=$( ( "${podman_cmd[0]}-machine" list </dev/null 2>/dev/null ) 2>/dev/null | tr -d '\r' | grep -i "Currently stopped" | head -1)
+                elif runtime_probe "${podman_cmd[@]}" machine list; then
+                    PODMAN_MACHINE_HINT=$( ( "${podman_cmd[@]}" machine list </dev/null 2>/dev/null ) 2>/dev/null | tr -d '\r' | grep -i "Currently stopped" | head -1)
                 fi
                 if [ -n "$PODMAN_MACHINE_HINT" ]; then
                     RUNTIME_ERROR_MESSAGE_1="$L_ERR_PODMAN_MACHINE_STOPPED"
@@ -407,13 +412,13 @@ try_runtime_candidate() {
             CONTAINER_RUNTIME="podman"
             CONTAINER_LABEL="podman"
             CONTAINER_CMD=("${podman_cmd[@]}")
-            if [ "${podman_cmd[0]}" = "podman.exe" ] && podman.exe compose version </dev/null >/dev/null 2>&1; then
+            if [ "${podman_cmd[0]}" = "podman.exe" ] && runtime_probe podman.exe compose version; then
                 COMPOSE_CMD=(podman.exe compose)
                 COMPOSE_LABEL="podman.exe compose"
-            elif command -v podman-compose >/dev/null 2>&1 && podman-compose --version </dev/null >/dev/null 2>&1; then
+            elif command -v podman-compose >/dev/null 2>&1 && runtime_probe podman-compose --version; then
                 COMPOSE_CMD=(podman-compose)
                 COMPOSE_LABEL="podman-compose"
-            elif "${podman_cmd[@]}" compose version </dev/null >/dev/null 2>&1; then
+            elif runtime_probe "${podman_cmd[@]}" compose version; then
                 COMPOSE_CMD=("${podman_cmd[@]}" compose)
                 COMPOSE_LABEL="${podman_cmd[0]} compose"
             else
@@ -1982,7 +1987,7 @@ while true; do
         echo -e "    ${C_LBL}${L_PROFILES}:${C_RST}\n"
     fi
 
-    for f in profiles/*.conf; do
+    while IFS= read -r f; do
         [ -e "$f" ] || continue
         p_name=$(basename "$f")
         # Очищаем имя от возможных невидимых символов Windows (\r)
@@ -2052,7 +2057,7 @@ while true; do
             printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s%s%s | %s %s]${C_RST}\n" \
                    $count "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_m" "$st_h" "$st_pt" "$st_oi" "$st_os"
         fi
-    done
+    done < <(printf '%s\n' profiles/*.conf | LC_ALL=C sort)
 
     # === CLI: диспетчеризация (после построения списка профилей) ===
     if [ -n "$CLI_CMD" ]; then
@@ -2271,4 +2276,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=29bbffa42eb93d5fa8224671d70aab63
+# checksum:MD5=cbe8f00e07ea7410f22c33dda26783b7

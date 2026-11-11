@@ -671,10 +671,146 @@ storage_check 'before compile' || exit 1
 run_source_compile "${MAKE_ARGS[@]}" || exit 1
 
 # 6. СОХРАНЕНИЕ
+# BEGIN SOURCE ARTIFACT EXPORT HELPERS (offline regression tests extract this block)
+# Restores ONLY old pre-existing BL2 files from an earlier output, when the
+# original `mv` emptied an otherwise reusable persistent bin/targets directory.
+# This is not a general "reuse output" mechanism: never salvage firmware images.
+source_export_restore_legacy_bl2() {
+    local stage="$1" output_root="$2" previous candidate name expected actual
+    local shared present_file matching_image metadata_ok
+    local -a required_missing_bl2=()
+    local patch_source="${ROUTERFW_PATCH_SOURCE:-/patches}"
+    local files_source="${ROUTERFW_FILES_SOURCE:-/overlay_files}"
+    # A changed patch/hook can affect bootloader binaries without changing .config.
+    # Fail closed: the historical output cannot prove its complete provenance.
+    if [[ -d "$patch_source" && -n "$(find "$patch_source" -mindepth 1 -print -quit)" ]] ||
+       [[ -f "$files_source/hooks.sh" ]]; then
+        echo '[EXPORT] Legacy BL2 recovery disabled when custom patches/hooks exist.'
+        return 0
+    fi
+    for previous in "$output_root"/*; do
+        [[ -d "$previous" && ! -L "$previous" && "$previous" != "$stage" ]] || continue
+        [[ -f "$previous/sha256sums" && ! -L "$previous/sha256sums" ]] || continue
+        [[ -f "$previous/build.config" && ! -L "$previous/build.config" ]] || continue
+        cmp -s -- "$stage/build.config" "$previous/build.config" || continue
+        metadata_ok=1
+        for shared in config.buildinfo feeds.buildinfo version.buildinfo; do
+            if [[ ! -f "$stage/$shared" || ! -f "$previous/$shared" || -L "$previous/$shared" ]] ||
+               ! cmp -s -- "$stage/$shared" "$previous/$shared"; then
+                metadata_ok=0
+                break
+            fi
+        done
+        (( metadata_ok == 1 )) || continue
+        # At least one device bootloader must match byte-for-byte to prove that
+        # this historical output corresponds to the same bootloader build.
+        matching_image=0
+        for present_file in "$stage"/*-bl31-uboot.fip "$stage"/*-preloader.bin; do
+            [[ -f "$present_file" && ! -L "$present_file" ]] || continue
+            candidate="$previous/${present_file##*/}"
+            if [[ -f "$candidate" && ! -L "$candidate" ]] && cmp -s -- "$present_file" "$candidate"; then
+                matching_image=1
+                break
+            fi
+        done
+        (( matching_image == 1 )) || continue
+        for candidate in "$previous"/mt*-bl2.bin; do
+            [[ -f "$candidate" && ! -L "$candidate" ]] || continue
+            name=${candidate##*/}
+            [[ "$name" =~ ^mt[0-9]+(-[[:alnum:]]+)+-bl2\.bin$ ]] || continue
+            [[ ! -e "$stage/$name" && ! -L "$stage/$name" ]] || continue
+            # A prior matching build proves this file is expected. If no
+            # verified candidate can restore it, fail instead of silently
+            # publishing an incomplete archive as a successful build.
+            required_missing_bl2+=("$name")
+            expected=$(awk -v name="*$name" '$2 == name && $1 ~ /^[[:xdigit:]]{64}$/ {print $1}' "$previous/sha256sums")
+            [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || continue
+            actual=$(sha256sum -- "$candidate") || return 1
+            [[ "${actual%% *}" == "$expected" ]] || continue
+            cp -- "$candidate" "$stage/$name" || return 1
+            echo "[EXPORT] Restored legacy $name from verified matching previous output."
+        done
+    done
+    for name in "${required_missing_bl2[@]}"; do
+        if [[ ! -f "$stage/$name" ]]; then
+            echo "[EXPORT ERROR] Missing expected legacy $name; prior output hash invalid or recovery unsafe. Resolve only this profile's build state; no volume was deleted." >&2
+            return 1
+        fi
+    done
+}
+
+source_export_artifacts() (
+    set -euo pipefail
+    local source_dir="$1" output_root="$2" stamp="$3" stage target file name count=0
+    [[ -d "$source_dir" && -f .config ]] || {
+        echo "[EXPORT ERROR] Missing target output directory or .config: $source_dir" >&2
+        return 1
+    }
+    mkdir -p -- "$output_root"
+    target="$output_root/$stamp"
+    [[ ! -e "$target" && ! -L "$target" ]] || {
+        echo "[EXPORT ERROR] Refusing to overwrite existing output: $target" >&2
+        return 1
+    }
+    stage=$(mktemp -d "$output_root/.routerfw-export.${stamp}.XXXXXXXX") || return 1
+    trap 'rm -rf -- "$stage"' EXIT
+    # Preserve source artifacts for incremental builds: never move them out of
+    # the persistent build directory. Explicitly reject flattened name clashes.
+    # Capture the find exit status: process substitution alone would hide a
+    # traversal failure and could produce an incomplete "successful" archive.
+    if ! find "$source_dir" -type f ! -path '*/packages/*' -print0 > "$stage/.artifact-list"; then
+        echo '[EXPORT ERROR] Target artifact enumeration failed.' >&2
+        return 1
+    fi
+    while IFS= read -r -d '' file; do
+        name=${file##*/}
+        if [[ -e "$stage/$name" || -L "$stage/$name" ]]; then
+            echo "[EXPORT ERROR] Duplicate artifact basename: $name" >&2
+            return 1
+        fi
+        cp -- "$file" "$stage/$name" || {
+            echo "[EXPORT ERROR] Cannot copy artifact: $file" >&2
+            return 1
+        }
+        count=$((count + 1))
+    done < "$stage/.artifact-list"
+    rm -f -- "$stage/.artifact-list" || return 1
+    (( count > 0 )) || {
+        echo '[EXPORT ERROR] No build artifacts to publish.' >&2
+        return 1
+    }
+    [[ ! -e "$stage/build.config" ]] || {
+        echo '[EXPORT ERROR] Artifact filename collides with build.config.' >&2
+        return 1
+    }
+    cp -- .config "$stage/build.config" || return 1
+    source_export_restore_legacy_bl2 "$stage" "$output_root" || return 1
+    # Upstream sha256sums was computed BEFORE legacy recovery and omits
+    # build.config. Rewrite it to cover the complete, exact published output.
+    (
+        cd "$stage" || exit 1
+        : > sha256sums || exit 1
+        while IFS= read -r -d '' name; do
+            [[ "$name" == ./sha256sums ]] && continue
+            sha256sum -b -- "${name#./}" >> sha256sums || exit 1
+        done < <(find . -maxdepth 1 -type f -print0 | LC_ALL=C sort -z)
+        sha256sum --check --status sha256sums
+    ) || {
+        echo '[EXPORT ERROR] Published checksum verification failed.' >&2
+        return 1
+    }
+    [[ ! -e "$target" && ! -L "$target" ]] || {
+        echo "[EXPORT ERROR] Target appeared during export: $target" >&2
+        return 1
+    }
+    mv -- "$stage" "$target" || return 1
+    trap - EXIT
+    echo "[EXPORT] Copied $count source artifacts without removing bin/targets; output includes any verified recovered BL2."
+)
+# END SOURCE ARTIFACT EXPORT HELPERS
+
 TARGET_DIR="/output/$TIMESTAMP"
-mkdir -p "$TARGET_DIR"
-find bin/targets/$SRC_TARGET -type f -not -path "*/packages/*" -exec mv {} "$TARGET_DIR/" \;
-cp .config "$TARGET_DIR/build.config"
+source_export_artifacts "bin/targets/$SRC_TARGET" /output "$TIMESTAMP" || exit 1
 
 # Метаданные ядра из profiles.json (версия и vermagic)
 META_FILE="$TARGET_DIR/profiles.json"
@@ -707,4 +843,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=aac98fb2be924815fa0eb5017679fcd8
+# checksum:MD5=005378d715b57bc2ab28247cbe6ce8f0
