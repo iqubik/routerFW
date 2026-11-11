@@ -306,7 +306,6 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 
 **Guarantee boundary:** this verifies lossless transfer of **all files that exist in the selected BIN_DIR after `make`, except the intentionally excluded build packages in `packages/`**. It cannot prove that upstream generated every expected device image or that unchanged incremental artifacts are fresh. Do not clear `bin/targets` automatically: doing so could invalidate incremental build stamps and break workflows. `bin/packages/<architecture>/` lies outside the selected BIN_DIR and is not included in this snapshot.
 
-**Special case: MediaTek RAM BL2:** the existing `.config`-driven selected BL2 preflight and targeted package rebuild remain for upstream behavior that deletes some BL2 files before `make world` ends. This is a compatibility adapter, not an output selection rule for the generic exporter. Recovery of BL2 from older `firmware_output` results has been removed to avoid mixing historical binaries into a current build.
 
 ## 7. Menuconfig Flow (Source Builder only)
 
@@ -413,4 +412,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=083edf797027d636bead72b37e06b79b
+# checksum:MD5=fbcc199978716ae416dfe362dab9de2d

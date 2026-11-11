@@ -811,9 +811,13 @@ build_routine() {
             fi
 
             # === POST-BUILD: поиск *imagebuilder*.tar.zst и обновление IMAGEBUILDER_URL ===
-            local ib_archive=""
-            ib_archive=$(find "${HOST_OUTPUT_DIR#./}" -name "*imagebuilder*.tar.zst" 2>/dev/null \
-                | sort -t_ -k1 2>/dev/null | tail -1)
+            local ib_archive="" latest_output=""
+            latest_output=$(find "${HOST_OUTPUT_DIR#./}" -mindepth 1 -maxdepth 1 -type d \
+                -exec ls -td {} + 2>/dev/null | head -n 1 || true)
+            if [ -n "$latest_output" ]; then
+                ib_archive=$(find "$latest_output" -type f -name "*imagebuilder*.tar.zst" \
+                    -exec ls -t {} + 2>/dev/null | head -n 1 || true)
+            fi
             if [ -n "$ib_archive" ]; then
                 # Нормализуем путь: убираем ведущий ./ если есть
                 ib_archive="${ib_archive#./}"
@@ -2276,4 +2280,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=cbe8f00e07ea7410f22c33dda26783b7
+# checksum:MD5=aec9db0bceb08e7ffd41ba7e1daf401d

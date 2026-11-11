@@ -39,7 +39,7 @@ SRC=bin/targets/mediatek/filogic
 printf 'build config\n' > .config
 printf 'firmware\n' > "$SRC/router-sysupgrade.itb"
 printf 'bootloader\n' > "$SRC/router-bl31-uboot.fip"
-printf 'ram bootloader\n' > "$SRC/mt7981-ram-ddr3-bl2.bin"
+printf 'bootloader binary\n' > "$SRC/router-bootloader.bin"
 printf 'package\n' > "$SRC/packages/example.apk"
 printf 'package index\n' > "$SRC/packages/Packages.gz"
 printf 'upstream checksums\n' > "$SRC/sha256sums"
@@ -51,7 +51,7 @@ printf 'nested firmware binary\n' > "$SRC/other/packages/firmware.blob"
 printf 'other subtarget\n' > bin/targets/mediatek/mt7622/router.img
 source_export_artifacts "$SRC" "$TMP/outputs" first > "$TMP/log"
 assert_file "$TMP/outputs/first/router-sysupgrade.itb"
-assert_file "$TMP/outputs/first/mt7981-ram-ddr3-bl2.bin"
+assert_file "$TMP/outputs/first/router-bootloader.bin"
 assert_missing "$TMP/outputs/first/packages"
 assert_file "$TMP/outputs/first/other/deeper/firmware.img"
 assert_file "$TMP/outputs/first/other/packages/firmware.blob"
@@ -67,7 +67,7 @@ assert_no_leaks
 pass 'selected firmware tree copied without root packages, source checksum and empty dirs retained'
 source_export_artifacts "$SRC" "$TMP/outputs" second > "$TMP/log"
 assert_same "$SRC/router-sysupgrade.itb" "$TMP/outputs/second/router-sysupgrade.itb"
-assert_file "$SRC/mt7981-ram-ddr3-bl2.bin"
+assert_file "$SRC/router-bootloader.bin"
 verify "$TMP/outputs/second"
 pass 'incremental export never moves/removes source artifacts'
 printf 'same basename, distinct path\n' > "$SRC/other/router-sysupgrade.itb"
@@ -136,12 +136,12 @@ assert_missing "$TMP/outputs/find_error"
 assert_missing "$TMP/outputs/verify_error"
 assert_no_leaks
 pass 'failed copy, enumeration and byte-compare cannot publish partial outputs'
-# Non-mediatek format-agnostic payload; empty/metadata-only/package-only must fail.
+# Target-independent payload; empty/metadata-only/package-only must fail.
 mkdir -p "$TMP/x86" "$TMP/meta" "$TMP/packages-only/packages" "$TMP/nothing"
 printf 'disk\n' > "$TMP/x86/router.img.gz"
 source_export_artifacts "$TMP/x86" "$TMP/outputs" x86 > "$TMP/log"
 assert_file "$TMP/outputs/x86/router.img.gz"; verify "$TMP/outputs/x86"
-pass 'format independent x86-style image works with no BL2'
+pass 'generic exporter accepts arbitrary firmware names and formats'
 printf 'meta\n' > "$TMP/meta/profiles.json"
 printf 'checksum\n' > "$TMP/meta/sha256sums"
 printf 'package\n' > "$TMP/packages-only/packages/foo.apk"
@@ -149,54 +149,18 @@ assert_fails source_export_artifacts "$TMP/meta" "$TMP/outputs" metadata_only
 assert_fails source_export_artifacts "$TMP/packages-only" "$TMP/outputs" package_only
 assert_fails source_export_artifacts "$TMP/nothing" "$TMP/outputs" empty
 pass 'metadata-only, packages-only and empty directories are not mistaken for firmware'
-# Existing targeted BL2 recovery remains (upstream's RAM BL2 is deleted later
-# in make world on some profiles). It must never decide WHICH other files export.
-mkdir -p "$TMP/ramwork/bin/targets/mediatek/filogic" "$TMP/ramoutputs"
-cd "$TMP/ramwork"
+mkdir -p "$TMP/no-bl2/bin/targets/mediatek/filogic" "$TMP/no-bl2-outputs"
+cd "$TMP/no-bl2"
 SRC=bin/targets/mediatek/filogic
-cat > .config <<'EOF_CONF'
-CONFIG_PACKAGE_trusted-firmware-a-mt7981-ram-ddr3=y
-CONFIG_PACKAGE_trusted-firmware-a-mt7981-ram-ddr4=y
-CONFIG_PACKAGE_trusted-firmware-a-mt7986-ram-ddr3=y
-CONFIG_PACKAGE_trusted-firmware-a-mt7986-ram-ddr4=y
-CONFIG_PACKAGE_trusted-firmware-a-mt7987-ram-comb=y
-CONFIG_PACKAGE_trusted-firmware-a-mt7988-ram-comb=y
-CONFIG_PACKAGE_trusted-firmware-a-mt7988-ram-ddr4=y
-EOF_CONF
-printf 'new firmware\n' > "$SRC/router-sysupgrade.itb"
-MAKE_ARGS=(-j2)
-make() {
-    printf '%s\n' "$*" >> "$TMP/make.calls"
-    case "$*" in
-        'package/boot/arm-trusted-firmware-mediatek/clean') return 0 ;;
-        '-j2 package/boot/arm-trusted-firmware-mediatek/compile')
-            local name
-            for name in mt7981-ram-ddr3 mt7981-ram-ddr4 mt7986-ram-ddr3 mt7986-ram-ddr4 mt7987-ram-comb mt7988-ram-comb mt7988-ram-ddr4; do
-                printf 'fresh %s\n' "$name" > "$SRC/$name-bl2.bin"
-            done
-            return 0 ;;
-        *) return 9 ;;
-    esac
-}
-source_export_ensure_current_ram_bl2 "$SRC" > "$TMP/log" || fail 'Existing MediaTek BL2 repair failed'
-[[ $(wc -l < "$TMP/make.calls") -eq 2 ]] || fail 'Expected one targeted clean/compile'
-source_export_artifacts "$SRC" "$TMP/ramoutputs" ram > "$TMP/log"
-[[ $(find "$TMP/ramoutputs/ram" -name '*-bl2.bin' | wc -l) -eq 7 ]] || fail 'BL2 set incomplete'
-verify "$TMP/ramoutputs/ram"
-pass '7 selected RAM BL2 plus firmware preserved under generic export'
-source_export_ensure_current_ram_bl2 "$SRC" >/dev/null || fail 'Present selected BL2 rejected'
-[[ $(wc -l < "$TMP/make.calls") -eq 2 ]] || fail 'Unnecessary rebuild when BL2 already present'
-pass 'valid incremental BL2 does not trigger rebuilding'
-rm "$SRC/mt7987-ram-comb-bl2.bin"
-make() { return 20; }
-assert_fails source_export_ensure_current_ram_bl2 "$SRC"
-pass 'failed targeted BL2 recovery aborts instead of silently losing artifact'
-printf 'CONFIG_PACKAGE_unrelated=y\n' > .config
-source_export_ensure_current_ram_bl2 "$SRC" >/dev/null || fail 'Unrelated profile must not require BL2'
-pass 'other targets do not inherit an artificial seven-BL2 invariant'
-# Production wiring must use the same exact leaf for verifier and exporter.
-grep -Fq 'source_export_ensure_current_ram_bl2 "bin/targets/$SRC_TARGET/$SRC_SUBTARGET"' "$ROOT/system/src_builder.sh" || fail 'BL2 verifier is not using exact subtarget'
+printf 'CONFIG_PACKAGE_trusted-firmware-a-mt7981-ram-ddr3=y\n' > .config
+printf 'firmware without standalone BL2\n' > "$SRC/router-sysupgrade.itb"
+source_export_artifacts "$SRC" "$TMP/no-bl2-outputs" no_bl2 > "$TMP/log"
+assert_file "$TMP/no-bl2-outputs/no_bl2/router-sysupgrade.itb"
+assert_missing "$TMP/no-bl2-outputs/no_bl2/mt7981-ram-ddr3-bl2.bin"
+verify "$TMP/no-bl2-outputs/no_bl2"
+pass 'exporter does not impose a MediaTek BL2 requirement from .config'
+if grep -Fq 'source_export_ensure_current_ram_bl2' "$ROOT/system/src_builder.sh"; then fail 'MediaTek BL2 preflight remains in production'; fi
 grep -Fq 'source_export_artifacts "bin/targets/$SRC_TARGET/$SRC_SUBTARGET" /output "$TIMESTAMP"' "$ROOT/system/src_builder.sh" || fail 'Exporter is not using exact subtarget'
-pass 'production wiring only exports the selected BIN_DIR'
+pass 'production wires only the generic selected-BIN_DIR exporter'
 assert_no_leaks
 printf 'Source Builder artifact export: %s tests passed\n' "$OK"

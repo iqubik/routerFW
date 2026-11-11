@@ -915,71 +915,13 @@ run_source_compile "${MAKE_ARGS[@]}" || exit 1
 
 # 6. СОХРАНЕНИЕ
 # BEGIN SOURCE ARTIFACT EXPORT HELPERS (offline regression tests extract this block)
-# Selected RAM-boot TFA variants install standalone BL2 files directly into
-# BIN_DIR. OpenWrt stamps can survive the old destructive export, so incremental
-# `make` may succeed without reinstalling these files. Enumerate requirements
-# from the current .config, never from historical firmware_output directories.
-source_export_verify_selected_ram_bl2() {
-    local source_dir="$1" config="$2" line name missing=0 selected=0
-    [[ -d "$source_dir" && -f "$config" ]] || {
-        echo "[BL2 ERROR] Missing target directory or configuration: $source_dir, $config" >&2
-        return 1
-    }
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ "$line" =~ ^CONFIG_PACKAGE_trusted-firmware-a-(mt[0-9]+-ram-[a-z0-9-]+)=y$ ]]; then
-            name="${BASH_REMATCH[1]}-bl2.bin"
-            selected=$((selected + 1))
-            if [[ ! -f "$source_dir/$name" || -L "$source_dir/$name" || ! -s "$source_dir/$name" ]]; then
-                echo "[BL2 ERROR] Selected package artifact missing or invalid: $name" >&2
-                missing=$((missing + 1))
-            fi
-        fi
-    done < "$config"
-    if (( missing > 0 )); then
-        echo "[BL2 ERROR] $missing/$selected selected RAM-boot BL2 artifacts unavailable." >&2
-        return 1
-    fi
-    return 0
-}
-
-# One-time recovery from the CURRENT SOURCE TREE, not from a previous archive.
-# If custom hooks/patches modify ATF, rebuild under their already-applied state.
-# Only the ATF package is cleaned; no Docker volume or entire workdir is reset.
-source_export_ensure_current_ram_bl2() {
-    local source_dir="$1"
-    if source_export_verify_selected_ram_bl2 "$source_dir" .config; then
-        return 0
-    fi
-    echo '[BL2 REPAIR] Rebuilding selected Trusted Firmware A variants from current sources...'
-    if ! make package/boot/arm-trusted-firmware-mediatek/clean; then
-        echo '[BL2 ERROR] Targeted Trusted Firmware A cleanup failed.' >&2
-        return 1
-    fi
-    # The RAM boot variants install BL2 directly to BIN_DIR via the package
-    # install recipe (include/package-bin.mk), NOT into a regular rootfs package.
-    # Re-running 'make world' may leave them absent at the end again. Instead,
-    # run ONLY the selected package compile/install AFTER the firmware build,
-    # so no subsequent target/image stage can replace its BIN_DIR outputs.
-    echo '[BL2 REPAIR] Installing selected Trusted Firmware A BL2 after firmware build...'
-    if ! make "${MAKE_ARGS[@]}" package/boot/arm-trusted-firmware-mediatek/compile; then
-        echo '[BL2 ERROR] Targeted Trusted Firmware A compile/install failed.' >&2
-        return 1
-    fi
-    if ! source_export_verify_selected_ram_bl2 "$source_dir" .config; then
-        echo '[BL2 ERROR] Rebuild did not regenerate every selected RAM BL2. Refusing incomplete export.' >&2
-        return 1
-    fi
-    echo '[BL2 REPAIR] All selected RAM BL2 files installed into persistent bin/targets.'
-}
-
 # Export the selected OpenWrt BIN_DIR firmware tree, without its top-level
 # packages/ feed (APK/IPK packages are build inputs, not firmware deliverables).
 # Keep every other nested path and extension, without touching build caches.
 # All I/O is checked before the timestamp directory is published.
 #
 # Note: this is a lossless snapshot of files PRESENT after `make`, not proof that
-# upstream generated every device artifact. MediaTek RAM BL2 still need the
-# separate upstream-specific repair above when OpenWrt removes them during make.
+# upstream generated every expected device artifact.
 source_export_artifacts() (
     set -euo pipefail
     local source_dir="${1%/}" output_root="${2%/}" stamp="$3"
@@ -1149,10 +1091,6 @@ for component in "$SRC_TARGET" "$SRC_SUBTARGET"; do
         exit 1
     }
 done
-# MediaTek RAM-boot BL2 sometimes disappears during OpenWrt's own image
-# installation. Retain this narrowly scoped preflight until upstream fixes it;
-# it does NOT select, filter or flatten any files for the generic exporter.
-source_export_ensure_current_ram_bl2 "bin/targets/$SRC_TARGET/$SRC_SUBTARGET" || exit 1
 # Export selected subtarget firmware artifacts, excluding only top-level packages/.
 source_export_artifacts "bin/targets/$SRC_TARGET/$SRC_SUBTARGET" /output "$TIMESTAMP" || exit 1
 
@@ -1191,4 +1129,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=83e32f92db811dfc6dc3b9b08112c803
+# checksum:MD5=242ef27959b58cca7c19f83f126d02ce
