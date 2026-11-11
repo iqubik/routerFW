@@ -302,9 +302,11 @@ _Builder.sh/bat  →  build_routine(profile.conf)
 ---
 
 
-**SB artifact export (shared by BAT and SH):** `system/src_builder.sh` copies files from `bin/targets/<target>` into a per-profile staging directory, excluding `packages/`, and publishes only after validation. Source artifacts remain in persistent `src-workdir`: incremental `make` does not necessarily regenerate previously produced BL2 files. Flat output basenames must be unique; collisions, I/O failures and existing timestamp destinations abort publication. `sha256sums` is regenerated for the complete published set, including `build.config`.
+**SB artifact export (shared by BAT and SH):** after successful `make`, the exporter copies the firmware tree under `bin/targets/<target>/<subtarget>/`, **excluding only the top-level `packages/`**. All other nested paths, arbitrary extensions, and empty directories are retained. Relative paths are retained; identical basenames in different subdirectories are not collisions. The export uses non-destructive `rsync -a` with `/packages` excluded, preserving build artifacts and caches. Before atomically publishing a timestamped directory, it checks byte-for-byte equality for regular files, safe relative symlinks, directories, entry counts, and a recursive SHA256 manifest. The upstream `sha256sums` is preserved as `.routerfw-upstream.sha256sums`; the published `sha256sums` covers all regular files (including `build.config`). Absolute, dangling, or escaping symlinks, unknown file types, reserved-name collisions, I/O failures, and existing timestamps cause a safe failure. Metadata-only and `packages/`-only trees are not treated as successful firmware results.
 
-**Migration from older `mv` behavior:** an absent `mt*-bl2.bin` may be copied from a previous output of the **same profile** only when `.config`, all three `*.buildinfo` files, at least one existing bootloader binary, and the historical BL2 SHA256 all match. Automatic recovery is disabled when custom patches/hooks exist. Firmware images and package artifacts are never recycled from older outputs. Without a verified prior result, recovery cannot be guaranteed; no source volumes or caches are automatically purged.
+**Guarantee boundary:** this verifies lossless transfer of **all files that exist in the selected BIN_DIR after `make`, except the intentionally excluded build packages in `packages/`**. It cannot prove that upstream generated every expected device image or that unchanged incremental artifacts are fresh. Do not clear `bin/targets` automatically: doing so could invalidate incremental build stamps and break workflows. `bin/packages/<architecture>/` lies outside the selected BIN_DIR and is not included in this snapshot.
+
+**Special case: MediaTek RAM BL2:** the existing `.config`-driven selected BL2 preflight and targeted package rebuild remain for upstream behavior that deletes some BL2 files before `make world` ends. This is a compatibility adapter, not an output selection rule for the generic exporter. Recovery of BL2 from older `firmware_output` results has been removed to avoid mixing historical binaries into a current build.
 
 ## 7. Menuconfig Flow (Source Builder only)
 
@@ -411,4 +413,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=e6c4c1bbc29a7ac07bcbf8a468969275
+# checksum:MD5=083edf797027d636bead72b37e06b79b

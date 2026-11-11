@@ -226,6 +226,133 @@ pass 'double download failure -> no fake storage diagnosis'
 )
 pass 'download storage failure -> skip verbose retry'
 
+# Hash recovery exercises the actual source download/compile helpers with
+# fake make output and real SHA256, without external downloads or Docker.
+(
+    cd "$TMP"
+    mkdir -p dl
+    printf 'bad cached tarball\n' > dl/linux-firmware-20260221.tar.xz
+    printf 'unchanged cache\n' > dl/unrelated-archive.tar.xz
+    expected=$(printf 'correct tarball\n' | sha256sum | cut -d' ' -f1)
+    : > sha_calls
+    make() {
+        printf '%s\n' "$*" >> sha_calls
+        if [[ $(wc -l < sha_calls) -eq 1 ]]; then
+            printf 'Hash of the local file linux-firmware-20260221.tar.xz does not match (file: 54dd7529, requested: %s) - deleting download.\n' "$expected"
+            return 0 # upstream make download sometimes masks subtarget failures
+        fi
+        [[ ! -e dl/linux-firmware-20260221.tar.xz ]] || return 44
+        printf 'correct tarball\n' > dl/linux-firmware-20260221.tar.xz
+        return 0
+    }
+    run_source_download > sha_recovery.log 2>&1
+    assert_eq "$(cat sha_calls)" $'download\ndownload' 'hash mismatch forces retry even if make download exited 0'
+    assert_eq "$(sha256sum dl/linux-firmware-20260221.tar.xz | cut -d' ' -f1)" "$expected" 'refetched tarball checksum'
+    assert_eq "$(cat dl/unrelated-archive.tar.xz)" 'unchanged cache' 'unrelated cache preservation'
+    assert_contains sha_recovery.log 'Removed checksum-invalid cache file'
+)
+pass 'corrupt cached tarball -> targeted deletion, refetch and verified SHA, unrelated cache preserved'
+pass 'download reports success with checksum diagnostic -> still forces recovery'
+
+(
+    cd "$TMP"
+    : > sha_calls
+    make() {
+        printf '%s\n' "$*" >> sha_calls
+        if [[ $(wc -l < sha_calls) -eq 1 ]]; then
+            printf 'Hash of the downloaded file does not match (file: abc, requested: def) - deleting download.\n'
+            return 0
+        fi
+        return 0
+    }
+    run_source_download > sha_recovery.log 2>&1
+    assert_eq "$(wc -l < sha_calls | tr -d ' ')" 2 'upstream invalid download retried'
+    assert_contains sha_recovery.log 'Retry 1/3'
+)
+pass 'invalid newly downloaded archive -> redownload via upstream (no blind cache cleanup)'
+
+(
+    cd "$TMP"
+    printf 'poison\n' > dl/poison.tar.xz
+    expected=$(printf 'valid\n' | sha256sum | cut -d' ' -f1)
+    : > sha_calls
+    make() {
+        printf '%s\n' "$*" >> sha_calls
+        printf 'Hash of the local file poison.tar.xz does not match (file: bad, requested: %s) - deleting download.\n' "$expected"
+        # Simulate a mirror supplying the same bad file on every retry.
+        printf 'poison\n' > dl/poison.tar.xz
+        return 0
+    }
+    if run_source_download > sha_recovery.log 2>&1; then fail 'perpetual hash mismatch returned success'; fi
+    assert_eq "$(wc -l < sha_calls | tr -d ' ')" 4 'bounded checksum retry'
+    assert_contains sha_recovery.log 'SHA mismatch persisted after 3 retries'
+)
+pass 'repeated SHA mismatch fails closed after exactly 3 recovery attempts'
+
+(
+    cd "$TMP"
+    printf 'protected\n' > dl/keep.tar.xz
+    ln -sf keep.tar.xz dl/unsafe.tar.xz
+    expected=$(printf 'valid\n' | sha256sum | cut -d' ' -f1)
+    : > sha_calls
+    make() {
+        printf '%s\n' "$*" >> sha_calls
+        printf 'Hash of the local file unsafe.tar.xz does not match (file: bad, requested: %s) - deleting download.\n' "$expected"
+        return 1
+    }
+    if run_source_download > sha_recovery.log 2>&1; then fail 'symlink cache deletion allowed'; fi
+    assert_eq "$(wc -l < sha_calls | tr -d ' ')" 1 'symlink rejection is immediate'
+    [[ -L dl/unsafe.tar.xz && -f dl/keep.tar.xz ]] || fail 'symlink protection damaged cache'
+    assert_contains sha_recovery.log 'Refusing non-regular cache entry'
+    rm dl/unsafe.tar.xz
+)
+pass 'unsafe cache symlink -> no deletion and no continued retries'
+
+(
+    cd "$TMP"
+    printf 'protected\n' > dl/keep.tar.xz
+    expected=$(printf 'valid\n' | sha256sum | cut -d' ' -f1)
+    : > sha_calls
+    make() {
+        printf '%s\n' "$*" >> sha_calls
+        printf 'Hash of the local file ../keep.tar.xz does not match (file: bad, requested: %s) - deleting download.\n' "$expected"
+        return 1
+    }
+    if run_source_download > sha_recovery.log 2>&1; then fail 'path traversal cache deletion allowed'; fi
+    [[ -f dl/keep.tar.xz ]] || fail 'invalid filename removed unrelated file'
+    assert_contains sha_recovery.log 'Unsafe archive name'
+)
+pass 'invalid checksum filename cannot traverse outside dl cache'
+
+(
+    cd "$TMP"
+    printf 'bad compile cache\n' > dl/corrupt-compile.tar.xz
+    expected=$(printf 'correct compile archive\n' | sha256sum | cut -d' ' -f1)
+    : > sha_calls
+    make() {
+        printf '%s\n' "$*" >> sha_calls
+        case "$*" in
+            -j4)
+                if [[ $(grep -c -- '-j4' sha_calls) -eq 1 ]]; then
+                    printf 'Hash of the local file corrupt-compile.tar.xz does not match (file: bad, requested: %s) - deleting download.\n' "$expected"
+                    return 2
+                fi
+                [[ -f dl/corrupt-compile.tar.xz ]] || return 3
+                return 0 ;;
+            download)
+                [[ ! -e dl/corrupt-compile.tar.xz ]] || return 4
+                printf 'correct compile archive\n' > dl/corrupt-compile.tar.xz
+                return 0 ;;
+            *) return 98 ;;
+        esac
+    }
+    SRC_CORES=4 run_source_compile -j4 > sha_recovery.log 2>&1
+    assert_eq "$(cat sha_calls)" $'-j4\ndownload\n-j4' 'make world checksum recovery call ordering'
+    assert_eq "$(sha256sum dl/corrupt-compile.tar.xz | cut -d' ' -f1)" "$expected" 'compile cache recovery checksum'
+    assert_contains sha_recovery.log 'Retry 1/3'
+)
+pass 'SHA mismatch first seen in make world -> remove, redownload, resume compile'
+
 # Execute the actual top-level build orchestration (not just the helper functions)
 # with mock make/df and without touching real OpenWrt volumes.
 sed -n "/^storage_check 'before make download' || exit 1$/,/^# 6. СОХРАНЕНИЕ/p" "$SOURCE" | sed '$d' > "$TMP/compile_flow.sh"

@@ -727,16 +727,144 @@ storage_check() {
     return 0
 }
 
+# OpenWrt download.pl can abort on a bad cached archive BEFORE its unlink,
+# leaving a permanently poisoned dl/ cache. Capture only checksum diagnostics
+# (not the potentially enormous make log), and preserve make's exit status.
+# END output remains streamed to the caller without buffering until completion.
+source_make_capture_hash_errors() {
+    local bad_log="$1"
+    shift
+    : > "$bad_log" || return 1
+    make "$@" 2>&1 | LC_ALL=C awk -v report="$bad_log" '
+        {
+            print
+            fflush()
+            if (index($0, "Hash of the local file ") ||
+                index($0, "Hash of the downloaded file does not match")) {
+                print >> report
+                fflush(report)
+            }
+        }
+    '
+    local -a statuses=("${PIPESTATUS[@]}")
+    if (( statuses[1] != 0 )); then
+        echo '[DOWNLOAD REPAIR] Output capture failed; refusing success.' >&2
+        return 1
+    fi
+    return "${statuses[0]}"
+}
+
+# Only remove a specific, verifiably invalid regular file inside the mounted
+# dl/ cache. Never delete a directory, follow symlinks, or touch other caches.
+source_purge_bad_local_archives() {
+    local report="$1" line rest name expected path actual hash_tool
+    local recognized=0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == *'Hash of the downloaded file does not match'* ]]; then
+            # Upstream download.pl already removes its invalid *.dl temporary file.
+            recognized=$((recognized + 1))
+            continue
+        fi
+        [[ "$line" == *'Hash of the local file '*' does not match '* ]] || {
+            echo '[DOWNLOAD REPAIR] Unrecognized checksum diagnostic; refusing blind cleanup.' >&2
+            return 1
+        }
+        rest="${line#*Hash of the local file }"
+        name="${rest%% does not match *}"
+        expected="${line##*requested: }"
+        expected="${expected%%)*}"
+        # OpenWrt commonly uses SHA256; older feeds can still specify MD5.
+        if [[ ! "$name" =~ ^[[:alnum:]_][[:alnum:]_.+%@~-]*$ ||
+              ( ! "$expected" =~ ^[[:xdigit:]]{64}$ && ! "$expected" =~ ^[[:xdigit:]]{32}$ ) ]]; then
+            printf '[DOWNLOAD REPAIR] Unsafe archive name or malformed checksum: %s\n' "$name" >&2
+            return 1
+        fi
+        path="$PWD/dl/$name"
+        if [[ -L "$path" || ( -e "$path" && ! -f "$path" ) ]]; then
+            printf '[DOWNLOAD REPAIR] Refusing non-regular cache entry: %s\n' "$path" >&2
+            return 1
+        fi
+        if [[ -f "$path" ]]; then
+            if (( ${#expected} == 64 )); then hash_tool=sha256sum; else hash_tool=md5sum; fi
+            actual=$($hash_tool -- "$path") || return 1
+            actual="${actual%% *}"
+            if [[ "${actual,,}" != "${expected,,}" ]]; then
+                rm -- "$path" || {
+                    printf '[DOWNLOAD REPAIR] Could not remove invalid archive: %s\n' "$path" >&2
+                    return 1
+                }
+                printf '[DOWNLOAD REPAIR] Removed checksum-invalid cache file: %s\n' "$name"
+            else
+                printf '[DOWNLOAD REPAIR] Cache file already has correct checksum: %s\n' "$name"
+            fi
+        else
+            printf '[DOWNLOAD REPAIR] Bad cache entry already absent: %s\n' "$name"
+        fi
+        recognized=$((recognized + 1))
+    done < "$report"
+    (( recognized > 0 )) || return 1
+    return 0
+}
+
+# Retry a checksum mismatch at most three times, using OpenWrt's own mirror
+# selection and hash verification. This is also needed during make world:
+# "make download" may report success despite a package/download error.
+source_make_checked() {
+    local phase="$1" report status repair_attempt=0 max_repairs=3
+    shift
+    SOURCE_HASH_REPAIR_EXHAUSTED=0
+    report=$(mktemp "${TMPDIR:-/tmp}/routerfw-sha.XXXXXXXX") || return 1
+    while :; do
+        if source_make_capture_hash_errors "$report" "$@"; then
+            status=0
+        else
+            status=$?
+        fi
+        if [[ ! -s "$report" ]]; then
+            rm -f -- "$report"
+            return "$status"
+        fi
+        if (( repair_attempt >= max_repairs )); then
+            printf '[DOWNLOAD REPAIR FAILED] SHA mismatch persisted after %s retries (%s).\n' "$max_repairs" "$phase" >&2
+            SOURCE_HASH_REPAIR_EXHAUSTED=1
+            rm -f -- "$report"
+            return 1
+        fi
+        if ! source_purge_bad_local_archives "$report"; then
+            SOURCE_HASH_REPAIR_EXHAUSTED=1
+            rm -f -- "$report"
+            return 1
+        fi
+        if ! storage_check "after SHA mismatch ($phase)" "$PWD/dl"; then
+            SOURCE_HASH_REPAIR_EXHAUSTED=1
+            rm -f -- "$report"
+            return 1
+        fi
+        repair_attempt=$((repair_attempt + 1))
+        printf '[DOWNLOAD REPAIR] Retry %s/%s after SHA mismatch (%s).\n' "$repair_attempt" "$max_repairs" "$phase"
+        if [[ "$phase" == compile ]]; then
+            # Reacquire using the upstream download graph, not a hardcoded URL.
+            if ! run_source_download; then
+                SOURCE_HASH_REPAIR_EXHAUSTED=1
+                rm -f -- "$report"
+                return 1
+            fi
+        fi
+    done
+}
+
 run_source_download() {
     echo '[DOWNLOAD] Starting...'
-    if make download; then
+    if source_make_checked download download; then
         return 0
     fi
+    [[ "${SOURCE_HASH_REPAIR_EXHAUSTED:-0}" != 1 ]] || return 1
     storage_check 'after make download failure' || return 1
     echo '[DOWNLOAD] Attempt 2: make download V=s'
-    if make download V=s; then
+    if source_make_checked download download V=s; then
         return 0
     fi
+    [[ "${SOURCE_HASH_REPAIR_EXHAUSTED:-0}" != 1 ]] || return 1
     storage_check 'after verbose make download failure' || return 1
     echo '[DOWNLOAD FAILED] Both download attempts failed; storage probe passed (cause not classified).' >&2
     return 1
@@ -745,18 +873,20 @@ run_source_download() {
 run_source_compile() {
     local -a args=("$@")
     echo "[BUILD] Starting build with args: ${args[*]}"
-    if make "${args[@]}"; then
+    if source_make_checked compile "${args[@]}"; then
         return 0
     fi
+    [[ "${SOURCE_HASH_REPAIR_EXHAUSTED:-0}" != 1 ]] || return 1
     storage_check 'after initial make failure' || return 1
     if [[ "${SRC_CORES:-}" == debug ]]; then
         echo -e "\n${RED}[BUILD FAILED] Initial debug build failed; storage probe passed (cause not classified).${NC}\n" >&2
         return 1
     fi
     echo -e "\n${RED}[BUILD ERROR] Parallel build failed! Starting Attempt 2: -j1 V=s (Debug mode)...${NC}\n"
-    if make -j1 V=s; then
+    if source_make_checked compile -j1 V=s; then
         return 0
     fi
+    [[ "${SOURCE_HASH_REPAIR_EXHAUSTED:-0}" != 1 ]] || return 1
     storage_check 'after debug make failure' || return 1
     echo -e "\n${RED}[BUILD FAILED] Debug build failed; storage probe passed (cause not classified).${NC}\n" >&2
     return 1
@@ -842,134 +972,163 @@ source_export_ensure_current_ram_bl2() {
     echo '[BL2 REPAIR] All selected RAM BL2 files installed into persistent bin/targets.'
 }
 
-# Restores ONLY old pre-existing BL2 files from an earlier output, when the
-# original `mv` emptied an otherwise reusable persistent bin/targets directory.
-# This is not a general "reuse output" mechanism: never salvage firmware images.
-source_export_restore_legacy_bl2() {
-    local stage="$1" output_root="$2" previous candidate name expected actual
-    local shared present_file matching_image metadata_ok
-    local -a required_missing_bl2=()
-    local patch_source="${ROUTERFW_PATCH_SOURCE:-/patches}"
-    local files_source="${ROUTERFW_FILES_SOURCE:-/overlay_files}"
-    # A changed patch/hook can affect bootloader binaries without changing .config.
-    # Fail closed: the historical output cannot prove its complete provenance.
-    if [[ -d "$patch_source" && -n "$(find "$patch_source" -mindepth 1 -print -quit)" ]] ||
-       [[ -f "$files_source/hooks.sh" ]]; then
-        echo '[EXPORT] Legacy BL2 recovery disabled when custom patches/hooks exist.'
-        return 0
-    fi
-    for previous in "$output_root"/*; do
-        [[ -d "$previous" && ! -L "$previous" && "$previous" != "$stage" ]] || continue
-        [[ -f "$previous/sha256sums" && ! -L "$previous/sha256sums" ]] || continue
-        [[ -f "$previous/build.config" && ! -L "$previous/build.config" ]] || continue
-        cmp -s -- "$stage/build.config" "$previous/build.config" || continue
-        metadata_ok=1
-        for shared in config.buildinfo feeds.buildinfo version.buildinfo; do
-            if [[ ! -f "$stage/$shared" || ! -f "$previous/$shared" || -L "$previous/$shared" ]] ||
-               ! cmp -s -- "$stage/$shared" "$previous/$shared"; then
-                metadata_ok=0
-                break
-            fi
-        done
-        (( metadata_ok == 1 )) || continue
-        # At least one device bootloader must match byte-for-byte to prove that
-        # this historical output corresponds to the same bootloader build.
-        matching_image=0
-        for present_file in "$stage"/*-bl31-uboot.fip "$stage"/*-preloader.bin; do
-            [[ -f "$present_file" && ! -L "$present_file" ]] || continue
-            candidate="$previous/${present_file##*/}"
-            if [[ -f "$candidate" && ! -L "$candidate" ]] && cmp -s -- "$present_file" "$candidate"; then
-                matching_image=1
-                break
-            fi
-        done
-        (( matching_image == 1 )) || continue
-        for candidate in "$previous"/mt*-bl2.bin; do
-            [[ -f "$candidate" && ! -L "$candidate" ]] || continue
-            name=${candidate##*/}
-            [[ "$name" =~ ^mt[0-9]+(-[[:alnum:]]+)+-bl2\.bin$ ]] || continue
-            [[ ! -e "$stage/$name" && ! -L "$stage/$name" ]] || continue
-            # A prior matching build proves this file is expected. If no
-            # verified candidate can restore it, fail instead of silently
-            # publishing an incomplete archive as a successful build.
-            required_missing_bl2+=("$name")
-            expected=$(awk -v name="*$name" '$2 == name && $1 ~ /^[[:xdigit:]]{64}$/ {print $1}' "$previous/sha256sums")
-            [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || continue
-            actual=$(sha256sum -- "$candidate") || return 1
-            [[ "${actual%% *}" == "$expected" ]] || continue
-            cp -- "$candidate" "$stage/$name" || return 1
-            echo "[EXPORT] Restored legacy $name from verified matching previous output."
-        done
-    done
-    for name in "${required_missing_bl2[@]}"; do
-        if [[ ! -f "$stage/$name" ]]; then
-            echo "[EXPORT ERROR] Missing expected legacy $name; prior output hash invalid or recovery unsafe. Resolve only this profile's build state; no volume was deleted." >&2
-            return 1
-        fi
-    done
-}
-
+# Export the selected OpenWrt BIN_DIR firmware tree, without its top-level
+# packages/ feed (APK/IPK packages are build inputs, not firmware deliverables).
+# Keep every other nested path and extension, without touching build caches.
+# All I/O is checked before the timestamp directory is published.
+#
+# Note: this is a lossless snapshot of files PRESENT after `make`, not proof that
+# upstream generated every device artifact. MediaTek RAM BL2 still need the
+# separate upstream-specific repair above when OpenWrt removes them during make.
 source_export_artifacts() (
     set -euo pipefail
-    local source_dir="$1" output_root="$2" stamp="$3" stage target file name count=0
-    [[ -d "$source_dir" && -f .config ]] || {
-        echo "[EXPORT ERROR] Missing target output directory or .config: $source_dir" >&2
+    local source_dir="${1%/}" output_root="${2%/}" stamp="$3"
+    local stage='' target='' source_list='' checksum_list=''
+    local src rel dst link_src link_dst resolved src_root stage_root out_root
+    local entries=0 payload=0 staged_entries=0 file_count=0
+
+    [[ -d "$source_dir" && ! -L "$source_dir" && -f .config && ! -L .config ]] || {
+        echo "[EXPORT ERROR] Missing or unsafe target BIN_DIR / .config: $source_dir" >&2
         return 1
     }
-    mkdir -p -- "$output_root"
+    # Stamp is a single component, never a path supplied by a profile.
+    [[ "$stamp" =~ ^[[:alnum:]_.-]+$ && "$stamp" != '.' && "$stamp" != '..' ]] || {
+        echo '[EXPORT ERROR] Unsafe output timestamp.' >&2
+        return 1
+    }
+    [[ -d "$output_root" && ! -L "$output_root" ]] || {
+        echo "[EXPORT ERROR] Missing or unsafe output directory: $output_root" >&2
+        return 1
+    }
     target="$output_root/$stamp"
     [[ ! -e "$target" && ! -L "$target" ]] || {
         echo "[EXPORT ERROR] Refusing to overwrite existing output: $target" >&2
         return 1
     }
+    src_root=$(realpath -e -- "$source_dir") || return 1
+    out_root=$(realpath -e -- "$output_root") || return 1
+    [[ "$out_root" != "$src_root" && "$out_root" != "$src_root"/* ]] || {
+        echo '[EXPORT ERROR] Output root cannot be inside the source BIN_DIR.' >&2
+        return 1
+    }
     stage=$(mktemp -d "$output_root/.routerfw-export.${stamp}.XXXXXXXX") || return 1
-    trap 'rm -rf -- "$stage"' EXIT
-    # Preserve source artifacts for incremental builds: never move them out of
-    # the persistent build directory. Explicitly reject flattened name clashes.
-    # Capture the find exit status: process substitution alone would hide a
-    # traversal failure and could produce an incomplete "successful" archive.
-    if ! find "$source_dir" -type f ! -path '*/packages/*' -print0 > "$stage/.artifact-list"; then
-        echo '[EXPORT ERROR] Target artifact enumeration failed.' >&2
+    trap 'rm -rf -- "$stage"; rm -f -- "$source_list" "$checksum_list"' EXIT
+    source_list=$(mktemp "$output_root/.routerfw-source-list.XXXXXXXX") || return 1
+    checksum_list=$(mktemp "$output_root/.routerfw-checksum-list.XXXXXXXX") || return 1
+    stage_root=$(realpath -e -- "$stage") || return 1
+
+    # Store find exit status explicitly. `while ... < <(find ...)` would hide it.
+    # Exclude ONLY the top-level packages/ entry. Keep nested directories with
+    # other names, regardless of their content or file extensions.
+    if ! find "$source_dir" -mindepth 1 \
+        -path "$source_dir/packages" -prune -o -print0 | LC_ALL=C sort -z > "$source_list"; then
+        echo '[EXPORT ERROR] Could not enumerate BIN_DIR.' >&2
         return 1
     fi
-    while IFS= read -r -d '' file; do
-        name=${file##*/}
-        if [[ -e "$stage/$name" || -L "$stage/$name" ]]; then
-            echo "[EXPORT ERROR] Duplicate artifact basename: $name" >&2
+    # Root names are reserved for routerFW metadata, but never silently replace
+    # an upstream artifact. Preserve the upstream checksum under a unique name.
+    if [[ -e "$source_dir/build.config" || -L "$source_dir/build.config" ||
+          -e "$source_dir/.routerfw-upstream.sha256sums" || -L "$source_dir/.routerfw-upstream.sha256sums" ]]; then
+        echo '[EXPORT ERROR] BIN_DIR contains a reserved routerFW metadata filename.' >&2
+        return 1
+    fi
+    # Check types and portable symlinks BEFORE copying to output. Never follow
+    # symlinks out of the source tree; otherwise the snapshot could be unsafe or
+    # silently become broken when moved to the host.
+    while IFS= read -r -d '' src; do
+        rel=${src#"$source_dir"/}
+        entries=$((entries + 1))
+        if [[ -L "$src" ]]; then
+            link_src=$(readlink -- "$src") || return 1
+            [[ "$link_src" != /* ]] || { echo "[EXPORT ERROR] Absolute symlink: $rel" >&2; return 1; }
+            resolved=$(realpath -e -- "$src") || { echo "[EXPORT ERROR] Dangling symlink: $rel" >&2; return 1; }
+            [[ "$resolved" == "$src_root"/* ]] || { echo "[EXPORT ERROR] Symlink escapes BIN_DIR: $rel" >&2; return 1; }
+            # Upstream sha256sums is preserved under another name; symlinks
+            # pointing to its former path would silently change their meaning.
+            [[ "$resolved" != "$src_root/sha256sums" ]] || {
+                echo "[EXPORT ERROR] Symlink to renamed upstream checksum: $rel" >&2
+                return 1
+            }
+        elif [[ -f "$src" ]]; then
+            file_count=$((file_count + 1))
+            # We cannot infer firmware formats, but metadata-only and package-only
+            # trees are not successful firmware exports.
+            case "$rel" in
+                sha256sums|profiles.json|*.buildinfo|*.manifest) ;;
+                *) payload=$((payload + 1)) ;;
+            esac
+        elif [[ -d "$src" ]]; then
+            :
+        else
+            echo "[EXPORT ERROR] Unsupported entry type: $rel" >&2
             return 1
         fi
-        cp -- "$file" "$stage/$name" || {
-            echo "[EXPORT ERROR] Cannot copy artifact: $file" >&2
-            return 1
+    done < "$source_list"
+    (( entries > 0 && file_count > 0 && payload > 0 )) || {
+        echo '[EXPORT ERROR] No non-metadata firmware payload in selected BIN_DIR.' >&2
+        return 1
+    }
+
+    # rsync copies all selected paths without ever reading/copying packages/.
+    # Exclude only the root-level name; nested firmware directories are retained.
+    if ! rsync -a --exclude='/packages' -- "$source_dir/" "$stage/"; then
+        echo '[EXPORT ERROR] Snapshot copy failed.' >&2
+        return 1
+    fi
+    # The source BIN_DIR may be read-only; leave it untouched, but make the
+    # staging root writable for routerFW's output-only metadata.
+    chmod u+rwx -- "$stage" || return 1
+    # Verify actual bytes, directory existence, symlink target, and tree count.
+    # This detects truncated copies even when cp reports success.
+    while IFS= read -r -d '' src; do
+        rel=${src#"$source_dir"/}
+        dst="$stage/$rel"
+        if [[ -L "$src" ]]; then
+            [[ -L "$dst" ]] || { echo "[EXPORT ERROR] Symlink missing after copy: $rel" >&2; return 1; }
+            link_src=$(readlink -- "$src") || return 1
+            link_dst=$(readlink -- "$dst") || return 1
+            [[ "$link_src" == "$link_dst" ]] || { echo "[EXPORT ERROR] Symlink differs: $rel" >&2; return 1; }
+            resolved=$(realpath -e -- "$dst") || return 1
+            [[ "$resolved" == "$stage_root"/* ]] || { echo "[EXPORT ERROR] Published symlink escapes snapshot: $rel" >&2; return 1; }
+        elif [[ -f "$src" ]]; then
+            [[ -f "$dst" && ! -L "$dst" ]] && cmp -s -- "$src" "$dst" || {
+                echo "[EXPORT ERROR] File missing or differs after copy: $rel" >&2
+                return 1
+            }
+        else
+            [[ -d "$dst" && ! -L "$dst" ]] || { echo "[EXPORT ERROR] Directory missing: $rel" >&2; return 1; }
+        fi
+    done < "$source_list"
+    # Count output entries before adding our own metadata; no silent extras.
+    staged_entries=$(find "$stage" -mindepth 1 -printf '.' | wc -c) || return 1
+    (( staged_entries == entries )) || {
+        echo "[EXPORT ERROR] Snapshot entry count differs ($entries != $staged_entries)." >&2
+        return 1
+    }
+
+    if [[ -e "$stage/sha256sums" || -L "$stage/sha256sums" ]]; then
+        [[ -f "$stage/sha256sums" && ! -L "$stage/sha256sums" ]] || {
+            echo '[EXPORT ERROR] Unexpected upstream sha256sums type.' >&2; return 1
         }
-        count=$((count + 1))
-    done < "$stage/.artifact-list"
-    rm -f -- "$stage/.artifact-list" || return 1
-    (( count > 0 )) || {
-        echo '[EXPORT ERROR] No build artifacts to publish.' >&2
-        return 1
-    }
-    [[ ! -e "$stage/build.config" ]] || {
-        echo '[EXPORT ERROR] Artifact filename collides with build.config.' >&2
-        return 1
-    }
+        mv -- "$stage/sha256sums" "$stage/.routerfw-upstream.sha256sums" || return 1
+    fi
     cp -- .config "$stage/build.config" || return 1
-    source_export_restore_legacy_bl2 "$stage" "$output_root" || return 1
-    # Hooks/patches prohibit historical BL2 recovery; fail closed for any
-    # selected RAM BL2 missing from this exact published output.
-    source_export_verify_selected_ram_bl2 "$stage" "$stage/build.config" || return 1
-    # Upstream sha256sums was computed BEFORE legacy recovery and omits
-    # build.config. Rewrite it to cover the complete, exact published output.
+    # Hash every published regular file (firmware and metadata), including
+    # the preserved upstream checksum and build.config.
+    if ! (cd "$stage" && find . -type f -print0 | LC_ALL=C sort -z) > "$checksum_list"; then
+        echo '[EXPORT ERROR] Published file enumeration failed.' >&2
+        return 1
+    fi
     (
         cd "$stage" || exit 1
         : > sha256sums || exit 1
-        while IFS= read -r -d '' name; do
-            [[ "$name" == ./sha256sums ]] && continue
-            sha256sum -b -- "${name#./}" >> sha256sums || exit 1
-        done < <(find . -maxdepth 1 -type f -print0 | LC_ALL=C sort -z)
-        sha256sum --check --status sha256sums
+        while IFS= read -r -d '' rel; do
+            [[ "$rel" == ./sha256sums ]] && continue
+            sha256sum -b -- "${rel#./}" >> sha256sums || exit 1
+        done < "$checksum_list"
+        sha256sum --check --status sha256sums || exit 1
     ) || {
-        echo '[EXPORT ERROR] Published checksum verification failed.' >&2
+        echo '[EXPORT ERROR] Snapshot checksum verification failed.' >&2
         return 1
     }
     [[ ! -e "$target" && ! -L "$target" ]] || {
@@ -977,18 +1136,25 @@ source_export_artifacts() (
         return 1
     }
     mv -- "$stage" "$target" || return 1
-    trap - EXIT
-    echo "[EXPORT] Copied $count source artifacts without removing bin/targets; output includes any verified recovered BL2."
+    stage=''
+    echo "[EXPORT] Published $file_count regular source files (all nested paths included), with verified bytes and SHA256; source BIN_DIR unchanged."
 )
 # END SOURCE ARTIFACT EXPORT HELPERS
 
 TARGET_DIR="/output/$TIMESTAMP"
-# Repair only selected current-source RAM BL2 before immutable export staging.
-# OpenWrt BIN_DIR is bin/targets/<target>/<subtarget>. The export below
-# intentionally scans the parent recursively, but the BL2 verifier checks
-# direct files and MUST receive the leaf BIN_DIR, not the parent.
+# The target and subtarget are single path components, never arbitrary paths.
+for component in "$SRC_TARGET" "$SRC_SUBTARGET"; do
+    [[ "$component" =~ ^[[:alnum:]_.-]+$ && "$component" != '.' && "$component" != '..' ]] || {
+        echo "[EXPORT ERROR] Unsafe target/subtarget component: $component" >&2
+        exit 1
+    }
+done
+# MediaTek RAM-boot BL2 sometimes disappears during OpenWrt's own image
+# installation. Retain this narrowly scoped preflight until upstream fixes it;
+# it does NOT select, filter or flatten any files for the generic exporter.
 source_export_ensure_current_ram_bl2 "bin/targets/$SRC_TARGET/$SRC_SUBTARGET" || exit 1
-source_export_artifacts "bin/targets/$SRC_TARGET" /output "$TIMESTAMP" || exit 1
+# Export selected subtarget firmware artifacts, excluding only top-level packages/.
+source_export_artifacts "bin/targets/$SRC_TARGET/$SRC_SUBTARGET" /output "$TIMESTAMP" || exit 1
 
 # Метаданные ядра из profiles.json (версия и vermagic)
 META_FILE="$TARGET_DIR/profiles.json"
@@ -1010,6 +1176,10 @@ printf '%b\n' "${CYAN}[FILES]${NC}"
 for f in "$TARGET_DIR"/*; do
     [ -e "$f" ] || continue
     name=$(basename "$f")
+    if [ -d "$f" ]; then
+        printf '%s/  %b\n' "$name" "${CYAN}[directory, files preserved]${NC}"
+        continue
+    fi
     bytes=$(stat -c%s "$f" 2>/dev/null); bytes=${bytes:-0}
     mb=$(awk "BEGIN {printf \"%.1f\", $bytes/1048576}")
     if [ "$bytes" -ge 31457280 ]; then col="$RED"      # >= 30 MB
@@ -1021,4 +1191,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=3b2694e3c414666499fe4a43a82a0e7a
+# checksum:MD5=83e32f92db811dfc6dc3b9b08112c803

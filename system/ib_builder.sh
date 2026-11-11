@@ -439,4 +439,4 @@ echo -e "\n============================================================"
 echo -e "=== Build completed in ${ELAPSED}s."
 echo -e "=== Artifacts: firmware_output/$REL_PATH/$TIMESTAMP"
 echo -e "============================================================\n"
-# checksum:MD5=eececc490f41562e83359b654bc30595
+# checksum:MD5=54174c32504ef1b45be2b6c9950464f2
