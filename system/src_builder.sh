@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v2.3
+# file: system/src_builder.sh v2.5
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -785,6 +785,63 @@ run_source_compile "${MAKE_ARGS[@]}" || exit 1
 
 # 6. СОХРАНЕНИЕ
 # BEGIN SOURCE ARTIFACT EXPORT HELPERS (offline regression tests extract this block)
+# Selected RAM-boot TFA variants install standalone BL2 files directly into
+# BIN_DIR. OpenWrt stamps can survive the old destructive export, so incremental
+# `make` may succeed without reinstalling these files. Enumerate requirements
+# from the current .config, never from historical firmware_output directories.
+source_export_verify_selected_ram_bl2() {
+    local source_dir="$1" config="$2" line name missing=0 selected=0
+    [[ -d "$source_dir" && -f "$config" ]] || {
+        echo "[BL2 ERROR] Missing target directory or configuration: $source_dir, $config" >&2
+        return 1
+    }
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^CONFIG_PACKAGE_trusted-firmware-a-(mt[0-9]+-ram-[a-z0-9-]+)=y$ ]]; then
+            name="${BASH_REMATCH[1]}-bl2.bin"
+            selected=$((selected + 1))
+            if [[ ! -f "$source_dir/$name" || -L "$source_dir/$name" || ! -s "$source_dir/$name" ]]; then
+                echo "[BL2 ERROR] Selected package artifact missing or invalid: $name" >&2
+                missing=$((missing + 1))
+            fi
+        fi
+    done < "$config"
+    if (( missing > 0 )); then
+        echo "[BL2 ERROR] $missing/$selected selected RAM-boot BL2 artifacts unavailable." >&2
+        return 1
+    fi
+    return 0
+}
+
+# One-time recovery from the CURRENT SOURCE TREE, not from a previous archive.
+# If custom hooks/patches modify ATF, rebuild under their already-applied state.
+# Only the ATF package is cleaned; no Docker volume or entire workdir is reset.
+source_export_ensure_current_ram_bl2() {
+    local source_dir="$1"
+    if source_export_verify_selected_ram_bl2 "$source_dir" .config; then
+        return 0
+    fi
+    echo '[BL2 REPAIR] Rebuilding selected Trusted Firmware A variants from current sources...'
+    if ! make package/boot/arm-trusted-firmware-mediatek/clean; then
+        echo '[BL2 ERROR] Targeted Trusted Firmware A cleanup failed.' >&2
+        return 1
+    fi
+    # The RAM boot variants install BL2 directly to BIN_DIR via the package
+    # install recipe (include/package-bin.mk), NOT into a regular rootfs package.
+    # Re-running 'make world' may leave them absent at the end again. Instead,
+    # run ONLY the selected package compile/install AFTER the firmware build,
+    # so no subsequent target/image stage can replace its BIN_DIR outputs.
+    echo '[BL2 REPAIR] Installing selected Trusted Firmware A BL2 after firmware build...'
+    if ! make "${MAKE_ARGS[@]}" package/boot/arm-trusted-firmware-mediatek/compile; then
+        echo '[BL2 ERROR] Targeted Trusted Firmware A compile/install failed.' >&2
+        return 1
+    fi
+    if ! source_export_verify_selected_ram_bl2 "$source_dir" .config; then
+        echo '[BL2 ERROR] Rebuild did not regenerate every selected RAM BL2. Refusing incomplete export.' >&2
+        return 1
+    fi
+    echo '[BL2 REPAIR] All selected RAM BL2 files installed into persistent bin/targets.'
+}
+
 # Restores ONLY old pre-existing BL2 files from an earlier output, when the
 # original `mv` emptied an otherwise reusable persistent bin/targets directory.
 # This is not a general "reuse output" mechanism: never salvage firmware images.
@@ -898,6 +955,9 @@ source_export_artifacts() (
     }
     cp -- .config "$stage/build.config" || return 1
     source_export_restore_legacy_bl2 "$stage" "$output_root" || return 1
+    # Hooks/patches prohibit historical BL2 recovery; fail closed for any
+    # selected RAM BL2 missing from this exact published output.
+    source_export_verify_selected_ram_bl2 "$stage" "$stage/build.config" || return 1
     # Upstream sha256sums was computed BEFORE legacy recovery and omits
     # build.config. Rewrite it to cover the complete, exact published output.
     (
@@ -923,6 +983,11 @@ source_export_artifacts() (
 # END SOURCE ARTIFACT EXPORT HELPERS
 
 TARGET_DIR="/output/$TIMESTAMP"
+# Repair only selected current-source RAM BL2 before immutable export staging.
+# OpenWrt BIN_DIR is bin/targets/<target>/<subtarget>. The export below
+# intentionally scans the parent recursively, but the BL2 verifier checks
+# direct files and MUST receive the leaf BIN_DIR, not the parent.
+source_export_ensure_current_ram_bl2 "bin/targets/$SRC_TARGET/$SRC_SUBTARGET" || exit 1
 source_export_artifacts "bin/targets/$SRC_TARGET" /output "$TIMESTAMP" || exit 1
 
 # Метаданные ядра из profiles.json (версия и vermagic)
@@ -956,4 +1021,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=6babcedb641193ceba3417f8a4cd28c8
+# checksum:MD5=3b2694e3c414666499fe4a43a82a0e7a

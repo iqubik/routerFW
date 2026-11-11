@@ -55,10 +55,8 @@ ARTIFACT_SUFFIXES = frozenset({
     ".bin", ".ipk", ".apk", ".deb", ".rpm", ".o", ".obj",
     ".so", ".dll", ".exe", ".pyc", ".log", ".tmp",
 })
-# Generated root scripts and run logs; the actual _packer sources ARE included.
-EXCLUDED_ROOT_FILES = frozenset({
-    "_unpacker.sh", "_unpacker.bat", "debug.md", "active.diff.patch",
-})
+# Keep scratch files/logs out; generated unpackers are part of the source distribution.
+EXCLUDED_ROOT_FILES = frozenset({"debug.md", "active.diff.patch"})
 TRASH_FILES = frozenset({"thumbs.db", "desktop.ini"})
 PRIVATE_NAME_RE = re.compile(r"(?:^|[._-])(?:private|local|credentials|secrets?)(?:[._-]|$)", re.I)
 GENERATED_DIR_RE = re.compile(r"^(?:temp_packer_|tester_tmp_|\.tmp_)", re.I)

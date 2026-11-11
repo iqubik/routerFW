@@ -65,14 +65,14 @@ class SourceZipTests(unittest.TestCase):
         mod.create_source_zip(self.root, self.out)
         self.assertEqual(self._names(), {"README.md", "docs/debug.md"})
 
-    def test_generated_archives_unpackers_and_logs_excluded(self):
+    def test_unpackers_included_generated_archives_and_logs_excluded(self):
         for name in ("_unpacker.bat", "_unpacker.sh", "tester_log_lin.md", "tester_tmp_abc_out.txt",
                      "routerFW_LinuxDockerBuilder_v1.tar.gz", "old-overlay.zip", "flash.img",
                      "firmware.ipk", "libfoo.so", "script.exe", "image.bin", "debug.md"):
             self._write(name)
         self._write("_packer.sh")
         mod.create_source_zip(self.root, self.out)
-        self.assertEqual(self._names(), {"README.md", "_packer.sh"})
+        self.assertEqual(self._names(), {"README.md", "_packer.sh", "_unpacker.bat", "_unpacker.sh"})
 
     def test_private_custom_and_keys_skipped_by_default(self):
         for name in ("custom_files/a/hooks.sh", "custom_packages/a/foo.md",
