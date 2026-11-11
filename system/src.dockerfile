@@ -1,4 +1,4 @@
-#file: system/src.dockerfile v1.4
+#file: system/src.dockerfile v1.5
 # Обновляем базу до 24.04 (GCC 13 внутри)
 FROM ubuntu:24.04
 
@@ -11,7 +11,7 @@ RUN touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu && userdel -r ubuntu
 # Обновляем пакеты.
 # Обратите внимание: python3-distutils удален, так как в Python 3.12 он deprecated.
 # Добавлен python3-venv, так как новые системы часто требуют venv.
-RUN apt-get update && apt-get install -y \    
+RUN apt-get -o Acquire::Retries=5 update && apt-get -o Acquire::Retries=5 install -y \
     mc build-essential ccache clang flex bison g++ gawk gcc-multilib g++-multilib \
     gettext git patch swig time rsync unzip file wget curl dos2unix \
     libncurses-dev libssl-dev zlib1g-dev libelf-dev libzstd-dev \    
@@ -31,4 +31,4 @@ ENV OPENSSL_CONF=/home/build/openssl.cnf
 
 # На всякий случай настраиваем git safe directory глобально
 RUN git config --global --add safe.directory '*'
-# checksum:MD5=212080ed518515a262002f8b9f41b1bd
+# checksum:MD5=5d7469879dbf1cc0bb05cd90f462f3c6

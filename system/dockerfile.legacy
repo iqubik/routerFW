@@ -1,11 +1,11 @@
-# file system/dockerfile.legacy v1.3
+# file system/dockerfile.legacy v1.4
 FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y \
+RUN apt-get -o Acquire::Retries=5 update && apt-get -o Acquire::Retries=5 install -y \
 	mc python3 build-essential python2 python-is-python2 libncurses5-dev libncursesw5-dev zlib1g-dev gawk git \
 	gettext libssl-dev xsltproc wget unzip xz-utils ca-certificates \
 	&& update-ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 COPY system/openssl.cnf /etc/ssl/openssl.cnf
 WORKDIR /builder_workspace
-# checksum:MD5=fe8f7985c145ae32fc2da7e0943c93a4
+# checksum:MD5=085b9330e18a998faa3aaec7477130fe

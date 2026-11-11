@@ -1,4 +1,4 @@
-# file: system\src.dockerfile.legacy v1.5 (Back to Archive)
+# file: system\src.dockerfile.legacy v1.6
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -10,7 +10,7 @@ RUN echo "deb http://archive.ubuntu.com/ubuntu/ bionic main restricted universe 
     echo "deb http://archive.ubuntu.com/ubuntu/ bionic-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
     echo "deb http://security.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse" >> /etc/apt/sources.list
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get -o Acquire::Retries=5 update && apt-get -o Acquire::Retries=5 install -y \
     mc build-essential ccache patch bzip2 flex bison g++ gawk \
     gettext git subversion rsync unzip wget curl file dos2unix \
     ccache ecj fastjar java-propose-classpath \
@@ -27,4 +27,4 @@ WORKDIR /home/build/openwrt
 RUN mkdir -p dl && chown -R build:build /home/build/openwrt
 COPY --chown=build:build system/openssl.cnf /home/build/openssl.cnf
 ENV OPENSSL_CONF=/home/build/openssl.cnf
-# checksum:MD5=9872f3bba66520acf68cb00bb77c6071
+# checksum:MD5=2bf4f22a6d230bf25e0f46157e830957
