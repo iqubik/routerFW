@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   linux-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       TERM: xterm
     steps:
@@ -35,7 +35,7 @@ jobs:
           path: tester_log_lin.md
 
   windows-tests:
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v5
         with:
@@ -54,7 +54,7 @@ jobs:
           path: tester_log_win.md
 
   docker-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       TERM: xterm
     steps:
@@ -71,7 +71,7 @@ jobs:
           path: tester_log_lin.md
 
   podman-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       TERM: xterm
     steps:

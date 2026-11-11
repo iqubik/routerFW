@@ -22,8 +22,8 @@ Security note: the current IB path disables APK signature checking in its make i
 
 `system/docker-compose-src.yaml` (plus `system/podman-compose-src.yaml` for Podman) starts `src_builder.sh`:
 1. The container starts as root, checks volume ownership, then runs the build body as user `build`.
-2. Initialize/fetch the configured `SRC_REPO`/`SRC_BRANCH`, then reset to `FETCH_HEAD`.
-3. Mirror standard OpenWrt feed URLs when applicable. Feed update/install is skipped when the main-repository commit matches the marker in `/ccache`.
+2. Validate `SRC_REPO`/`SRC_BRANCH`, fetch `FETCH_HEAD`, verify the exact commit and detach HEAD at that commit. In a populated persistent workdir, changing `SRC_REPO` **fails closed** rather than mixing repositories: use the Cleanup Wizard to reset **only that profile's `src-workdir`**, then rebuild. No automatic `git clean`, volume prune or reset of other profiles.
+3. Mirror standard OpenWrt feed URLs when applicable (a custom `feeds.conf` takes priority). Feeds update/install is cached using the repository URL, branch, fetched commit, effective feed-config SHA256, and a completed-update timestamp in `/ccache/.routerfw_feeds_state_v2`. Default maximum age is 24 hours; optional `SRC_FEEDS_MAX_AGE_HOURS=0` refreshes every run. Missing feeds or failed update/install force a new update next time. The historical `.last_build_commit` is not trusted for feed freshness. This is a freshness policy, **not a reproducible pin of external feed commits**.
 4. Copy `custom_patches/<profile>` into the persistent source tree with `rsync -a` and normalize line endings. This copy currently does not delete files removed from the host overlay.
 5. Run `/overlay_files/hooks.sh` if present; otherwise inspect and roll back the supported Vermagic dirty-state markers.
 6. Create `.config` from profile variables or use `/output/manual_config`; run `make defconfig`.
@@ -55,7 +55,7 @@ Do not collapse the two legacy bases into one: Image Builder and Source Builder 
 
 - IB: `imagebuilder-cache`, `ipk-cache`.
 - SB: `src-workdir`, `src-dl-cache`, `src-ccache` (CCache max size 20 GB).
-- SB worktrees and caches are persistent; state cleanup must be scoped to the selected profile/Compose project.
+- SB worktrees and caches are persistent; state cleanup must be scoped to the selected profile/Compose project. A Source Builder Git safety guard protects existing state; Menuconfig has its own source-preparation path and must be separately audited before assuming identical checks there.
 - Global Docker/Podman prune is intentionally disabled.
 
 ## Mass build

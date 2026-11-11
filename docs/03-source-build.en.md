@@ -61,6 +61,8 @@ SRC_EXTRA_CONFIG=''
 
 ```
 
+**Rebuilds and upstream changes.** Source Builder keeps a persistent source tree and caches per profile. If `SRC_REPO` changes after that profile has been built, the build stops to avoid mixing unrelated repositories. After verifying the new URL, reset **only that profile's `src-workdir`** using the Source Builder Cleanup Wizard, then rebuild; leave other profiles and caches intact. Changing `SRC_BRANCH` selects the requested Git commit but does not remove untracked files left by previous builds. Feeds are refreshed at least every 24 hours by default even if the main commit does not change; set `SRC_FEEDS_MAX_AGE_HOURS=0` in the profile to force refresh on every run. This does not pin external feed revisions for reproducible builds.
+
 #### Step 2: Finding and Preparing the Base Config
 
 Fork authors often provide base "defconfig" files — these are the skeleton of the configuration.
@@ -106,4 +108,4 @@ For ready-made images for other models or vanilla OpenWrt, see the 4pda discussi
 **Summary:** You have completed a Source Builder workflow using `make defconfig` and a source compilation. It lets the OpenWrt build system resolve configuration dependencies, but it cannot guarantee compatibility of every third-party package or modification. This is a more complete workflow than simply editing `SRC_EXTRA_CONFIG`.
 
 In the next advanced lesson, we will show you how to embed your own files into SourceBuild and how to work with build files and VerMagic.
-# checksum:MD5=fe8d505115590934b97091d3d51ef18e
+# checksum:MD5=2b72d09254dae2ee587df7783276f7de

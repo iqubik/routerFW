@@ -41,7 +41,7 @@
 
 **Выбор контейнерного рантайма:** `--runtime=auto|docker|podman`, короткий ключ `-r auto|docker|podman` или переменная окружения `ROUTERFW_RUNTIME`. В режиме `auto`, если доступны и Docker, и Podman, интерактивный запуск спрашивает пользователя, что использовать; неинтерактивные команды выбирают доступный вариант без меню. В WSL Bash-версия умеет fallback на `docker.exe` / `podman.exe`, если нативный Linux CLI недоступен.
 
-**Локальные проверки и CI:** GitHub Actions вызывает те же `tester.bat` / `tester.sh`, без отдельных копий проверок в YAML. Оба тестера проверяют CLI, упаковку/распаковку, детерминированность упаковщика и отказ при повреждении payload. Bash-тестер также выполняет проверку синтаксиса и ShellCheck (требуется установленный `shellcheck`).
+**Локальные проверки и CI:** GitHub Actions вызывает те же `tester.bat` / `tester.sh`, без отдельных копий проверок в YAML. Runner ОС закреплён за `ubuntu-24.04` / `windows-2025`; сами образы GitHub по-прежнему получают обновления. Оба тестера проверяют CLI, упаковку/распаковку, детерминированность упаковщика и отказ при повреждении payload. Bash-тестер также выполняет проверку синтаксиса и ShellCheck (требуется установленный `shellcheck`).
 
 - Windows: `tester.bat` — полный Windows-набор. `ROUTERFW_TEST_SKIP_PACKER=1` пропускает упаковку и явно означает неполный прогон.
 - Linux: `bash ./tester.sh` — проверки без запуска контейнеров; `bash ./tester.sh --ci` — весь набор, включая Docker и Podman.
@@ -260,7 +260,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     │
   │     │  Монтирование томов (постоянные именованные volumes runtime):
   │     │    src-workdir:/home/build/openwrt        ← дерево исходников OpenWrt
-  │     │    src-dl-cache:/home/build/openwrt/dl    ← кэш скачанных архивов
+  │     │    src-dl-cache:/home/build/openwrt/dl    ← кэш скачанных архивов (монтируется уже при первом запуске)
   │     │    src-ccache:/ccache                      ← кэш компилятора (20 ГБ)
   │     │    profiles:/profiles
   │     │    src_packages/<профиль>:/input_packages  ← исходные пакеты [ПРИВАТНО]
@@ -271,9 +271,11 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     └─ запускает: /bin/bash /src_builder.sh  (от root, затем sudo -u build)
   │               │
   │               ├─ [1] Исправление прав (chown -R build:build при первом запуске)
-  │               ├─ [2] git init / fetch / checkout FETCH_HEAD (reset --hard)
-  │               ├─ [3] Зеркалирование фидов (git.openwrt.org → github.com)
-  │               ├─ [4] Обновление/установка фидов (пропуск при неизменном коммите — кэш)
+  │               ├─ [2] Проверка SRC_REPO/ветки, fetch, проверка HEAD == FETCH_HEAD commit
+  │               │        смена upstream в заполненном workdir блокируется без удаления данных
+  │               ├─ [3] Зеркалирование стандартных фидов (git.openwrt.org → github.com)
+  │               ├─ [4] Feeds update/install: SHA256 конфига + репозиторий/ветка/коммит
+  │               │        + TTL 24 ч (SRC_FEEDS_MAX_AGE_HOURS); сбой не отмечается успешным
   │               ├─ [5] Применение патчей (/patches → rsync -a на дерево исходников; без удаления ранее скопированных untracked-файлов)
   │               ├─ [6] Ветвление по hooks.sh:
   │               │        если есть — выполнить hook; если нет — проверить маркеры
@@ -400,4 +402,4 @@ _packer.sh / _packer.bat  (v2.7MT)
 ## 13. Полная карта процессов (Mermaid)
 
 См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).
-# checksum:MD5=9d50d65286bef9d15c152066e36a1de6
+# checksum:MD5=ef9a1c5312259fb1bca21e3dc10fe221

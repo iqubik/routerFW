@@ -48,44 +48,148 @@ echo "=================================================="
 START_TIME=$(date +%s)
 TIMESTAMP=$(TZ='UTC-3' date +%d%m%y-%H%M%S)
 
-# 1. GIT
-if [ ! -d ".git" ]; then
-    git config --global init.defaultBranch master
-    git config --global http.postBuffer 524288000
-    git config --global http.version HTTP/1.1
-    git init
-    git remote add origin "$SRC_REPO"
-fi
+# 1. GIT / FEEDS
+# BEGIN SOURCE GIT AND FEEDS HELPERS (isolated regression tests extract this block)
+# Сохраняем persistent workdir, но не допускаем смешивания содержимого разных upstream.
+source_sync_git() {
+    local old_url='' target_commit=''
+    if [[ -z "${SRC_REPO:-}" || -z "${SRC_BRANCH:-}" ]]; then
+        echo '[SOURCE ERROR] SRC_REPO and SRC_BRANCH must be set.' >&2
+        return 1
+    fi
+    if ! git check-ref-format --branch "$SRC_BRANCH" >/dev/null 2>&1; then
+        echo '[SOURCE ERROR] SRC_BRANCH must be a valid branch/tag-style name.' >&2
+        return 1
+    fi
+    if [[ -e .git && ! -d .git ]]; then
+        echo '[SOURCE SAFETY] Unexpected .git file; refusing to overwrite an existing worktree.' >&2
+        return 1
+    fi
+    if [[ ! -d .git ]]; then
+        # The separately mounted download cache (dl/) exists even in a fresh workdir.
+        # All OTHER non-Git data must be protected against accidental checkout/overwrite.
+        if [[ -n "$(find . -mindepth 1 -maxdepth 1 ! -name dl -print -quit)" ]]; then
+            echo '[SOURCE SAFETY] Nonempty workdir without .git (beyond dl cache); refusing unsafe initialization.' >&2
+            return 1
+        fi
+        # Preserve the existing Git compatibility settings for the first initialization.
+        git config --global init.defaultBranch master
+        git config --global http.postBuffer 524288000
+        git config --global http.version HTTP/1.1
+        git init || return 1
+        git remote add origin "$SRC_REPO" || return 1
+    else
+        # An unborn Git directory must not be treated as an empty checkout if it
+        # contains unrelated files. dl/ is an independent, persistent mount.
+        if ! git rev-parse --verify HEAD >/dev/null 2>&1 &&
+           [[ -n "$(find . -mindepth 1 -maxdepth 1 ! -name .git ! -name dl -print -quit)" ]]; then
+            echo '[SOURCE SAFETY] Unborn Git workdir contains unknown files; refusing checkout.' >&2
+            return 1
+        fi
+        if old_url=$(git remote get-url origin 2>/dev/null); then
+            if [[ "$old_url" != "$SRC_REPO" ]]; then
+                if git rev-parse --verify HEAD >/dev/null 2>&1; then
+                    echo '[SOURCE SAFETY] SRC_REPO differs from the persistent workdir origin.' >&2
+                    echo '[SOURCE SAFETY] To avoid mixing build trees, clean only this profile src-workdir via Cleanup Wizard, then rebuild. No data was deleted.' >&2
+                    return 1
+                fi
+                # Only an unpopulated repository may safely acquire a new origin.
+                git remote set-url origin "$SRC_REPO" || return 1
+            fi
+        else
+            if git rev-parse --verify HEAD >/dev/null 2>&1; then
+                echo '[SOURCE SAFETY] Existing Git workdir has no origin; refusing to guess upstream.' >&2
+                return 1
+            fi
+            git remote add origin "$SRC_REPO" || return 1
+        fi
+    fi
 
-echo "[GIT] Fetching and Resetting..."
-git fetch origin "$SRC_BRANCH"
-git config --global advice.detachedHead false
-git checkout -f "FETCH_HEAD"
-git reset --hard "FETCH_HEAD"
+    echo '[GIT] Fetching selected branch/tag from configured origin...'
+    git fetch origin "$SRC_BRANCH" || return 1
+    target_commit=$(git rev-parse --verify 'FETCH_HEAD^{commit}') || return 1
+    git checkout --detach -f "$target_commit" || return 1
+    git reset --hard "$target_commit" || return 1
+    if [[ "$(git rev-parse --verify HEAD)" != "$target_commit" ]]; then
+        echo '[SOURCE ERROR] HEAD does not match selected FETCH_HEAD commit.' >&2
+        return 1
+    fi
+    echo "[GIT] Verified selected commit: $target_commit"
+    SOURCE_COMMIT="$target_commit"
+}
 
-# Зеркалирование фидов (должно выполняться всегда)
-if [ -f feeds.conf.default ] && ! grep -q "immortalwrt" feeds.conf.default; then
+source_sync_feeds() {
+    local state_dir="${ROUTERFW_FEEDS_STATE_DIR:-/ccache}" state_file stamp_file
+    local config_file='' feeds_config_hash='' fingerprint='' now last_version last_fingerprint last_update
+    local age_seconds max_age_hours="${SRC_FEEDS_MAX_AGE_HOURS:-24}" refresh_reason=''
+    state_file="$state_dir/.routerfw_feeds_state_v2"
+    if [[ ! "$max_age_hours" =~ ^[0-9]{1,5}$ ]]; then
+        echo '[FEEDS ERROR] SRC_FEEDS_MAX_AGE_HOURS must be a nonnegative integer.' >&2
+        return 1
+    fi
+    # Convert base-10 even when the profile uses a leading zero (bash would use octal).
+    max_age_hours=$((10#$max_age_hours))
+    if (( max_age_hours > 8760 )); then
+        echo '[FEEDS ERROR] SRC_FEEDS_MAX_AGE_HOURS must be at most 8760.' >&2
+        return 1
+    fi
+    if [[ -f feeds.conf ]]; then
+        config_file=feeds.conf
+    elif [[ -f feeds.conf.default ]]; then
+        config_file=feeds.conf.default
+    else
+        echo '[FEEDS ERROR] Neither feeds.conf nor feeds.conf.default exists.' >&2
+        return 1
+    fi
+    feeds_config_hash=$(sha256sum -- "$config_file" | awk '{print $1}') || return 1
+    fingerprint=$(printf '%s\0' "$SRC_REPO" "$SRC_BRANCH" "$SOURCE_COMMIT" "$feeds_config_hash" | sha256sum | awk '{print $1}') || return 1
+    now=$(date +%s) || return 1
+    if [[ ! -d feeds || -z "$(find feeds -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+        refresh_reason='feeds directory absent/empty'
+    elif [[ ! -f "$state_file" ]]; then
+        refresh_reason='no validated feed state'
+    else
+        IFS=' ' read -r last_version last_fingerprint last_update < "$state_file" || true
+        if [[ "$last_version" != v2 || "$last_fingerprint" != "$fingerprint" ]]; then
+            refresh_reason='repository/branch/commit/feed configuration changed'
+        elif [[ ! "$last_update" =~ ^[0-9]{1,12}$ ]]; then
+            refresh_reason='invalid feed state timestamp'
+        else
+            age_seconds=$((now - 10#$last_update))
+            if (( age_seconds < 0 || age_seconds >= max_age_hours * 3600 )); then
+                refresh_reason='feed refresh interval expired'
+            fi
+        fi
+    fi
+
+    if [[ -z "$refresh_reason" ]]; then
+        echo "[FEEDS] Cached feeds still valid (max age: ${max_age_hours}h); skipping update/install."
+        return 0
+    fi
+    echo "[FEEDS] Refresh required: $refresh_reason."
+    # Invalidate before running: failed install must not leave a 'valid' cache marker.
+    rm -f -- "$state_file" || return 1
+    ./scripts/feeds update -a || return 1
+    ./scripts/feeds install -a || return 1
+    stamp_file=$(mktemp -- "$state_dir/.routerfw-feeds.XXXXXXXXXX") || return 1
+    if ! printf 'v2 %s %s\n' "$fingerprint" "$now" > "$stamp_file" || ! mv -f -- "$stamp_file" "$state_file"; then
+        rm -f -- "$stamp_file"
+        echo '[FEEDS ERROR] Could not persist completed feed refresh marker.' >&2
+        return 1
+    fi
+    echo '[FEEDS] Update/install completed; state stored.'
+}
+# END SOURCE GIT AND FEEDS HELPERS
+
+source_sync_git || exit 1
+
+# Only the default feed configuration is mirrored; preserve a user-defined feeds.conf.
+if [[ -f feeds.conf.default ]] && ! grep -q 'immortalwrt' feeds.conf.default; then
     sed -i 's|https://git.openwrt.org/feed/|https://github.com/openwrt/|g' feeds.conf.default
     sed -i 's|https://git.openwrt.org/project/|https://github.com/openwrt/|g' feeds.conf.default
 fi
 
-#  FEEDS UPDATE OPTIMIZATION
-CURRENT_COMMIT=$(git rev-parse FETCH_HEAD)
-LAST_COMMIT_FILE="/ccache/.last_build_commit" # Используем /ccache, так как это постоянное хранилище
-
-# Сравниваем текущий коммит с последним сохраненным.
-if [ -f "$LAST_COMMIT_FILE" ] && [ "$CURRENT_COMMIT" == "$(cat $LAST_COMMIT_FILE)" ]; then
-    echo "[FEEDS] Main repo commit unchanged. Skipping slow update/install."
-else
-    echo "[FEEDS] Main repo commit changed or first run. Updating feeds..."
-    
-    # Основная команда обновления и установки
-    ./scripts/feeds update -a && ./scripts/feeds install -a
-
-    # Сохраняем новый хэш после успешного обновления
-    echo "$CURRENT_COMMIT" > "$LAST_COMMIT_FILE"
-    echo "[FEEDS] Feeds updated and commit hash saved."
-fi
+source_sync_feeds || exit 1
 
 # === PATCHING LOGIC (v1.0) ===
 if [ -d "/patches" ] && [ -n "$(ls -A /patches)" ]; then
@@ -412,4 +516,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=a4f29fd337d1fc53182ae668944f9b77
+# checksum:MD5=eb7be183131daa7ecca243d2607ec247

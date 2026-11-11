@@ -234,7 +234,7 @@ flowchart TD
     IB_CHOWN --> BR_END([return])
 
     OLD_SRC & NEW_SRC --> SB["src_builder.sh\nvolumes: workdir, dl-cache, ccache\npatches, overlay_files"]
-    SB --> SB_STEPS["chown, git, feeds, patches\nhooks.sh/rollback, .config, overlay\nmake download, then build:\n-j1 V=s (if SRC_CORES=debug)\n-jN (parallel, w/ debug retry on fail)"]
+    SB --> SB_STEPS["chown; upstream and exact Git commit verification\nfeeds: config SHA256 + 24h TTL\npatches, hooks.sh/rollback, .config, overlay\nmake download, then build:\n-j1 V=s (if SRC_CORES=debug)\n-jN (parallel, w/ debug retry on fail)"]
     SB_STEPS --> SB_OUT["Copy to\nfirmware_output/sourcebuilder/<id>/<ts>"]
     SB_OUT --> SB_CHOWN["runtime-aware chown\nHOST_OUTPUT_DIR"]
     SB_CHOWN --> SB_OK{"Build\nsuccess?"}
@@ -328,4 +328,4 @@ flowchart TD
 | X | custom_patches/<id> non-empty |
 | OI | firmware_output/imagebuilder/<id> has files |
 | OS | firmware_output/sourcebuilder/<id> has files |
-# checksum:MD5=240590dafee4046ff1e523179c17fb54
+# checksum:MD5=ea31c6e737fa15c5cc7f961d59894d67

@@ -92,6 +92,25 @@ if compgen -G '.routerfw-unpacker-restore.*'; then exit 1; fi
         self.assertIn("Source Tree Packager", sh & bat)
         self.assertIn("Packer Staging Cleanup", sh & bat)
 
+    def test_source_builder_regression_runs_both_storage_and_git_feeds(self):
+        harness = (REPO / "tester.sh").read_text(encoding="utf-8")
+        self.assertRegex(
+            harness,
+            r'run_check 0 "Source Builder Storage Recovery" "bash tests/test_src_builder_storage\.sh && bash tests/test_src_builder_git_feeds\.sh"',
+        )
+
+    def test_github_workflow_runner_os_labels_are_pinned(self):
+        # A GitHub runner image rolls forward even with a versioned label, but
+        # ubuntu-latest/windows-latest would additionally change OS major release.
+        workflows = sorted((REPO / ".github" / "workflows").glob("*.yml"))
+        self.assertTrue(workflows)
+        labels = []
+        for file in workflows:
+            content = file.read_text(encoding="utf-8")
+            labels += re.findall(r"(?m)^\s*runs-on:\s*([^\s#]+)", content)
+        self.assertGreaterEqual(len(labels), 6)
+        self.assertEqual(set(labels), {"ubuntu-24.04", "windows-2025"})
+
     def test_declared_baseline_counts_mirror(self):
         sh_cli, sh_health = _labels(REPO / "tester.sh", windows=False)
         bat_cli, bat_health = _labels(REPO / "tester.bat", windows=True)

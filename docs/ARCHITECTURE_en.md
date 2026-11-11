@@ -41,7 +41,7 @@ Both entry points are **feature-parity** wrappers: same menus, same logic, diffe
 
 **Container runtime selection:** `--runtime=auto|docker|podman`, short form `-r auto|docker|podman`, or the `ROUTERFW_RUNTIME` environment variable. In `auto` mode, an interactive launch asks the user when both Docker and Podman are available; non-interactive commands choose an available runtime without opening a menu. In WSL, the Bash version can fall back to `docker.exe` / `podman.exe` when native Linux CLIs are missing.
 
-**Local checks and CI:** GitHub Actions runs the same `tester.bat` / `tester.sh`, without separate copies of checks in YAML. Both suites cover the CLI, packer/unpacker roundtrips, packer determinism, and rejection of corrupt payloads. The Bash suite also runs syntax checks and ShellCheck (an installed `shellcheck` is required).
+**Local checks and CI:** GitHub Actions runs the same `tester.bat` / `tester.sh`, without separate copies of checks in YAML. The hosted OS labels are pinned to `ubuntu-24.04` / `windows-2025`; those image families still receive updates. Both suites cover the CLI, packer/unpacker roundtrips, packer determinism, and rejection of corrupt payloads. The Bash suite also runs syntax checks and ShellCheck (an installed `shellcheck` is required).
 
 - Windows: `tester.bat` runs the full Windows suite. `ROUTERFW_TEST_SKIP_PACKER=1` explicitly skips packaging and means an incomplete run.
 - Linux: `bash ./tester.sh` runs checks without starting containers; `bash ./tester.sh --ci` runs the entire suite, including Docker and Podman.
@@ -260,7 +260,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     │
   │     │  Volume mounts (persistent named runtime volumes):
   │     │    src-workdir:/home/build/openwrt        ← OpenWrt source tree
-  │     │    src-dl-cache:/home/build/openwrt/dl    ← downloaded tarballs cache
+  │     │    src-dl-cache:/home/build/openwrt/dl    ← downloaded tarballs cache (mounted even on first run)
   │     │    src-ccache:/ccache                      ← compiler cache (20 GB)
   │     │    profiles:/profiles
   │     │    src_packages/<profile>:/input_packages  ← source pkgs [PRIVATE]
@@ -271,9 +271,11 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │     └─ runs: /bin/bash /src_builder.sh  (as root, then sudo -u build)
   │               │
   │               ├─ [1] Permission fix (chown -R build:build on first run)
-  │               ├─ [2] git init / fetch / checkout FETCH_HEAD (reset --hard)
-  │               ├─ [3] Mirror feeds (git.openwrt.org → github.com)
-  │               ├─ [4] Feeds update/install (skipped if commit unchanged — cached)
+  │               ├─ [2] Validate SRC_REPO/branch, fetch and verify HEAD == FETCH_HEAD commit
+  │               │        upstream switch in populated workdir fails without deleting data
+  │               ├─ [3] Mirror standard feeds (git.openwrt.org → github.com)
+  │               ├─ [4] Feeds update/install: config SHA256 + repository/branch/commit
+  │               │        + 24h TTL (SRC_FEEDS_MAX_AGE_HOURS); failed refresh is never cached
   │               ├─ [5] Apply patches (/patches → rsync -a overlay onto source tree; does not delete removed untracked files)
   │               ├─ [6] Branch on hooks.sh:
   │               │        if present, execute the hook; if absent, check Vermagic
@@ -400,4 +402,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=dbdacaa407016b34d0cfaf9e7bf84bd2
+# checksum:MD5=aea4936ca0914944c52f07ec7e38af12
