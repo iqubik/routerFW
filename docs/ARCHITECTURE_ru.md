@@ -278,10 +278,12 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               │        + TTL 24 ч (SRC_FEEDS_MAX_AGE_HOURS); сбой не отмечается успешным
   │               ├─ [5] Патчи (/patches → дерево; SHA256-манифест ранее добавленных untracked-файлов)
   │               ├─ [6] Синхронизация /overlay_files → files/ без --delete, исключая hooks.sh
+  │               │        и пустые каталоги источника; новые каталоги записываются в NUL-манифест
+  │               │        и удаляются через rmdir только пустыми. Старые неизвестные каталоги сохраняются.
   │               ├─ [7] Ветвление по hooks.sh:
   │               │        если есть — выполнить hook; если нет — проверить маркеры
   │               │        Vermagic и при необходимости откатить поддерживаемое состояние
-  │               ├─ [8] Учёт новых файлов hooks в files/; генерация .config из переменных профиля
+  │               ├─ [8] Учёт новых файлов и каталогов hooks в files/; генерация .config из переменных профиля
   │               │        (или использование manual_config, если присутствует)
   │               ├─ [9] make defconfig
   │               ├─[10] Копирование src_packages → package/
@@ -407,4 +409,4 @@ _packer.sh / _packer.bat  (v2.7MT)
 ## 13. Полная карта процессов (Mermaid)
 
 См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).
-# checksum:MD5=ba05c4bcf5d9518c8b0a10010d9a5385
+# checksum:MD5=63f8a72e6574e5c2ecd42a74e9bbed0d

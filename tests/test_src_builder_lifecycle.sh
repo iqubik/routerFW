@@ -223,4 +223,135 @@ source_apply_patches > "$TMP/log" 2>&1 || fail 'recover after corrupt marker'
 assert_missing target/linux/marker.patch
 pass 'truncated ownership state fails closed and protects previous files'
 
+# Directory ownership: adding then removing the sole custom file must also
+# remove its previously-created parent, even if the INPUT directory remains.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/routerfw"
+printf 'routerfw-overlay-test-001\n' > "$ROUTERFW_FILES_SOURCE/etc/routerfw/overlay-probe.txt"
+source_prepare_files > "$TMP/log" 2>&1 || { cat "$TMP/log"; fail 'directory owner first ON'; }
+source_record_files > "$TMP/log" 2>&1 || fail 'directory owner ON record'
+assert_file files/etc/routerfw/overlay-probe.txt
+[[ -d files/etc/routerfw ]] || fail 'expected newly-created overlay directory'
+rm "$ROUTERFW_FILES_SOURCE/etc/routerfw/overlay-probe.txt"
+[[ -d "$ROUTERFW_FILES_SOURCE/etc/routerfw" ]] || fail 'test must retain empty input directory'
+source_prepare_files > "$TMP/log" 2>&1 || { cat "$TMP/log"; fail 'directory owner OFF'; }
+source_record_files > "$TMP/log" 2>&1 || fail 'directory owner OFF record'
+assert_missing files/etc/routerfw/overlay-probe.txt
+assert_missing files/etc/routerfw
+assert_file files/etc/base
+pass 'ON/OFF prunes owned empty directory but never the firmware root or tracked files'
+
+# Regression: no empty input-only folder may be mirrored into SquashFS.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/unused-empty"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'empty input overlay source'
+source_record_files > "$TMP/log" 2>&1 || fail 'empty input overlay record'
+assert_missing files/etc/unused-empty
+pass 'empty input directory does not reappear after OFF'
+
+# A pre-existing directory must NOT be claimed simply because overlay put a
+# managed file inside it. In particular, keep user-created empty directories.
+mkdir -p files/etc/preexisting-empty "$ROUTERFW_FILES_SOURCE/etc/preexisting-empty"
+printf 'inside a preexisting directory\n' > "$ROUTERFW_FILES_SOURCE/etc/preexisting-empty/owned.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'preexisting directory overlay'
+source_record_files > "$TMP/log" 2>&1 || fail 'preexisting directory record'
+rm "$ROUTERFW_FILES_SOURCE/etc/preexisting-empty/owned.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'preexisting directory OFF'
+source_record_files > "$TMP/log" 2>&1 || fail 'preexisting directory OFF record'
+assert_missing files/etc/preexisting-empty/owned.txt
+[[ -d files/etc/preexisting-empty ]] || fail 'unowned empty directory was deleted'
+pass 'pre-existing unmanaged empty directory survives overlay removal'
+
+# Even an owned directory must not be deleted while it contains a foreign file.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/owned-with-foreign"
+printf 'temporary\n' > "$ROUTERFW_FILES_SOURCE/etc/owned-with-foreign/managed.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'owned mixed directory ON'
+source_record_files > "$TMP/log" 2>&1 || fail 'owned mixed directory record'
+printf 'foreign data\n' > files/etc/owned-with-foreign/user.txt
+rm "$ROUTERFW_FILES_SOURCE/etc/owned-with-foreign/managed.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'owned mixed directory OFF'
+source_record_files > "$TMP/log" 2>&1 || fail 'owned mixed directory OFF record'
+assert_missing files/etc/owned-with-foreign/managed.txt
+assert_eq "$(cat files/etc/owned-with-foreign/user.txt)" 'foreign data' 'foreign file in managed dir preserved'
+[[ -d files/etc/owned-with-foreign ]] || fail 'nonempty directory erroneously removed'
+pass 'foreign contents protect otherwise owned directories from pruning'
+
+# Crash after rsync but before source_record_files: planned files and directories
+# must be removable in the next invocation without touching any other state.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/crash-owned"
+printf 'planned before rsync\n' > "$ROUTERFW_FILES_SOURCE/etc/crash-owned/test.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'planned directory creation'
+assert_file files/etc/crash-owned/test.txt
+rm "$ROUTERFW_FILES_SOURCE/etc/crash-owned/test.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'planned directory cleanup after interruption'
+source_record_files > "$TMP/log" 2>&1 || fail 'planned directory cleanup record'
+assert_missing files/etc/crash-owned/test.txt
+assert_missing files/etc/crash-owned
+pass 'planned directory ownership survives interruption before post-hook record'
+
+# Directory metadata corruption fails closed BEFORE any already-owned file is
+# removed. Repairing the metadata permits a normal removal on the next pass.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/dir-state-corrupt"
+printf 'must survive corrupt manifest\n' > "$ROUTERFW_FILES_SOURCE/etc/dir-state-corrupt/owned.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'corrupt dir-state fixture creation'
+source_record_files > "$TMP/log" 2>&1 || fail 'corrupt dir-state fixture record'
+cp "$LIFECYCLE_FILES_DIRS_STATE" "$TMP/valid-dir-state"
+printf 'malformed-footer' >> "$LIFECYCLE_FILES_DIRS_STATE"
+rm "$ROUTERFW_FILES_SOURCE/etc/dir-state-corrupt/owned.txt"
+assert_failure 'corrupt dir ownership state rejected' source_prepare_files
+assert_file files/etc/dir-state-corrupt/owned.txt
+cp "$TMP/valid-dir-state" "$LIFECYCLE_FILES_DIRS_STATE"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'corrupt dir-state recovery'
+source_record_files > "$TMP/log" 2>&1 || fail 'corrupt dir-state recovery record'
+assert_missing files/etc/dir-state-corrupt
+pass 'truncated directory ownership state fails closed before file deletion'
+
+# A symlink substituted for a managed directory must never redirect cleanup.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/link-attack"
+printf 'kept in original dir\n' > "$ROUTERFW_FILES_SOURCE/etc/link-attack/owned.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'symlink directory fixture ON'
+source_record_files > "$TMP/log" 2>&1 || fail 'symlink directory fixture record'
+mv files/etc/link-attack files/etc/link-attack-saved
+ln -s "$TMP/external" files/etc/link-attack
+printf 'external safe\n' > "$TMP/external/not-ours"
+rm "$ROUTERFW_FILES_SOURCE/etc/link-attack/owned.txt"
+assert_failure 'symlinked managed directory rejected' source_prepare_files
+assert_eq "$(cat "$TMP/external/not-ours")" 'external safe' 'external contents untouched'
+assert_file files/etc/link-attack-saved/owned.txt
+rm files/etc/link-attack
+mv files/etc/link-attack-saved files/etc/link-attack
+source_prepare_files > "$TMP/log" 2>&1 || fail 'symlink directory recovery'
+source_record_files > "$TMP/log" 2>&1 || fail 'symlink directory recovery record'
+assert_missing files/etc/link-attack
+pass 'symlink substitution blocks directory cleanup without traversing external tree'
+
+# Multi-level newly created parent directories are pruned deepest-first.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/nested-owned/child/grandchild"
+printf 'deep marker\n' > "$ROUTERFW_FILES_SOURCE/etc/nested-owned/child/grandchild/test.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'nested directory ON'
+source_record_files > "$TMP/log" 2>&1 || fail 'nested directory record'
+assert_file files/etc/nested-owned/child/grandchild/test.txt
+rm "$ROUTERFW_FILES_SOURCE/etc/nested-owned/child/grandchild/test.txt"
+source_prepare_files > "$TMP/log" 2>&1 || fail 'nested directory OFF'
+source_record_files > "$TMP/log" 2>&1 || fail 'nested directory OFF record'
+assert_missing files/etc/nested-owned
+[[ -d files/etc ]] || fail 'tracked files/etc root should remain'
+pass 'all owned nested directories removed bottom-up after OFF'
+
+# Hook-generated directories (not just hook files) must be captured and cleaned.
+source_prepare_files > "$TMP/log" 2>&1 || fail 'hook-generated directory preparation'
+mkdir -p files/etc/hook-made/subdir
+printf 'hook-generated\n' > files/etc/hook-made/subdir/hook-owned.txt
+source_record_files > "$TMP/log" 2>&1 || fail 'hook-generated directory record'
+source_prepare_files > "$TMP/log" 2>&1 || fail 'hook-generated directory cleanup'
+source_record_files > "$TMP/log" 2>&1 || fail 'hook-generated directory cleanup record'
+assert_missing files/etc/hook-made
+pass 'hook-generated directories are tracked and pruned with owned files'
+
+# No safe evidence remains for legacy empty directories created by old versions.
+# They must survive until the operator explicitly removes them via rmdir.
+mkdir -p files/etc/legacy-orphan-empty
+source_prepare_files > "$TMP/log" 2>&1 || fail 'legacy empty dir check'
+source_record_files > "$TMP/log" 2>&1 || fail 'legacy empty dir check record'
+[[ -d files/etc/legacy-orphan-empty ]] || fail 'legacy unknown empty directory was deleted'
+pass 'unknown legacy orphan is never silently claimed or removed'
+
 printf 'Source Builder Lifecycle: %d tests passed\n' "$pass_count"

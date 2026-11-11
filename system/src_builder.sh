@@ -196,6 +196,8 @@ source_sync_feeds || exit 1
 # untracked files only. Never prune unknown files or user changes.
 LIFECYCLE_PATCH_STATE='.routerfw_patch_owned_v1'
 LIFECYCLE_FILES_STATE='.routerfw_files_owned_v1'
+LIFECYCLE_FILES_DIRS_STATE='.routerfw_files_dirs_owned_v1'
+declare -A lifecycle_dirs_before=()
 declare -A lifecycle_files_before=()
 declare -A lifecycle_files_adopted=()
 
@@ -232,6 +234,103 @@ lifecycle_validate_dest() {
     if [[ -e "$current" && ! -f "$current" ]] && ! { [[ "$allow_leaf_link" == yes ]] && [[ -L "$current" ]]; }; then
         lifecycle_error "Non-regular destination blocked: $current"; return 1
     fi
+}
+
+# Directories have a separate NUL-terminated ownership state. Only paths below
+# files/ may be owned, and the files/ root itself is never removed.
+lifecycle_validate_owned_dir() {
+    local rel="$1" current='' component
+    local -a components
+    [[ "$rel" == files/* ]] || { lifecycle_error "Directory outside files/ refused: $rel"; return 1; }
+    lifecycle_safe_path "$rel" || { lifecycle_error "Unsafe owned directory: $rel"; return 1; }
+    IFS='/' read -r -a components <<< "$rel"
+    for component in "${components[@]}"; do
+        current="${current:+$current/}$component"
+        if [[ -L "$current" ]]; then
+            lifecycle_error "Symlink traversal blocked for owned directory: $current"; return 1
+        fi
+        if [[ -e "$current" && ! -d "$current" ]]; then
+            lifecycle_error "Non-directory in owned directory path: $current"; return 1
+        fi
+    done
+}
+
+# Validate the COMPLETE directory manifest before touching any owned files.
+# A broken, replaced, or symlinked manifest fails closed.
+lifecycle_validate_dirs_state() {
+    local state="$1" rel
+    if [[ -L "$state" || ( -e "$state" && ! -f "$state" ) ]]; then
+        lifecycle_error "Invalid directory ownership state: $state"; return 1
+    fi
+    [[ -f "$state" ]] || return 0
+    exec 4< "$state" || return 1
+    while :; do
+        rel=''
+        if ! IFS= read -r -d '' rel <&4; then
+            if [[ -n "$rel" ]]; then
+                exec 4<&-
+                lifecycle_error "Truncated directory ownership state: $state"; return 1
+            fi
+            break
+        fi
+        lifecycle_validate_owned_dir "$rel" || { exec 4<&-; return 1; }
+    done
+    exec 4<&-
+}
+
+# Remove ONLY previously owned directories, deepest first and only if empty.
+# A foreign file in an owned directory is never touched (rmdir is nonrecursive).
+lifecycle_clean_owned_dirs() {
+    local state="$1" rel
+    local -a dirs=()
+    lifecycle_validate_dirs_state "$state" || return 1
+    [[ -f "$state" ]] || return 0
+    while IFS= read -r -d '' rel; do dirs+=("$rel"); done < "$state"
+    (( ${#dirs[@]} )) || return 0
+    while IFS= read -r -d '' rel; do
+        lifecycle_validate_owned_dir "$rel" || return 1
+        if [[ -d "$rel" ]] && [[ -z "$(find "$rel" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+            rmdir -- "$rel" || { lifecycle_error "Cannot remove empty owned directory: $rel"; return 1; }
+        fi
+    done < <(printf '%s\0' "${dirs[@]}" | LC_ALL=C sort -zr)
+}
+
+# Stage only directories that are needed to carry actual files. In particular,
+# an empty directory left in custom_files after deleting its last file is NOT
+# re-created in the firmware on the next build.
+lifecycle_prune_empty_stage_dirs() {
+    local stage="$1"
+    find "$stage" -mindepth 1 -depth -type d -empty -delete
+}
+
+# Crash recovery: claim missing target directories BEFORE rsync creates them.
+# Pre-existing directories are never claimed, even when currently empty.
+lifecycle_plan_files_dirs() {
+    local stage="$1" dir rel dest next
+    next=$(mktemp -- '.routerfw-dirs-plan.XXXXXXXXXX') || return 1
+    while IFS= read -r -d '' dir; do
+        rel="${dir#"$stage"/}"
+        dest="files/$rel"
+        lifecycle_validate_owned_dir "$dest" || { rm -f -- "$next"; return 1; }
+        if [[ -z "${lifecycle_dirs_before[$dest]-}" ]]; then
+            printf '%s\0' "$dest" >> "$next" || { rm -f -- "$next"; return 1; }
+        fi
+    done < <(find "$stage" -mindepth 1 -type d -print0)
+    mv -f -- "$next" "$LIFECYCLE_FILES_DIRS_STATE"
+}
+
+# After hooks, also remember any NEW directories created by hook-generated files.
+lifecycle_record_files_dirs() {
+    local dir rel next
+    next=$(mktemp -- '.routerfw-dirs-state.XXXXXXXXXX') || return 1
+    while IFS= read -r -d '' dir; do
+        rel="${dir#./}"
+        lifecycle_validate_owned_dir "$rel" || { rm -f -- "$next"; return 1; }
+        if [[ -z "${lifecycle_dirs_before[$rel]-}" ]]; then
+            printf '%s\0' "$rel" >> "$next" || { rm -f -- "$next"; return 1; }
+        fi
+    done < <(find files -mindepth 1 -type d -print0)
+    mv -f -- "$next" "$LIFECYCLE_FILES_DIRS_STATE"
 }
 
 lifecycle_sha() {
@@ -341,6 +440,7 @@ lifecycle_stage() {
         lifecycle_validate_source "$input" || return 1
         if [[ "$exclude_hook" == yes ]]; then
             rsync -a --exclude='/hooks.sh' "$input/" "$stage/" || return 1
+            lifecycle_prune_empty_stage_dirs "$stage" || return 1
         else
             rsync -a "$input/" "$stage/" || return 1
             # Consistent with the existing patch overlay format; text-only patches are expected.
@@ -367,10 +467,17 @@ source_prepare_files() {
     local stage file rel input="${ROUTERFW_FILES_SOURCE:-/overlay_files}"
     stage=$(mktemp -d -- /tmp/routerfw-files.XXXXXXXX) || return 1
     if ! lifecycle_stage "$input" "$stage" yes; then rm -rf -- "$stage"; return 1; fi
+    lifecycle_validate_dirs_state "$LIFECYCLE_FILES_DIRS_STATE" || { rm -rf -- "$stage"; return 1; }
     lifecycle_clean_owned "$LIFECYCLE_FILES_STATE" || { rm -rf -- "$stage"; return 1; }
+    lifecycle_clean_owned_dirs "$LIFECYCLE_FILES_DIRS_STATE" || { rm -rf -- "$stage"; return 1; }
     lifecycle_files_adopted=()
     lifecycle_scan_stage "$stage" 'files/' "$LIFECYCLE_FILES_STATE" || { rm -rf -- "$stage"; return 1; }
     mkdir -p files || { rm -rf -- "$stage"; return 1; }
+    lifecycle_dirs_before=()
+    while IFS= read -r -d '' file; do
+        rel="${file#./}"
+        lifecycle_dirs_before["$rel"]=1
+    done < <(find files -type d -print0)
     lifecycle_files_before=()
     while IFS= read -r -d '' file; do
         rel="${file#./}"
@@ -378,6 +485,7 @@ source_prepare_files() {
     done < <(find files \( -type f -o -type l \) -print0)
     # If interrupted, the planned overlay files can still be cleaned on next start.
     lifecycle_write_state_from_stage "$LIFECYCLE_FILES_STATE" "$stage" 'files/' || { rm -rf -- "$stage"; return 1; }
+    lifecycle_plan_files_dirs "$stage" || { rm -rf -- "$stage"; return 1; }
     if ! rsync -a "$stage/" files/; then rm -rf -- "$stage"; return 1; fi
     rm -rf -- "$stage"
     echo '[SYNC] Firmware overlay applied before hooks (no --delete).'
@@ -399,8 +507,9 @@ source_record_files() {
             printf '[LIFECYCLE WARN] Hook/overlay changed an unmanaged file: %s; it will not be auto-deleted.\n' "$rel" >&2
         fi
     done < <(find files \( -type f -o -type l \) -print0)
-    mv -f -- "$next" "$LIFECYCLE_FILES_STATE"
-    echo '[SYNC] Captured overlay and hook-generated file ownership.'
+    mv -f -- "$next" "$LIFECYCLE_FILES_STATE" || return 1
+    lifecycle_record_files_dirs || return 1
+    echo '[SYNC] Captured overlay and hook-generated file/directory ownership.'
 }
 # END SOURCE OVERLAY LIFECYCLE HELPERS
 
@@ -843,4 +952,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=005378d715b57bc2ab28247cbe6ce8f0
+# checksum:MD5=d5105ad79eac20d3b4c1919febcaea4b

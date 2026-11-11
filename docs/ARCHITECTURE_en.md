@@ -278,10 +278,12 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               │        + 24h TTL (SRC_FEEDS_MAX_AGE_HOURS); failed refresh is never cached
   │               ├─ [5] Patches (/patches → source; SHA256 ownership state for added untracked files)
   │               ├─ [6] Sync /overlay_files → files/ without --delete, excluding hooks.sh
+  │               │        and empty source directories; track newly created directories in a NUL manifest
+  │               │        and remove only empty owned directories with rmdir. Unknown legacy dirs stay.
   │               ├─ [7] Branch on hooks.sh:
   │               │        if present, execute the hook; if absent, check Vermagic
   │               │        markers and roll back the supported modified state
-  │               ├─ [8] Track new hook-generated files/; generate .config from profile vars
+  │               ├─ [8] Track new hook-generated files and directories; generate .config from profile vars
   │               │        (or use manual_config if present)
   │               ├─ [9] make defconfig
   │               ├─[10] Copy src_packages → package/
@@ -407,4 +409,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=431f0307ac459652f9c787e1058828d7
+# checksum:MD5=b095484a268ede4f41d9ceebf033fac6

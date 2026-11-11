@@ -237,7 +237,7 @@ flowchart TD
 
     OLD_SRC & NEW_SRC --> SB["src_builder.sh\nтома: workdir, dl-cache, ccache\npatches, overlay_files"]
     SB --> SB_STEPS["chown; проверка upstream и точного Git-коммита\nfeeds: SHA256 конфигурации + TTL 24 ч\npatches → files/ overlay → hooks.sh/откат
-учёт SHA256 untracked-файлов; .config\nmake download, затем сборка:\n-j1 V=s (если SRC_CORES=debug)\n-jN (параллельно, с откатом на debug при сбое)"]
+SHA256 файлов + ownership новых каталогов\nудаление только пустых управляемых каталогов; .config\nmake download, затем сборка:\n-j1 V=s (если SRC_CORES=debug)\n-jN (параллельно, с откатом на debug при сбое)"]
     SB_STEPS --> SB_OUT["Копирование в\nfirmware_output/sourcebuilder/<id>/<ts>"]
     SB_OUT --> SB_CHOWN["runtime-aware chown\nHOST_OUTPUT_DIR"]
     SB_CHOWN --> SB_OK{"Сборка\nуспешна?"}
@@ -331,4 +331,4 @@ flowchart TD
 | X | custom_patches/<id> non-empty |
 | OI | firmware_output/imagebuilder/<id> has files |
 | OS | firmware_output/sourcebuilder/<id> has files |
-# checksum:MD5=a86a84f368866dd2cb9cce834b008729
+# checksum:MD5=c8fdb9e8cbdd78664c092201e513ed5b
