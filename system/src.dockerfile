@@ -11,7 +11,14 @@ RUN touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu && userdel -r ubuntu
 # Обновляем пакеты.
 # Обратите внимание: python3-distutils удален, так как в Python 3.12 он deprecated.
 # Добавлен python3-venv, так как новые системы часто требуют venv.
-RUN apt-get -o Acquire::Retries=5 update && apt-get -o Acquire::Retries=5 install -y \
+RUN for attempt in 1 2 3; do \
+    if apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update; then \
+        break; \
+    fi; \
+    if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+    sleep 10; \
+done \
+    && apt-get -o Acquire::Retries=2 install -y \
     mc build-essential ccache clang flex bison g++ gawk gcc-multilib g++-multilib \
     gettext git patch swig time rsync unzip file wget curl dos2unix \
     libncurses-dev libssl-dev zlib1g-dev libelf-dev libzstd-dev \    
@@ -31,4 +38,4 @@ ENV OPENSSL_CONF=/home/build/openssl.cnf
 
 # На всякий случай настраиваем git safe directory глобально
 RUN git config --global --add safe.directory '*'
-# checksum:MD5=5d7469879dbf1cc0bb05cd90f462f3c6
+# checksum:MD5=6c009a5ba29d3807cd68592371a554db

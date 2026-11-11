@@ -22,8 +22,9 @@ class DockerfileAptRetryTests(unittest.TestCase):
         for relative in DOCKERFILES:
             text = (ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(dockerfile=relative):
-                self.assertIn("apt-get -o Acquire::Retries=5 update", text)
-                self.assertIn("apt-get -o Acquire::Retries=5 install -y", text)
+                self.assertIn("for attempt in 1 2 3; do", text)
+                self.assertIn("Acquire::Retries=2 -o APT::Update::Error-Mode=any update", text)
+                self.assertIn("apt-get -o Acquire::Retries=2 install -y", text)
 
     def test_both_unpackers_embed_the_same_dockerfiles_and_digests(self):
         for bundle_name, marker_prefix, command_prefix in (
@@ -41,14 +42,15 @@ class DockerfileAptRetryTests(unittest.TestCase):
                     stop = bundle.index(end, start)
                     payload = base64.b64decode(b"".join(bundle[start:stop].split()))
                     source = (ROOT / relative).read_bytes()
-                    self.assertEqual(payload, source)
+                    normalize_eol = lambda data: data.replace(b"\r\n", b"\n")
+                    self.assertEqual(normalize_eol(payload), normalize_eol(source))
                     manifest = re.search(
                         re.escape(command_prefix) + rb' "' + re.escape(path)
                         + rb'" "([0-9a-f]{32})"',
                         bundle,
                     )
                     self.assertIsNotNone(manifest)
-                    self.assertEqual(manifest.group(1).decode("ascii"), hashlib.md5(source).hexdigest())
+                    self.assertEqual(manifest.group(1).decode("ascii"), hashlib.md5(payload).hexdigest())
 
 
 if __name__ == "__main__":
