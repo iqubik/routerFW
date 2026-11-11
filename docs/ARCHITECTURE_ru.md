@@ -276,15 +276,15 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─ [3] Зеркалирование стандартных фидов (git.openwrt.org → github.com)
   │               ├─ [4] Feeds update/install: SHA256 конфига + репозиторий/ветка/коммит
   │               │        + TTL 24 ч (SRC_FEEDS_MAX_AGE_HOURS); сбой не отмечается успешным
-  │               ├─ [5] Применение патчей (/patches → rsync -a на дерево исходников; без удаления ранее скопированных untracked-файлов)
-  │               ├─ [6] Ветвление по hooks.sh:
+  │               ├─ [5] Патчи (/patches → дерево; SHA256-манифест ранее добавленных untracked-файлов)
+  │               ├─ [6] Синхронизация /overlay_files → files/ без --delete, исключая hooks.sh
+  │               ├─ [7] Ветвление по hooks.sh:
   │               │        если есть — выполнить hook; если нет — проверить маркеры
   │               │        Vermagic и при необходимости откатить поддерживаемое состояние
-  │               ├─ [7] Генерация .config из переменных профиля
+  │               ├─ [8] Учёт новых файлов hooks в files/; генерация .config из переменных профиля
   │               │        (или использование manual_config, если присутствует)
-  │               ├─ [8] make defconfig
-  │               ├─ [9] Копирование src_packages → package/
-  │               ├─[10] rsync overlay_files → files/ с --delete (оверлей custom_files; может удалить hook-generated файлы, отсутствующие в overlay)
+  │               ├─ [9] make defconfig
+  │               ├─[10] Копирование src_packages → package/
   │               ├─[11] make download (с повтором)
   │               ├─[12] make -j<SRC_CORES> → одна попытка make -j1 V=s при ошибке параллельной сборки
   │               │        (кроме исходного SRC_CORES=debug); fallback не исправляет EROFS/EIO
@@ -402,4 +402,4 @@ _packer.sh / _packer.bat  (v2.7MT)
 ## 13. Полная карта процессов (Mermaid)
 
 См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).
-# checksum:MD5=ef9a1c5312259fb1bca21e3dc10fe221
+# checksum:MD5=e78f006c958d6699502bab91db4618b9

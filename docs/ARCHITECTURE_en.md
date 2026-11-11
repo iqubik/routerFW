@@ -276,15 +276,15 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─ [3] Mirror standard feeds (git.openwrt.org → github.com)
   │               ├─ [4] Feeds update/install: config SHA256 + repository/branch/commit
   │               │        + 24h TTL (SRC_FEEDS_MAX_AGE_HOURS); failed refresh is never cached
-  │               ├─ [5] Apply patches (/patches → rsync -a overlay onto source tree; does not delete removed untracked files)
-  │               ├─ [6] Branch on hooks.sh:
+  │               ├─ [5] Patches (/patches → source; SHA256 ownership state for added untracked files)
+  │               ├─ [6] Sync /overlay_files → files/ without --delete, excluding hooks.sh
+  │               ├─ [7] Branch on hooks.sh:
   │               │        if present, execute the hook; if absent, check Vermagic
   │               │        markers and roll back the supported modified state
-  │               ├─ [7] Generate .config from profile vars
+  │               ├─ [8] Track new hook-generated files/; generate .config from profile vars
   │               │        (or use manual_config if present)
-  │               ├─ [8] make defconfig
-  │               ├─ [9] Copy src_packages → package/
-  │               ├─[10] rsync overlay_files → files/ with --delete (custom_files overlay; can remove hook-generated files absent from the overlay)
+  │               ├─ [9] make defconfig
+  │               ├─[10] Copy src_packages → package/
   │               ├─[11] make download (with retry)
   │               ├─[12] make -j<SRC_CORES> → one make -j1 V=s retry after parallel failure
   │               │        (unless SRC_CORES=debug initially); fallback does not repair EROFS/EIO
@@ -402,4 +402,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=aea4936ca0914944c52f07ec7e38af12
+# checksum:MD5=6ea2c3395b7f9400affb3667d8baff2f

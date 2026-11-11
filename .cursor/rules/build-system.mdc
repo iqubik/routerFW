@@ -24,14 +24,16 @@ Security note: the current IB path disables APK signature checking in its make i
 1. The container starts as root, checks volume ownership, then runs the build body as user `build`.
 2. Validate `SRC_REPO`/`SRC_BRANCH`, fetch `FETCH_HEAD`, verify the exact commit and detach HEAD at that commit. In a populated persistent workdir, changing `SRC_REPO` **fails closed** rather than mixing repositories: use the Cleanup Wizard to reset **only that profile's `src-workdir`**, then rebuild. No automatic `git clean`, volume prune or reset of other profiles.
 3. Mirror standard OpenWrt feed URLs when applicable (a custom `feeds.conf` takes priority). Feeds update/install is cached using the repository URL, branch, fetched commit, effective feed-config SHA256, and a completed-update timestamp in `/ccache/.routerfw_feeds_state_v2`. Default maximum age is 24 hours; optional `SRC_FEEDS_MAX_AGE_HOURS=0` refreshes every run. Missing feeds or failed update/install force a new update next time. The historical `.last_build_commit` is not trusted for feed freshness. This is a freshness policy, **not a reproducible pin of external feed commits**.
-4. Copy `custom_patches/<profile>` into the persistent source tree with `rsync -a` and normalize line endings. This copy currently does not delete files removed from the host overlay.
-5. Run `/overlay_files/hooks.sh` if present; otherwise inspect and roll back the supported Vermagic dirty-state markers.
-6. Create `.config` from profile variables or use `/output/manual_config`; run `make defconfig`.
-7. Copy imported/source packages into `package/`, then sync `/overlay_files/` to `files/` with `rsync -a --delete` and remove `files/hooks.sh`.
+4. Apply `custom_patches/<profile>` after Git reset using a SHA256 ownership manifest for routerFW-introduced untracked files (`.routerfw_patch_owned_v1`). Existing unknown paths are never overwritten; byte-identical legacy files may be adopted on first run.
+5. Sync `/overlay_files/` into `files/` **without `--delete`**, omitting root `hooks.sh`. Clean only unchanged, previously owned untracked files recorded in `.routerfw_files_owned_v1`.
+6. Run `/overlay_files/hooks.sh` if present, otherwise inspect the supported Vermagic rollback state. Capture new hook-generated `files/` outputs afterward; changes hooks make elsewhere are not tracked.
+7. Generate `.config` from profile vars or `/output/manual_config`, run `make defconfig`, then copy source packages into `package/`.
 8. Run `make download` with a verbose retry on failure, then compile. A failed parallel build triggers one `make -j1 V=s` retry unless `SRC_CORES=debug` was requested initially.
 9. Copy firmware and `build.config` to `/output/<timestamp>/`.
 
-Important ordering: hooks run before the final `files/` overlay sync. Hook-generated files under `files/` can be removed by `rsync --delete` unless also present in `/overlay_files`. Before downloads and compilation, and after `make` failures, Source Builder probes actual write access to its worktree, `dl`, CCache, `/tmp`, and `/output`; confirmed `EROFS`/`EIO`/no-space/permission failures abort without retry or automatic cleanup. An ordinary compiler failure on currently writable storage keeps the `make -j1 V=s` fallback; a transient past failure may remain unclassified.
+Important ordering: overlay files must be copied **before** hooks so hook-generated firmware outputs are retained. Do not restore the former `rsync --delete`. Never delete unknown or diverged persistent files: abort with `[LIFECYCLE SAFETY]`. SHA256 manifests apply only to routerFW-owned *untracked files*, not arbitrary hook effects, pre-existing unknown files, compiled caches or imported source packages. On an ambiguous legacy workdir, explain the per-profile cleanup path rather than automatically pruning the volume.
+
+Before downloads and compilation, and after `make` failures, Source Builder probes worktree, `dl`, CCache, `/tmp`, `/output`. Confirmed storage faults abort without retry or automatic cleanup.
 
 ## Container images
 

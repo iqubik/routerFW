@@ -191,29 +191,222 @@ fi
 
 source_sync_feeds || exit 1
 
-# === PATCHING LOGIC (v1.0) ===
-if [ -d "/patches" ] && [ -n "$(ls -A /patches)" ]; then
-    echo -e "${CYAN}[PATCH] Found custom patches. Applying...${NC}"
-    
-    # FIX: Create temp dir in /tmp (writable by user 'build') instead of root /
-    TEMP_PATCH_DIR="/tmp/tmp_patches"
-    
-    # Create temp directory
-    mkdir -p "$TEMP_PATCH_DIR"
-    
-    # Copy patches to temp directory
-    cp -r /patches/* "$TEMP_PATCH_DIR/"
-    
-    # Convert CRLF to LF for all files
-    find "$TEMP_PATCH_DIR" -type f -exec dos2unix {} +
-    
-    # Apply patches to source tree
-    rsync -a "$TEMP_PATCH_DIR/" .
-    
-    # Cleanup
-    rm -rf "$TEMP_PATCH_DIR"
-    echo -e "${GREEN}[PATCH] Patches applied successfully.${NC}"
-fi
+# BEGIN SOURCE OVERLAY LIFECYCLE HELPERS (tests extract this block)
+# Manifests contain NUL-separated (SHA256, relative path) pairs for routerFW-owned
+# untracked files only. Never prune unknown files or user changes.
+LIFECYCLE_PATCH_STATE='.routerfw_patch_owned_v1'
+LIFECYCLE_FILES_STATE='.routerfw_files_owned_v1'
+declare -A lifecycle_files_before=()
+declare -A lifecycle_files_adopted=()
+
+lifecycle_error() { printf '[LIFECYCLE SAFETY] %s\n' "$*" >&2; return 1; }
+
+lifecycle_safe_path() {
+    local rel="$1" component
+    local -a components
+    [[ -n "$rel" && "$rel" != /* && "$rel" != */ && "$rel" != *//* && "$rel" != *$'\n'* && "$rel" != *$'\r'* ]] || return 1
+    IFS='/' read -r -a components <<< "$rel"
+    for component in "${components[@]}"; do
+        [[ -n "$component" && "$component" != '.' && "$component" != '..' ]] || return 1
+    done
+    case "$rel" in
+        .git|.git/*|dl|dl/*|.routerfw_*|files/hooks.sh) return 1 ;;
+    esac
+}
+
+lifecycle_validate_dest() {
+    local rel="$1" allow_leaf_link="${2:-no}" current='' component index
+    local -a components
+    lifecycle_safe_path "$rel" || { lifecycle_error "Reserved/unsafe path: $rel"; return 1; }
+    IFS='/' read -r -a components <<< "$rel"
+    for (( index=0; index<${#components[@]}; index++ )); do
+        component="${components[index]}"
+        current="${current:+$current/}$component"
+        if [[ -L "$current" ]] && ! { [[ "$allow_leaf_link" == yes ]] && (( index == ${#components[@]} - 1 )); }; then
+            lifecycle_error "Symlink traversal blocked: $current"; return 1
+        fi
+        if (( index < ${#components[@]}-1 )) && [[ -e "$current" && ! -d "$current" ]]; then
+            lifecycle_error "Non-directory parent blocked: $current"; return 1
+        fi
+    done
+    if [[ -e "$current" && ! -f "$current" ]] && ! { [[ "$allow_leaf_link" == yes ]] && [[ -L "$current" ]]; }; then
+        lifecycle_error "Non-regular destination blocked: $current"; return 1
+    fi
+}
+
+lifecycle_sha() {
+    local result target
+    if [[ -L "$1" ]]; then
+        target=$(readlink -n -- "$1") || return 1
+        result=$(printf 'LINK\0%s' "$target" | sha256sum) || return 1
+    else
+        result=$(sha256sum < "$1") || return 1
+    fi
+    printf '%s' "${result%% *}"
+}
+
+lifecycle_tracked() { git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }
+
+lifecycle_clean_owned() {
+    local state="$1" digest rel actual pass
+    if [[ -L "$state" ]]; then
+        lifecycle_error "Refusing symlinked ownership state: $state"; return 1
+    fi
+    [[ -f "$state" ]] || return 0
+    # Two-pass validation: never delete one file and only then discover a conflict.
+    for pass in check remove; do
+        exec 3< "$state"
+        while :; do
+            digest=''
+            if ! IFS= read -r -d '' digest <&3; then
+                if [[ -n "$digest" ]]; then
+                    exec 3<&-
+                    lifecycle_error "Truncated ownership state: $state"; return 1
+                fi
+                break
+            fi
+            if ! IFS= read -r -d '' rel <&3; then
+                exec 3<&-
+                lifecycle_error "Truncated ownership state: $state"; return 1
+            fi
+            [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || {
+                exec 3<&-; lifecycle_error "Invalid ownership hash: $state"; return 1;
+            }
+            lifecycle_validate_dest "$rel" yes || { exec 3<&-; return 1; }
+            # A file previously untracked might now be part of upstream Git.
+            lifecycle_tracked "$rel" && continue
+            [[ -f "$rel" || -L "$rel" ]] || continue
+            actual=$(lifecycle_sha "$rel") || { exec 3<&-; return 1; }
+            if [[ "$digest" != "$actual" ]]; then
+                exec 3<&-
+                lifecycle_error "Locally changed managed file: $rel (not removing). Resolve it manually or use the profile cleanup wizard."
+                return 1
+            fi
+            if [[ "$pass" == remove ]]; then
+                rm -- "$rel" || { exec 3<&-; return 1; }
+            fi
+        done
+        exec 3<&-
+    done
+}
+
+lifecycle_validate_source() {
+    local root="$1" rel file
+    [[ -d "$root" ]] || return 0
+    while IFS= read -r -d '' file; do
+        rel="${file#"$root"/}"
+        lifecycle_safe_path "$rel" || { lifecycle_error "Invalid source overlay path: $rel"; return 1; }
+        if [[ -L "$file" ]]; then
+            lifecycle_error "Source symlink refused (not followed): $file"; return 1
+        fi
+    done < <(find "$root" -mindepth 1 -print0)
+}
+
+lifecycle_scan_stage() {
+    local stage="$1" prefix="$2" state="$3" rel src dest
+    while IFS= read -r -d '' src; do
+        rel="${src#"$stage"/}"
+        dest="${prefix}${rel}"
+        lifecycle_validate_dest "$dest" || return 1
+        if [[ -e "$dest" ]] && ! lifecycle_tracked "$dest"; then
+            if [[ ! -e "$state" ]] && cmp -s -- "$src" "$dest"; then
+                printf '[LIFECYCLE MIGRATION] Adopting identical pre-existing overlay file: %s\n' "$dest" >&2
+                if [[ "$prefix" == 'files/' ]]; then lifecycle_files_adopted["$dest"]=1; fi
+            else
+                lifecycle_error "Unmanaged file collision: $dest (not overwriting)."
+                return 1
+            fi
+        fi
+    done < <(find "$stage" -type f -print0)
+    return 0
+}
+
+lifecycle_write_state_from_stage() {
+    local state="$1" stage="$2" prefix="$3" next src rel dest digest
+    next=$(mktemp -- ".routerfw-state.XXXXXXXXXX") || return 1
+    while IFS= read -r -d '' src; do
+        rel="${src#"$stage"/}"
+        dest="${prefix}${rel}"
+        if ! lifecycle_tracked "$dest"; then
+            digest=$(lifecycle_sha "$src") || { rm -f -- "$next"; return 1; }
+            printf '%s\0%s\0' "$digest" "$dest" >> "$next" || { rm -f -- "$next"; return 1; }
+        fi
+    done < <(find "$stage" -type f -print0)
+    mv -f -- "$next" "$state"
+}
+
+lifecycle_stage() {
+    local input="$1" stage="$2" exclude_hook="${3:-no}" file
+    if [[ -d "$input" ]]; then
+        lifecycle_validate_source "$input" || return 1
+        if [[ "$exclude_hook" == yes ]]; then
+            rsync -a --exclude='/hooks.sh' "$input/" "$stage/" || return 1
+        else
+            rsync -a "$input/" "$stage/" || return 1
+            # Consistent with the existing patch overlay format; text-only patches are expected.
+            while IFS= read -r -d '' file; do dos2unix -q -- "$file" || return 1; done \
+                < <(find "$stage" -type f -print0)
+        fi
+    fi
+}
+
+source_apply_patches() {
+    local stage input="${ROUTERFW_PATCH_SOURCE:-/patches}"
+    stage=$(mktemp -d -- /tmp/routerfw-patches.XXXXXXXX) || return 1
+    if ! lifecycle_stage "$input" "$stage"; then rm -rf -- "$stage"; return 1; fi
+    lifecycle_clean_owned "$LIFECYCLE_PATCH_STATE" || { rm -rf -- "$stage"; return 1; }
+    lifecycle_scan_stage "$stage" '' "$LIFECYCLE_PATCH_STATE" || { rm -rf -- "$stage"; return 1; }
+    # Crash recovery: record planned writes before rsync. Missing entries are safe on retry.
+    lifecycle_write_state_from_stage "$LIFECYCLE_PATCH_STATE" "$stage" '' || { rm -rf -- "$stage"; return 1; }
+    if ! rsync -a "$stage/" ./; then rm -rf -- "$stage"; return 1; fi
+    rm -rf -- "$stage"
+    echo '[PATCH] Managed patch overlay synchronized without deleting unmanaged files.'
+}
+
+source_prepare_files() {
+    local stage file rel input="${ROUTERFW_FILES_SOURCE:-/overlay_files}"
+    stage=$(mktemp -d -- /tmp/routerfw-files.XXXXXXXX) || return 1
+    if ! lifecycle_stage "$input" "$stage" yes; then rm -rf -- "$stage"; return 1; fi
+    lifecycle_clean_owned "$LIFECYCLE_FILES_STATE" || { rm -rf -- "$stage"; return 1; }
+    lifecycle_files_adopted=()
+    lifecycle_scan_stage "$stage" 'files/' "$LIFECYCLE_FILES_STATE" || { rm -rf -- "$stage"; return 1; }
+    mkdir -p files || { rm -rf -- "$stage"; return 1; }
+    lifecycle_files_before=()
+    while IFS= read -r -d '' file; do
+        rel="${file#./}"
+        lifecycle_files_before["$rel"]=$(lifecycle_sha "$file") || { rm -rf -- "$stage"; return 1; }
+    done < <(find files \( -type f -o -type l \) -print0)
+    # If interrupted, the planned overlay files can still be cleaned on next start.
+    lifecycle_write_state_from_stage "$LIFECYCLE_FILES_STATE" "$stage" 'files/' || { rm -rf -- "$stage"; return 1; }
+    if ! rsync -a "$stage/" files/; then rm -rf -- "$stage"; return 1; fi
+    rm -rf -- "$stage"
+    echo '[SYNC] Firmware overlay applied before hooks (no --delete).'
+}
+
+source_record_files() {
+    local file rel digest next before
+    next=$(mktemp -- '.routerfw-files-state.XXXXXXXXXX') || return 1
+    # Track routerFW-generated files only: new untracked files created by overlay or hooks.
+    while IFS= read -r -d '' file; do
+        rel="${file#./}"
+        lifecycle_validate_dest "$rel" yes || { rm -f -- "$next"; return 1; }
+        lifecycle_tracked "$rel" && continue
+        digest=$(lifecycle_sha "$file") || { rm -f -- "$next"; return 1; }
+        before="${lifecycle_files_before[$rel]-}"
+        if [[ -z "$before" || -n "${lifecycle_files_adopted[$rel]-}" ]]; then
+            printf '%s\0%s\0' "$digest" "$rel" >> "$next" || { rm -f -- "$next"; return 1; }
+        elif [[ "$before" != "$digest" ]]; then
+            printf '[LIFECYCLE WARN] Hook/overlay changed an unmanaged file: %s; it will not be auto-deleted.\n' "$rel" >&2
+        fi
+    done < <(find files \( -type f -o -type l \) -print0)
+    mv -f -- "$next" "$LIFECYCLE_FILES_STATE"
+    echo '[SYNC] Captured overlay and hook-generated file ownership.'
+}
+# END SOURCE OVERLAY LIFECYCLE HELPERS
+
+# Synchronize source patches and firmware overlay before running custom hooks.
+source_apply_patches || exit 1
+source_prepare_files || exit 1
 
 # === ХУКИ И ПРОВЕРКА СОСТОЯНИЯ (ROLLBACK) ===
 TARGET_MK="include/kernel-defaults.mk"
@@ -224,7 +417,10 @@ if [ -f "/overlay_files/hooks.sh" ]; then
     echo "[HOOKS] Executing hooks.sh..."
     tr -d '\r' < "/overlay_files/hooks.sh" > /tmp/hooks.sh
     chmod +x /tmp/hooks.sh
-    /bin/bash /tmp/hooks.sh || exit 1
+    if ! /bin/bash /tmp/hooks.sh; then
+        source_record_files || true  # Preserve ownership for cleanup after a failed hook.
+        exit 1
+    fi
 else
     # ЛОГИКА ОТКАТА (Rollback) с детальной диагностикой
     echo -e "${CYAN}[HOOKS] hooks.sh not found. Validating system state...${NC}"
@@ -291,6 +487,8 @@ else
     fi
 fi
 
+source_record_files || exit 1
+
 # 3. КОНФИГУРАЦИЯ (.config)
 rm -f .config
 if [ -f "/output/manual_config" ]; then
@@ -323,15 +521,8 @@ fi
 
 make defconfig
 
-# 4. OVERLAY И ПАКЕТЫ
+# 4. ДОПОЛНИТЕЛЬНЫЕ ПАКЕТЫ (the files/ overlay already precedes hooks)
 [ -d "/input_packages" ] && [ "$(ls -A /input_packages)" ] && cp -rf /input_packages/* package/
-if [ -d "/overlay_files" ] && [ -n "$(ls -A /overlay_files)" ]; then
-    echo "[SYNC] Syncing overlay files..."
-    mkdir -p files/
-    rsync -a --delete /overlay_files/ files/
-    # По-прежнему удаляем hooks.sh, т.к. он не должен попасть в прошивку
-    rm -f files/hooks.sh
-fi
 
 # 5. СБОРКА
 # BEGIN SOURCE STORAGE HEALTH HELPERS (used by tests/test_src_builder_storage.sh)
@@ -516,4 +707,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=eb7be183131daa7ecca243d2607ec247
+# checksum:MD5=aac98fb2be924815fa0eb5017679fcd8

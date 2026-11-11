@@ -9,9 +9,6 @@ would not detect a missing shared regression or provide behavioral parity.
 from __future__ import annotations
 
 import re
-import subprocess
-import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -46,38 +43,6 @@ def _labels(path: Path, *, windows: bool) -> tuple[set[str], set[str]]:
 
 
 class TesterParity(unittest.TestCase):
-    @unittest.skipUnless(sys.platform.startswith("linux"), "Requires Linux Bash and file semantics")
-    def test_bash_unpacker_restore_is_atomic_and_preserves_backup_on_failure(self):
-        text = (REPO / "tester.sh").read_text(encoding="utf-8")
-        function = re.search(r"(?ms)^restore_test_unpacker\(\) \{\n.*?^\}", text)
-        self.assertIsNotNone(function, "Unpacker restore helper is missing")
-        script = "set -e\n" + function.group() + r'''
-printf original > backup
-chmod 751 backup
-printf generated > _unpacker.sh
-exec 3< _unpacker.sh
-restore_test_unpacker backup
-test "$(cat _unpacker.sh)" = original
-test "$(cat <&3)" = generated
-test "$(stat -c '%a' _unpacker.sh)" = 751
-test ! -e backup
-exec 3<&-
-mv _unpacker.sh restored-original
-mkdir _unpacker.sh
-printf another-original > backup
-if restore_test_unpacker backup; then
-    echo 'Restore must fail when the target is a directory' >&2
-    exit 1
-fi
-test "$(cat backup)" = another-original
-test -d _unpacker.sh
-if compgen -G '.routerfw-unpacker-restore.*'; then exit 1; fi
-'''
-        with tempfile.TemporaryDirectory(prefix="routerfw-restore-test-") as fixture:
-            proc = subprocess.run(["bash", "-c", script], cwd=fixture,
-                                  capture_output=True, text=True)
-        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-
     def test_cli_labels_mirror(self):
         sh_cli, _ = _labels(REPO / "tester.sh", windows=False)
         bat_cli, _ = _labels(REPO / "tester.bat", windows=True)
@@ -90,13 +55,13 @@ if compgen -G '.routerfw-unpacker-restore.*'; then exit 1; fi
         self.assertEqual(sh - bat, BASH_ONLY)
         self.assertEqual(bat - sh, BATCH_ONLY)
         self.assertIn("Source Tree Packager", sh & bat)
-        self.assertIn("Packer Staging Cleanup", sh & bat)
+        self.assertFalse(any(label.startswith("Packer ") for label in sh | bat))
 
-    def test_source_builder_regression_runs_both_storage_and_git_feeds(self):
+    def test_source_builder_regression_runs_storage_git_feeds_and_lifecycle(self):
         harness = (REPO / "tester.sh").read_text(encoding="utf-8")
         self.assertRegex(
             harness,
-            r'run_check 0 "Source Builder Storage Recovery" "bash tests/test_src_builder_storage\.sh && bash tests/test_src_builder_git_feeds\.sh"',
+            r'run_check 0 "Source Builder Storage Recovery" "bash tests/test_src_builder_storage\.sh && bash tests/test_src_builder_git_feeds\.sh && bash tests/test_src_builder_lifecycle\.sh"',
         )
 
     def test_github_workflow_runner_os_labels_are_pinned(self):
@@ -115,7 +80,7 @@ if compgen -G '.routerfw-unpacker-restore.*'; then exit 1; fi
         sh_cli, sh_health = _labels(REPO / "tester.sh", windows=False)
         bat_cli, bat_health = _labels(REPO / "tester.bat", windows=True)
         self.assertEqual(len(sh_cli) + len(sh_health), len(bat_cli) + len(bat_health))
-        self.assertGreaterEqual(len(sh_cli) + len(sh_health), 60)
+        self.assertGreaterEqual(len(sh_cli) + len(sh_health), 57)
 
 
 if __name__ == "__main__":
