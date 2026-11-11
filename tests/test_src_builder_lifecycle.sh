@@ -9,6 +9,8 @@ awk '/^# BEGIN SOURCE OVERLAY LIFECYCLE HELPERS/ { inside=1; next } /^# END SOUR
 bash -n "$TMP/functions.sh"
 # shellcheck source=/dev/null
 source "$TMP/functions.sh"
+# Normalization is a shared IB/SB library, mounted in both containers.
+source "$ROOT/system/overlay_permissions.sh"
 # The real container installs dos2unix. Offline fixtures emulate its text conversion.
 dos2unix() {
     [[ "$1" == -q && "$2" == -- ]] || return 1
@@ -353,5 +355,44 @@ source_prepare_files > "$TMP/log" 2>&1 || fail 'legacy empty dir check'
 source_record_files > "$TMP/log" 2>&1 || fail 'legacy empty dir check record'
 [[ -d files/etc/legacy-orphan-empty ]] || fail 'legacy unknown empty directory was deleted'
 pass 'unknown legacy orphan is never silently claimed or removed'
+
+# Shared permissions policy must be applied BEFORE persistent files/ is changed.
+mkdir -p "$ROUTERFW_FILES_SOURCE/etc/routerfw" "$ROUTERFW_FILES_SOURCE/etc/uci-defaults" \
+         "$ROUTERFW_FILES_SOURCE/etc/dropbear"
+printf 'marker-v1\n' > "$ROUTERFW_FILES_SOURCE/etc/routerfw/probe.txt"
+printf '#!/bin/sh\necho yes\n' > "$ROUTERFW_FILES_SOURCE/etc/uci-defaults/99-permissions.sh"
+printf 'ssh-ed25519 AAAA...\n' > "$ROUTERFW_FILES_SOURCE/etc/dropbear/authorized_keys"
+chmod 777 "$ROUTERFW_FILES_SOURCE/etc/routerfw/probe.txt" \
+          "$ROUTERFW_FILES_SOURCE/etc/uci-defaults/99-permissions.sh" \
+          "$ROUTERFW_FILES_SOURCE/etc/dropbear/authorized_keys"
+source_prepare_files > "$TMP/log" 2>&1 || { cat "$TMP/log"; fail 'permission staging first'; }
+source_record_files > "$TMP/log" 2>&1 || fail 'permission staging record'
+[[ $(stat -c %a files/etc/routerfw/probe.txt) == 644 ]] || fail 'data mode must normalize to 0644'
+[[ $(stat -c %a files/etc/uci-defaults/99-permissions.sh) == 644 ]] || fail 'uci-defaults mode must normalize to 0644'
+[[ $(stat -c %a files/etc/dropbear/authorized_keys) == 600 ]] || fail 'SSH key mode must normalize to 0600'
+[[ $(stat -c %a files/etc/dropbear) == 700 ]] || fail 'SSH dir mode must normalize to 0700'
+[[ $(stat -c %a "$ROUTERFW_FILES_SOURCE/etc/routerfw/probe.txt") == 777 ]] || fail 'host source permissions changed'
+pass 'SB applies shared modes to staged files without touching host overlay'
+# Changing only explicit permission metadata must be observable even if data bytes stay identical.
+printf '0600 /etc/routerfw/probe.txt\n' > "$ROUTERFW_FILES_SOURCE/.routerfw-permissions"
+source_prepare_files > "$TMP/log" 2>&1 || { cat "$TMP/log"; fail 'permission-only UPDATE'; }
+source_record_files > "$TMP/log" 2>&1 || fail 'permission-only record'
+[[ $(stat -c %a files/etc/routerfw/probe.txt) == 600 ]] || fail 'explicit mode-only update missing'
+assert_missing files/.routerfw-permissions
+pass 'permission-only UPDATE works and metadata is not shipped'
+# Bad policy must fail before deletion of managed files.
+printf '0777 /etc/routerfw/probe.txt\n' > "$ROUTERFW_FILES_SOURCE/.routerfw-permissions"
+assert_failure 'invalid mode blocked before ownership cleanup' source_prepare_files
+assert_file files/etc/routerfw/probe.txt
+[[ $(stat -c %a files/etc/routerfw/probe.txt) == 600 ]] || fail 'invalid metadata touched persistent workdir'
+rm "$ROUTERFW_FILES_SOURCE/.routerfw-permissions"
+rm "$ROUTERFW_FILES_SOURCE/etc/routerfw/probe.txt" \
+   "$ROUTERFW_FILES_SOURCE/etc/uci-defaults/99-permissions.sh" \
+   "$ROUTERFW_FILES_SOURCE/etc/dropbear/authorized_keys"
+source_prepare_files > "$TMP/log" 2>&1 || { cat "$TMP/log"; fail 'permission file OFF'; }
+source_record_files > "$TMP/log" 2>&1 || fail 'permission file OFF record'
+assert_missing files/etc/routerfw/probe.txt
+assert_missing files/etc/routerfw
+pass 'invalid permissions fail closed; controlled ON/OFF still removes owned files and dirs'
 
 printf 'Source Builder Lifecycle: %d tests passed\n' "$pass_count"

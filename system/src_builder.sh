@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/src_builder.sh v2.2
+# file: system/src_builder.sh v2.3
 set -e
 
 # 1. Исправление прав (выполняется под root)
@@ -16,6 +16,9 @@ fi
 sudo -E -u build bash << 'EOF'
 set -e
 export HOME=/home/build
+[ -f /overlay_permissions.sh ] || { echo '[PERMISSIONS ERROR] Shared policy module not mounted.' >&2; exit 1; }
+# shellcheck source=system/overlay_permissions.sh
+source /overlay_permissions.sh
 PROFILE_ID=$(basename "$CONF_FILE" .conf)
 
 # FIX: Разрешаем Git работать с папкой, даже если owner UID отличается (актуально для Docker)
@@ -467,6 +470,7 @@ source_prepare_files() {
     local stage file rel input="${ROUTERFW_FILES_SOURCE:-/overlay_files}"
     stage=$(mktemp -d -- /tmp/routerfw-files.XXXXXXXX) || return 1
     if ! lifecycle_stage "$input" "$stage" yes; then rm -rf -- "$stage"; return 1; fi
+    if ! routerfw_normalize_overlay_permissions "$stage"; then rm -rf -- "$stage"; return 1; fi
     lifecycle_validate_dirs_state "$LIFECYCLE_FILES_DIRS_STATE" || { rm -rf -- "$stage"; return 1; }
     lifecycle_clean_owned "$LIFECYCLE_FILES_STATE" || { rm -rf -- "$stage"; return 1; }
     lifecycle_clean_owned_dirs "$LIFECYCLE_FILES_DIRS_STATE" || { rm -rf -- "$stage"; return 1; }
@@ -952,4 +956,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=d5105ad79eac20d3b4c1919febcaea4b
+# checksum:MD5=6babcedb641193ceba3417f8a4cd28c8

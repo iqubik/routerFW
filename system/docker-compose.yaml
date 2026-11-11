@@ -16,6 +16,7 @@ services:
       - ../profiles:/profiles${ROUTERFW_BIND_PROFILES_SUFFIX:-}
       - ./openssl.cnf:/openssl.cnf${ROUTERFW_BIND_RO_SUFFIX:-}
       - ./ib_builder.sh:/ib_builder.sh${ROUTERFW_BIND_RO_SUFFIX:-}
+      - ./overlay_permissions.sh:/overlay_permissions.sh${ROUTERFW_BIND_RO_SUFFIX:-}
     command: /bin/bash /ib_builder.sh
 
   builder-oldwrt:
@@ -34,9 +35,10 @@ services:
       - ../profiles:/profiles${ROUTERFW_BIND_PROFILES_SUFFIX:-}
       - ./openssl.cnf:/openssl.cnf${ROUTERFW_BIND_RO_SUFFIX:-}
       - ./ib_builder.sh:/ib_builder.sh${ROUTERFW_BIND_RO_SUFFIX:-}
+      - ./overlay_permissions.sh:/overlay_permissions.sh${ROUTERFW_BIND_RO_SUFFIX:-}
     command: /bin/bash /ib_builder.sh
 
 volumes:
   imagebuilder-cache:
   ipk-cache:
-# checksum:MD5=d9d004c701fa3984aa1772a94376f7d3
+# checksum:MD5=7d1dc6babfc38612d2b3496ddd44611d

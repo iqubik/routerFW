@@ -43,6 +43,7 @@ GEMINI.md
 /diff.zip.new
 /diff.new.zip
 /artifacts/worktree_diffs/
+/artifacts/testgate/
 # Optional source-tree snapshots (package_source_zip.bat / .py)
 /routerFW_source.zip
 /routerFW_source_*.zip

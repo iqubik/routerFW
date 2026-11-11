@@ -37,6 +37,7 @@ call :ADD_FILE "system/podman-compose.yaml"
 call :ADD_FILE "system/podman-compose-src.yaml"
 call :ADD_FILE "system/ib_builder.sh"
 call :ADD_FILE "system/src_builder.sh"
+call :ADD_FILE "system/overlay_permissions.sh"
 call :ADD_FILE "system/dockerfile"
 call :ADD_FILE "system/dockerfile.legacy"
 call :ADD_FILE "system/src.dockerfile"
@@ -68,6 +69,8 @@ call :ADD_FILE "docs\07-troubleshooting-faq.md"
 call :ADD_FILE "docs\07-troubleshooting-faq.en.md"
 call :ADD_FILE "docs\08-ib-apk-import-embed.md"
 call :ADD_FILE "docs\08-ib-apk-import-embed.en.md"
+call :ADD_FILE "docs\09-file-permissions.md"
+call :ADD_FILE "docs\09-file-permissions.en.md"
 call :ADD_FILE "docs\ARCHITECTURE_ru.md"
 call :ADD_FILE "docs\ARCHITECTURE_en.md"
 call :ADD_FILE "docs\ARCHITECTURE_diagram_ru.md"
@@ -338,4 +341,4 @@ if not exist "%W_DIR%\%W_ID%.ready" (
     > "%W_DIR%\%W_ID%.ready" echo done
 )
 exit /b %W_RC%
-:: checksum:MD5=adbb67bf51986ee4e33fd0ebb5c1b8bd
+:: checksum:MD5=66e4829f23089ae9eff8f5b3a14fac1a

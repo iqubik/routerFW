@@ -41,6 +41,8 @@ Both entry points are **feature-parity** wrappers: same menus, same logic, diffe
 
 **Container runtime selection:** `--runtime=auto|docker|podman`, short form `-r auto|docker|podman`, or the `ROUTERFW_RUNTIME` environment variable. In `auto` mode, an interactive launch asks the user when both Docker and Podman are available; non-interactive commands choose an available runtime without opening a menu. In WSL, the Bash version can fall back to `docker.exe` / `podman.exe` when native Linux CLIs are missing.
 
+**IB/SB file permissions:** see [Lesson 9](09-file-permissions.en.md) for the shared `custom_files` permission policy, safe exceptions and staging validation.
+
 **Local checks and CI:** GitHub Actions runs the same `tester.bat` / `tester.sh`, without separate copies of checks in YAML. The hosted OS labels are pinned to `ubuntu-24.04` / `windows-2025`; those image families still receive updates. Both suites cover the CLI, packer/unpacker roundtrips, packer determinism, and rejection of corrupt payloads. The Bash suite also runs syntax checks and ShellCheck (an installed `shellcheck` is required).
 
 - Windows: `tester.bat` runs the full Windows suite. `ROUTERFW_TEST_SKIP_PACKER=1` explicitly skips packaging and means an incomplete run.
@@ -409,4 +411,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=b095484a268ede4f41d9ceebf033fac6
+# checksum:MD5=e6c4c1bbc29a7ac07bcbf8a468969275

@@ -234,6 +234,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               ├─ [7] Скачивание ключей подписи (CUSTOM_KEYS)
   │               ├─ [8] Добавление кастомных репозиториев (CUSTOM_REPOS → repositories.conf)
   │               ├─ [9] Подготовка оверлея (/tmp/clean_overlay, удаление hooks.sh/README.md)
+  │               │        + общая политика прав system/overlay_permissions.sh (см. урок 9)
   │               ├─[10] make image  (2 попытки, повтор при ошибке)
   │               └─[11] Копирование артефактов → firmware_output/imagebuilder/<профиль>/<метка времени>/
   │
@@ -409,4 +410,4 @@ _packer.sh / _packer.bat  (v2.7MT)
 ## 13. Полная карта процессов (Mermaid)
 
 См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).
-# checksum:MD5=63f8a72e6574e5c2ecd42a74e9bbed0d
+# checksum:MD5=6d028c2c02b80b7fcfbbedac1794da63

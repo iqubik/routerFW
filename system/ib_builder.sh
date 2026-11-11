@@ -1,5 +1,5 @@
 #!/bin/bash
-# file: system/ib_builder.sh v1.9
+# file: system/ib_builder.sh v2.0
 set -e
 
 # Цвета для логов
@@ -12,6 +12,11 @@ NC='\033[0m'
 log() { echo -e "${GREEN}[INFO] $1${NC}"; }
 warn() { echo -e "${YELLOW}[WARN] $1${NC}"; }
 error() { echo -e "${RED}[FATAL] $1${NC}"; exit 1; }
+
+# Shared policy: never inherit permission bits from Windows/NTFS into rootfs.
+[ -f /overlay_permissions.sh ] || error "Shared overlay permissions module not mounted."
+# shellcheck source=system/overlay_permissions.sh
+source /overlay_permissions.sh
 
 # 1. Проверка профиля
 [ -f "/profiles/$CONF_FILE" ] || error "Profile /profiles/$CONF_FILE not found!"
@@ -354,9 +359,12 @@ fi
 
 # === ПОДГОТОВКА OVERLAY ===
 log "Preparing custom files..."
-mkdir -p /tmp/clean_overlay
-[ -d "/overlay_files" ] && cp -a /overlay_files/. /tmp/clean_overlay/ 2>/dev/null || true
-rm -f "/tmp/clean_overlay/hooks.sh" "/tmp/clean_overlay/README.md"
+mkdir -p /tmp/clean_overlay || error "Cannot create overlay staging directory."
+if [ -d /overlay_files ]; then
+    cp -R -- /overlay_files/. /tmp/clean_overlay/ || error "Cannot stage custom overlay."
+fi
+rm -f -- /tmp/clean_overlay/hooks.sh /tmp/clean_overlay/README.md
+routerfw_normalize_overlay_permissions /tmp/clean_overlay || error "Invalid custom overlay permissions."
 
 # --- 6. ЗАПУСК СБОРКИ (С ПОВТОРОМ) ---
 log "Starting make image for $TARGET_PROFILE..."
@@ -431,4 +439,4 @@ echo -e "\n============================================================"
 echo -e "=== Build completed in ${ELAPSED}s."
 echo -e "=== Artifacts: firmware_output/$REL_PATH/$TIMESTAMP"
 echo -e "============================================================\n"
-# checksum:MD5=0a298f9c48abaf8c890ee20ad9ff28c5
+# checksum:MD5=eececc490f41562e83359b654bc30595

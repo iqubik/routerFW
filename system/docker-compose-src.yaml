@@ -22,6 +22,7 @@ services:
       - ../${HOST_OUTPUT_DIR}:/output${ROUTERFW_BIND_RW_SUFFIX:-}
       - ./openssl.cnf:/openssl.cnf${ROUTERFW_BIND_RO_SUFFIX:-}
       - ./src_builder.sh:/src_builder.sh${ROUTERFW_BIND_RO_SUFFIX:-}
+      - ./overlay_permissions.sh:/overlay_permissions.sh${ROUTERFW_BIND_RO_SUFFIX:-}
     command: /bin/bash /src_builder.sh
 
   builder-src-oldwrt:
@@ -46,10 +47,11 @@ services:
       - ../${HOST_OUTPUT_DIR}:/output${ROUTERFW_BIND_RW_SUFFIX:-}
       - ./openssl.cnf:/openssl.cnf${ROUTERFW_BIND_RO_SUFFIX:-}
       - ./src_builder.sh:/src_builder.sh${ROUTERFW_BIND_RO_SUFFIX:-}
+      - ./overlay_permissions.sh:/overlay_permissions.sh${ROUTERFW_BIND_RO_SUFFIX:-}
     command: /bin/bash /src_builder.sh
 
 volumes:
   src-dl-cache:
   src-workdir:
   src-ccache:
-# checksum:MD5=b5e4d17239954816f8f0fe56b27275dc
+# checksum:MD5=a1f10a2143f493d1d804c02db747b674
