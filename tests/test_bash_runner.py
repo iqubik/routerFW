@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -47,10 +48,8 @@ class BashSelection(unittest.TestCase):
                 bash_runner.bash_executable()
 
     def test_probe_rejects_a_non_bash_shell(self):
-        shell = bash_runner.shutil.which("sh")
-        if not shell:
-            self.skipTest("sh not available")
-        with patch.dict(os.environ, {"ROUTERFW_TEST_BASH": shell}):
+        # Git for Windows can ship Bash under the name sh.exe.
+        with patch.dict(os.environ, {"ROUTERFW_TEST_BASH": sys.executable}):
             with self.assertRaisesRegex(RuntimeError, "No compatible Bash"):
                 bash_runner.bash_executable()
 

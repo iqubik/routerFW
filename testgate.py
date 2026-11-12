@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent
 WSL_DISTRO = os.environ.get("ROUTERFW_TESTGATE_WSL_DISTRO", "Debian")
 ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SUMMARY_RE = re.compile(r"(?:Итого|Total):?\s*(\d+)\s+OK,\s*(\d+)\s+FAIL", re.IGNORECASE)
+TIMING_RE = re.compile(r"^\[TIME\] (\d+) ms \| (.+)$")
 COLORS = {
     "bat": "\x1b[36m",
     "wsl": "\x1b[35m",
@@ -118,6 +119,23 @@ def stream_suite(
     events.put((name, None))
 
 
+def wait_suite(
+    name: str,
+    process: subprocess.Popen[str],
+    started: float,
+    finished: dict[str, tuple[int, float]],
+) -> None:
+    code = process.wait()
+    finished[name] = code, time.perf_counter() - started
+
+
+def slowest_tests(timings: list[tuple[int, str, str]]) -> list[str]:
+    return [
+        f"{milliseconds / 1000:.3f} s | {suite.upper()} | {label}"
+        for milliseconds, suite, label in sorted(timings, key=lambda row: -row[0])[:5]
+    ]
+
+
 def emit(name: str, line: str, *, ansi: bool) -> str:
     text = ANSI_RE.sub("", line.rstrip("\r\n"))
     suite_color = COLORS[name]
@@ -136,6 +154,7 @@ def save_summary(
     elapsed: dict[str, float],
     total_elapsed: float,
     distro_error: str | None,
+    slowest: list[str],
 ) -> bool:
     lines = [
         f"# Testgate — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
@@ -153,6 +172,8 @@ def save_summary(
         all_ok &= code == 0 and summary is not None and summary[1] == 0
     if distro_error:
         lines.extend(["", "WSL startup error:", "", f"```text\n{distro_error}\n```"])
+    if slowest:
+        lines.extend(["", "### Самые долгие проверки", "", *(f"- {line}" for line in slowest)])
     lines.extend([
         "",
         f"Total elapsed: **{format_duration(total_elapsed)}**",
@@ -164,10 +185,10 @@ def save_summary(
 
 
 def format_duration(seconds: float) -> str:
-    total = max(0, int(round(seconds)))
+    total, milliseconds = divmod(max(0, round(seconds * 1000)), 1000)
     hours, remainder = divmod(total, 3600)
     minutes, seconds = divmod(remainder, 60)
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
 
 def main() -> int:
@@ -180,6 +201,9 @@ def main() -> int:
     elapsed = {"bat": 0.0, "wsl": 0.0}
     started: dict[str, float] = {}
     processes: dict[str, subprocess.Popen[str]] = {}
+    finished: dict[str, tuple[int, float]] = {}
+    waiters: list[threading.Thread] = []
+    timings: list[tuple[int, str, str]] = []
     tails: dict[str, list[str]] = {"bat": [], "wsl": []}
     log_handles = {
         "bat": (artifacts / "tester.bat.md").open("w", encoding="utf-8", newline=""),
@@ -195,6 +219,15 @@ def main() -> int:
     }
     distro_error = None
 
+    def launch(name: str, command: list[str]) -> None:
+        started[name] = time.perf_counter()
+        process = processes[name] = start_suite(command)
+        waiter = threading.Thread(
+            target=wait_suite, args=(name, process, started[name], finished), daemon=True,
+        )
+        waiter.start()
+        waiters.append(waiter)
+
     try:
         try:
             linux_root = wsl_repo_path()
@@ -202,8 +235,7 @@ def main() -> int:
                 "wsl.exe", "--distribution", WSL_DISTRO, "--exec", "bash", "-lc",
                 'cd -- "$1" && exec bash ./tester.sh', "testgate", linux_root,
             ]
-            started["wsl"] = time.perf_counter()
-            processes["wsl"] = start_suite(wsl_command)
+            launch("wsl", wsl_command)
             print(f"{COLORS['wsl'] if ansi else ''}[WSL] Запущен tester.sh в {WSL_DISTRO}{COLORS['reset'] if ansi else ''}", flush=True)
         except (OSError, RuntimeError) as error:
             distro_error = str(error)
@@ -214,8 +246,7 @@ def main() -> int:
             print(f"{COLORS['fail'] if ansi else ''}{message.rstrip()}{COLORS['reset'] if ansi else ''}", flush=True)
 
         try:
-            started["bat"] = time.perf_counter()
-            processes["bat"] = start_suite(["cmd.exe", "/d", "/c", "call", "tester.bat"])
+            launch("bat", ["cmd.exe", "/d", "/c", "call", "tester.bat"])
             print(f"{COLORS['bat'] if ansi else ''}[BAT] Запущен tester.bat{COLORS['reset'] if ansi else ''}", flush=True)
         except OSError as error:
             results["bat"] = (1, None)
@@ -242,15 +273,19 @@ def main() -> int:
                 active.discard(name)
                 continue
             clean = emit(name, line, ansi=ansi)
+            if match := TIMING_RE.fullmatch(clean):
+                timings.append((int(match[1]), name, match[2].rstrip()))
             log_handles[name].write(line)
             log_handles[name].flush()
             tails[name].append(clean)
             if len(tails[name]) > 250:
                 del tails[name][0]
 
-        for name, process in processes.items():
-            results[name] = (process.wait(), parse_summary(tails[name]))
-            elapsed[name] = time.perf_counter() - started[name]
+        for waiter in waiters:
+            waiter.join()
+        for name, (code, duration) in finished.items():
+            results[name] = (code, parse_summary(tails[name]))
+            elapsed[name] = duration
     except KeyboardInterrupt:
         for process in processes.values():
             if process.poll() is None:
@@ -262,7 +297,7 @@ def main() -> int:
                 process.kill()
                 process.wait()
         for name, process in processes.items():
-            elapsed[name] = time.perf_counter() - started[name]
+            elapsed[name] = finished.get(name, (0, time.perf_counter() - started[name]))[1]
             results[name] = (process.returncode or 1, parse_summary(tails[name]))
         print("\n[WARN] Testgate остановлен пользователем; частичные логи сохранены.", flush=True)
         return_code = 130
@@ -274,12 +309,16 @@ def main() -> int:
         if source.is_file() and source.stat().st_mtime_ns != native_log_mtimes[name]:
             shutil.copy2(source, target)
 
+    total_elapsed = time.perf_counter() - gate_started
+    slowest = slowest_tests(timings)
     if "return_code" in locals():
         all_ok = False
     else:
-        all_ok = save_summary(artifacts, results, elapsed, time.perf_counter() - gate_started, distro_error)
+        all_ok = save_summary(artifacts, results, elapsed, total_elapsed, distro_error, slowest)
         return_code = 0 if all_ok else 1
 
+    if slowest:
+        print("Самые долгие проверки:", *slowest, sep="\n", flush=True)
     final_lines = []
     for name in ("bat", "wsl"):
         code, summary = results.get(name, (1, None))
@@ -292,7 +331,7 @@ def main() -> int:
         ))
     final_lines.append((
         COLORS["ok"] if all_ok and ansi else (COLORS["fail"] if ansi else ""),
-        f"{'PASS' if all_ok else 'FAIL'} — общее время {format_duration(time.perf_counter() - gate_started)}; логи: {artifacts}",
+        f"{'PASS' if all_ok else 'FAIL'} — общее время {format_duration(total_elapsed)}; логи: {artifacts}",
         COLORS["reset"] if ansi else "",
     ))
     for prefix, message, suffix in final_lines:

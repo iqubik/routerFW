@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import Mock, patch
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "testgate.py"
@@ -24,8 +25,24 @@ class TestgateTests(unittest.TestCase):
         self.assertEqual(testgate.line_color("[FAIL] Docker Smoke"), testgate.COLORS["fail"])
         self.assertIsNone(testgate.line_color("--- Check: Docker Smoke ---"))
 
-    def test_duration_is_rendered_as_hours_minutes_seconds(self):
-        self.assertEqual(testgate.format_duration(3661.4), "01:01:01")
+    def test_duration_keeps_milliseconds_and_rolls_over(self):
+        self.assertEqual(testgate.format_duration(3661.4), "01:01:01.400")
+        self.assertEqual(testgate.format_duration(59.9996), "00:01:00.000")
+
+    def test_suite_exit_records_its_own_elapsed_time(self):
+        finished = {}
+        with patch.object(testgate.time, "perf_counter", side_effect=[13.5, 21.0]):
+            testgate.wait_suite("wsl", Mock(wait=lambda: 0), 10.0, finished)
+            testgate.wait_suite("bat", Mock(wait=lambda: 1), 11.0, finished)
+        self.assertEqual(finished, {"wsl": (0, 3.5), "bat": (1, 10.0)})
+
+    def test_slowest_checks_are_ranked_across_suites(self):
+        timings = [(ms, "bat", "a") for ms in range(1, 7)]
+        timings.append((1100, "wsl", "check with spaces"))
+        top = testgate.slowest_tests(timings)
+        self.assertEqual(len(top), 5)
+        self.assertEqual(top[0], "1.100 s | WSL | check with spaces")
+        self.assertEqual(top[-1], "0.003 s | BAT | a")
 
 
 if __name__ == "__main__":
