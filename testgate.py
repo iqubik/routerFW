@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import queue
 import re
-import shutil
 import subprocess
 import sys
 import threading
@@ -95,10 +94,11 @@ def wsl_repo_path() -> str:
     return result.stdout.strip()
 
 
-def start_suite(command: list[str]) -> subprocess.Popen[str]:
+def start_suite(command: list[str], env: dict[str, str] | None = None) -> subprocess.Popen[str]:
     return subprocess.Popen(
         command,
         cwd=ROOT,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -205,23 +205,19 @@ def main() -> int:
     waiters: list[threading.Thread] = []
     timings: list[tuple[int, str, str]] = []
     tails: dict[str, list[str]] = {"bat": [], "wsl": []}
-    log_handles = {
-        "bat": (artifacts / "tester.bat.md").open("w", encoding="utf-8", newline=""),
-        "wsl": (artifacts / "tester.sh.md").open("w", encoding="utf-8", newline=""),
+    log_paths = {
+        "bat": artifacts / "tester.bat.md",
+        "wsl": artifacts / "tester.sh.md",
     }
+    log_handles = {name: path.open("w", encoding="utf-8", newline="") for name, path in log_paths.items()}
     native_logs = {
-        "bat": (ROOT / "tester_log_win.md", artifacts / "tester.bat.md"),
-        "wsl": (ROOT / "tester_log_lin.md", artifacts / "tester.sh.md"),
-    }
-    native_log_mtimes = {
-        name: source.stat().st_mtime_ns if source.is_file() else None
-        for name, (source, _) in native_logs.items()
+        name: path.with_suffix(".native.md") for name, path in log_paths.items()
     }
     distro_error = None
 
-    def launch(name: str, command: list[str]) -> None:
+    def launch(name: str, command: list[str], env: dict[str, str] | None = None) -> None:
         started[name] = time.perf_counter()
-        process = processes[name] = start_suite(command)
+        process = processes[name] = start_suite(command, env)
         waiter = threading.Thread(
             target=wait_suite, args=(name, process, started[name], finished), daemon=True,
         )
@@ -233,7 +229,8 @@ def main() -> int:
             linux_root = wsl_repo_path()
             wsl_command = [
                 "wsl.exe", "--distribution", WSL_DISTRO, "--exec", "bash", "-lc",
-                'cd -- "$1" && exec bash ./tester.sh', "testgate", linux_root,
+                'cd -- "$1" && ROUTERFW_TEST_LOG="$2" exec bash ./tester.sh',
+                "testgate", linux_root, native_logs["wsl"].relative_to(ROOT).as_posix(),
             ]
             launch("wsl", wsl_command)
             print(f"{COLORS['wsl'] if ansi else ''}[WSL] Запущен tester.sh в {WSL_DISTRO}{COLORS['reset'] if ansi else ''}", flush=True)
@@ -246,7 +243,10 @@ def main() -> int:
             print(f"{COLORS['fail'] if ansi else ''}{message.rstrip()}{COLORS['reset'] if ansi else ''}", flush=True)
 
         try:
-            launch("bat", ["cmd.exe", "/d", "/c", "call", "tester.bat"])
+            launch(
+                "bat", ["cmd.exe", "/d", "/c", "call", "tester.bat"],
+                os.environ | {"ROUTERFW_TEST_LOG": str(native_logs["bat"])},
+            )
             print(f"{COLORS['bat'] if ansi else ''}[BAT] Запущен tester.bat{COLORS['reset'] if ansi else ''}", flush=True)
         except OSError as error:
             results["bat"] = (1, None)
@@ -305,9 +305,9 @@ def main() -> int:
         for handle in log_handles.values():
             handle.close()
 
-    for name, (source, target) in native_logs.items():
-        if source.is_file() and source.stat().st_mtime_ns != native_log_mtimes[name]:
-            shutil.copy2(source, target)
+    for name, source in native_logs.items():
+        if source.is_file():
+            source.replace(log_paths[name])
 
     total_elapsed = time.perf_counter() - gate_started
     slowest = slowest_tests(timings)

@@ -33,9 +33,10 @@ set "FAIL=0"
 set "ROUTERFW_NO_CLS=1"
 set "ROUTERFW_TEST_MODE=1"
 set "LOG=%~dp0tester_log_win.md"
-set "TEMP_OUT=%~dp0tester_tmp_win_out.txt"
+if defined ROUTERFW_TEST_LOG set "LOG=%ROUTERFW_TEST_LOG%"
 set "TASK_DIR=%TEMP%\routerfw-tester-bat-%RANDOM%-%RANDOM%"
 mkdir "%TASK_DIR%" >nul 2>&1
+set "TEMP_OUT=%TASK_DIR%\check.out"
 set "TESTER_JOBS=%ROUTERFW_TEST_JOBS%"
 if not defined TESTER_JOBS set "TESTER_JOBS=%NUMBER_OF_PROCESSORS%"
 if not defined TESTER_JOBS set "TESTER_JOBS=4"
@@ -176,7 +177,6 @@ if exist "%TASK_DIR%\timings" (
 set "TEE_LINE=== Итого: !PASS! OK, !FAIL! FAIL ==="
 call :tee
 set "TEE_LINE=" & call :tee
-if exist "%TEMP_OUT%" del "%TEMP_OUT%"
 if exist "%TASK_DIR%" rd /s /q "%TASK_DIR%" >nul 2>&1
 if not "%FAIL%"=="0" exit /b 1
 exit /b 0

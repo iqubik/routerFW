@@ -39,7 +39,7 @@ FAIL=0
 export ROUTERFW_NO_CLS=1
 export ROUTERFW_TEST_MODE=1
 
-LOG="$SCRIPT_DIR/tester_log_lin.md"
+LOG="${ROUTERFW_TEST_LOG:-$SCRIPT_DIR/tester_log_lin.md}"
 TASK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/routerfw-tester-sh.XXXXXX")"
 TESTER_JOBS="${ROUTERFW_TEST_JOBS:-}"
 if [ -z "$TESTER_JOBS" ]; then
