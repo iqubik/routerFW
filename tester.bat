@@ -34,8 +34,15 @@ set "ROUTERFW_NO_CLS=1"
 set "ROUTERFW_TEST_MODE=1"
 set "LOG=%~dp0tester_log_win.md"
 if defined ROUTERFW_TEST_LOG set "LOG=%ROUTERFW_TEST_LOG%"
-set "TASK_DIR=%TEMP%\routerfw-tester-bat-%RANDOM%-%RANDOM%"
-mkdir "%TASK_DIR%" >nul 2>&1
+set "TASK_DIR="
+for /L %%I in (1,1,10) do if not defined TASK_DIR (
+  set "TASK_CANDIDATE=%TEMP%\routerfw-tester-bat-!RANDOM!-!RANDOM!"
+  mkdir "!TASK_CANDIDATE!" >nul 2>&1 && set "TASK_DIR=!TASK_CANDIDATE!"
+)
+if not defined TASK_DIR (
+  >&2 echo [FAIL] Could not create a temporary test directory.
+  exit /b 1
+)
 set "TEMP_OUT=%TASK_DIR%\check.out"
 set "TESTER_JOBS=%ROUTERFW_TEST_JOBS%"
 if not defined TESTER_JOBS set "TESTER_JOBS=%NUMBER_OF_PROCESSORS%"
