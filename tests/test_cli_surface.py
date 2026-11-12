@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from bash_runner import bash_executable, bash_environment
+
 REPO = Path(__file__).resolve().parents[1]
 
 
@@ -18,7 +20,11 @@ def invoke(name, *args, input_text=None, cwd=REPO, runtime=None):
     if runtime is not None:
         env["ROUTERFW_RUNTIME"] = runtime
     if name == "sh":
-        cmd = ["bash", "_Builder.sh", "--lang=EN", *args]
+        # Execute the checked interpreter, not an unrelated bash on PATH.
+        # The -c wrapper keeps argument quoting intact across Win32/MSYS/WSL.
+        cmd = [bash_executable(), "-c", 'exec "$BASH" ./_Builder.sh "$@"',
+               "routerfw-cli-test", "--lang=EN", *args]
+        env = bash_environment(env)
     elif name == "bat":
         cmd = ["cmd.exe", "/d", "/c", "call", "_Builder.bat", "--lang=EN", *args]
     else:

@@ -10,16 +10,18 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from bash_runner import bash_executable, bash_environment
+
 def run_bash_fixture(script: str, **kwargs):
-    """Pass a single ASCII-safe -c argument across Win32 -> WSL argv.
+    """Pass an ASCII-safe program across Win32 -> Git Bash / WSL argv.
 
     Passing a multi-line Bash program as a Windows process argument can change
-    quoting and newlines. Decode the exact source inside Bash, not on Win32.
+    quoting and newlines. Decode the exact source inside the selected Bash, not on Win32.
     """
     encoded = base64.b64encode(script.encode("utf-8")).decode("ascii")
     return subprocess.run(
-        ["bash", "-c", "printf %s " + encoded + " | base64 -d | bash"],
-        **kwargs,
+        [bash_executable(), "-c", "printf %s " + encoded + ' | base64 -d | "$BASH"'],
+        env=bash_environment(), **kwargs,
     )
 
 

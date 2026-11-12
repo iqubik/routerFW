@@ -357,7 +357,7 @@ TEE_LINE="" tee_line
 
 # Сравнение ключей
 run_check 0 "Source Builder Storage Recovery" "bash tests/test_src_builder_storage.sh && bash tests/test_src_builder_git_feeds.sh && bash tests/test_src_builder_lifecycle.sh"
-run_check 0 "Source Builder Post-Build Discovery" "bash tests/test_builder_postbuild.sh"
+run_check 0 "Source Builder Post-Build Discovery" "bash tests/test_builder_postbuild.sh && bash tests/test_source_post_build_sh.sh"
 run_check 0 "Source Tree Packager" 'if command -v python3 >/dev/null 2>&1 && python3 -c "import sys; assert sys.version_info >= (3, 10)"; then python3 -m unittest discover -s tests -p "test_*.py" -q; elif [ -n "${CI:-}" ]; then echo "[FAIL] CI requires Python 3.10+ for source exporter regressions"; exit 1; else echo "[SKIP] Optional Python 3.10+ unavailable; source packaging tests not run"; fi'
 run_check 0 "Bash Syntax" 'set -e -o pipefail; for f in _Builder.sh _unpacker.sh tester.sh system/*.sh tests/*.sh; do bash -n "$f"; done; git ls-files -z -- "custom_files/**/*.sh" "scripts/**/*.sh" "scripts/*.sh" | xargs -0 -r -n1 bash -n'
 run_check 0 "ShellCheck" 'command -v shellcheck >/dev/null || { echo "Install shellcheck to run the same checks as CI"; exit 1; }; shellcheck --severity=error _Builder.sh tester.sh system/*.sh'
