@@ -495,7 +495,10 @@ SRC_CORES="safe"
 
 SRC_EXTRA_CONFIG='CONFIG_TARGET_$($GlobalState.Target)=y
 CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)=y
-CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalState.ModelID)=y'
+CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalState.ModelID)=y
+CONFIG_DEVEL=y
+CONFIG_CCACHE=y
+CONFIG_CCACHE_DIR="/ccache"'
 
 "@
                 [System.IO.File]::WriteAllText($confPath, $content, (New-Object System.Text.UTF8Encoding($false)))
@@ -511,4 +514,4 @@ CONFIG_TARGET_$($GlobalState.Target)_$($GlobalState.Subtarget)_DEVICE_$($GlobalS
         Read-Host "Press Enter to retry..."
     }
 } # <-- Закрывает While
-# checksum:MD5=e34a2d3334de531c5d42da96ccdc2794
+# checksum:MD5=85a98059f073c06cfa35c4aac71039f3

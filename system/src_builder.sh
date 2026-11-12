@@ -608,8 +608,7 @@ if [ -f "/output/manual_config" ]; then
     echo "[CONFIG] Using manual_config..."
     cp "/output/manual_config" .config
 else
-    echo "CONFIG_CCACHE=y" >> .config
-echo "CONFIG_TARGET_${SRC_TARGET}=y" >> .config
+    echo "CONFIG_TARGET_${SRC_TARGET}=y" >> .config
     echo "CONFIG_TARGET_${SRC_TARGET}_${SRC_SUBTARGET}=y" >> .config
     
     # FIX: Priority to SRC_EXTRA_CONFIG for Device Selection
@@ -632,7 +631,14 @@ echo "CONFIG_TARGET_${SRC_TARGET}=y" >> .config
     fi
 fi
 
+# Persistent compiler cache is a Source Builder policy, irrespective of manual/profile Kconfig.
+# CCACHE is hidden behind the upstream DEVEL menu; setting CCACHE alone is not sufficient.
+# Kconfig otherwise falls back to TOPDIR/.ccache, bypassing our Compose volume /ccache.
+sed -i -e '/^CONFIG_DEVEL=/d' -e '/^# CONFIG_DEVEL is not set$/d' -e '/^CONFIG_CCACHE=/d' -e '/^# CONFIG_CCACHE is not set$/d' -e '/^CONFIG_CCACHE_DIR=/d' -e '/^# CONFIG_CCACHE_DIR is not set$/d' .config
+printf '%s\n' 'CONFIG_DEVEL=y' 'CONFIG_CCACHE=y' 'CONFIG_CCACHE_DIR="/ccache"' >> .config
 make defconfig
+if ! grep -qx 'CONFIG_DEVEL=y' .config || ! grep -qx 'CONFIG_CCACHE=y' .config || ! grep -qx 'CONFIG_CCACHE_DIR="/ccache"' .config; then echo '[CONFIG ERROR] OpenWrt rejected persistent CCache settings after defconfig.' >&2; exit 1; fi
+echo '[CACHE] OpenWrt CCache enabled: directory=/ccache, maximum=20G.'
 
 # 4. ДОПОЛНИТЕЛЬНЫЕ ПАКЕТЫ (the files/ overlay already precedes hooks)
 [ -d "/input_packages" ] && [ "$(ls -A /input_packages)" ] && cp -rf /input_packages/* package/
@@ -912,6 +918,13 @@ fi
 
 storage_check 'before compile' || exit 1
 run_source_compile "${MAKE_ARGS[@]}" || exit 1
+# Show measurements from the same environment as compiler invocations; running
+# `ccache -s` in a separate container shell without CCACHE_DIR/CCACHE_MAXSIZE
+# otherwise reports unrelated defaults (notably the default 5 GiB limit).
+echo '[CACHE] Compiler cache statistics (persistent /ccache):'
+if ! ccache -s; then
+    echo '[CACHE WARN] Unable to read CCache statistics; verify the container tool installation.' >&2
+fi
 
 # 6. СОХРАНЕНИЕ
 # BEGIN SOURCE ARTIFACT EXPORT HELPERS (offline regression tests extract this block)
@@ -1129,4 +1142,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=242ef27959b58cca7c19f83f126d02ce
+# checksum:MD5=e8cdfa8a1954fbc31ec5e0f1c81aac19

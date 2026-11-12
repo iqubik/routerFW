@@ -349,6 +349,7 @@ if not "!p1!"=="" (
     if /i "!c1!"=="build"     set "CLI_CMD=BUILD"     & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="b"         set "CLI_CMD=BUILD"     & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="build-all" set "CLI_CMD=BUILD_ALL" & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
+    if /i "!c1!"=="build_all" set "CLI_CMD=BUILD_ALL" & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="all"       set "CLI_CMD=BUILD_ALL" & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="a"         set "CLI_CMD=BUILD_ALL" & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
     if /i "!c1!"=="edit"       set "CLI_CMD=EDIT"      & set "CLI_ARG1=!c2!" & set "CLI_ARG2=!c3!"
@@ -549,10 +550,27 @@ echo    %C_LBL%[%C_KEY%0%C_LBL%] %L_BACK%%C_RST%
 echo.
 set "e_choice="
 set /p e_choice=%C_VAL%%L_CHOICE%: %C_RST%
-if "%e_choice%"=="0" goto MENU
+if not defined e_choice if defined CLI_CMD exit /b 1
+if "%e_choice%"=="0" (
+    if defined ROUTERFW_CLI_EDIT_PICKER exit /b 0
+    goto MENU
+)
+:: Числовой выбор — только десятичные цифры; не интерпретировать ввод как set /a expression.
+echo(!e_choice!| findstr /R /C:"^[0-9][0-9]*$" >nul
+if errorlevel 1 (
+    if defined ROUTERFW_CLI_EDIT_PICKER exit /b 1
+    goto INVALID
+)
+set "n_e=0"
 set /a n_e=%e_choice% 2>nul
-if %n_e% gtr %count% goto INVALID
-if %n_e% lss 1 goto INVALID
+if %n_e% gtr %count% (
+    if defined ROUTERFW_CLI_EDIT_PICKER exit /b 1
+    goto INVALID
+)
+if %n_e% lss 1 (
+    if defined ROUTERFW_CLI_EDIT_PICKER exit /b 1
+    goto INVALID
+)
 set "SEL_CONF=!profile[%n_e%]!"
 set "SEL_ID=!profile[%n_e%]:.conf=!"
 
@@ -1213,6 +1231,7 @@ goto MENU
 
 :INVALID
 echo %L_ERR_INPUT%
+if defined CLI_CMD exit /b 1
 pause
 goto MENU
 
@@ -1223,6 +1242,7 @@ goto MENU
 if "%CLI_CMD%"=="HELP" goto CLI_HELP
 if "%CLI_CMD%"=="STATE" goto CLI_STATE
 if "%CLI_CMD%"=="WIZARD" goto WIZARD
+if "%CLI_CMD%"=="BUILD_ALL" if "%BUILD_MODE%"=="SOURCE" goto CLI_BUILD_ALL_DENIED
 if "%CLI_CMD%"=="BUILD_ALL" goto BUILD_ALL
 if "%CLI_CMD%"=="BUILD" goto CLI_BUILD
 if "%CLI_CMD%"=="EDIT" goto CLI_EDIT
@@ -1235,6 +1255,11 @@ if "%CLI_CMD%"=="CHECKSUM_CLEAR" goto CLI_CHECKSUM_CLEAR
 echo !L_CLI_ERR_UNKNOWN_CMD!!CLI_CMD!!C_RST!
 exit /b 1
 
+:CLI_BUILD_ALL_DENIED
+:: CLI must reject SOURCE mass builds with nonzero status, not return to menu.
+echo !L_WARN_MASS!
+exit /b 1
+
 :CLI_HELP
 echo.
 echo !C_LBL!!L_CLI_HELP_VER!!VER_NUM! !L_CLI_HELP_HEAD!!C_RST!
@@ -1243,18 +1268,18 @@ echo !C_GRY!!L_CLI_LANG_KEY!!C_RST!
 echo !C_GRY!!L_CLI_RUNTIME_KEY!!C_RST!
 echo !C_GRY!!L_CLI_MODE_PREFIX!!C_RST!
 echo.
-echo   build, b              ^<id^>                 %L_CLI_DESC_BUILD%
-echo   build-all, a, all                          %L_CLI_DESC_BUILD_ALL%
-echo   edit, e               [id]                 %L_CLI_DESC_EDIT%
-echo   menuconfig, k         ^<id^>                 %L_CLI_DESC_MENUCONFIG%
-echo   import, i             ^<id^>                 %L_CLI_DESC_IMPORT%
-echo   wizard, w                                  %L_CLI_DESC_WIZARD%
-echo   clean, c              [1-6/1-3] [id/A]     %L_CLI_DESC_CLEAN%
-echo   state, s                                   %L_CLI_DESC_STATE%
-echo   check-all                                  %L_CLI_DESC_CHKSUM_ALL%
-echo   check-clear           ^<id^> / all           %L_CLI_DESC_CHKSUM_CLEAR%
-echo   check                 ^<id^>                 %L_CLI_DESC_CHKSUM%
-echo   help, -h, --help                           %L_CLI_DESC_HELP%
+echo   build, b                      ^<id^>                 %L_CLI_DESC_BUILD%
+echo   build-all, a, all, build_all                         %L_CLI_DESC_BUILD_ALL%
+echo   edit, e                       [id]                   %L_CLI_DESC_EDIT%
+echo   menuconfig, k                 ^<id^>                 %L_CLI_DESC_MENUCONFIG%
+echo   import, i                     ^<id^>                 %L_CLI_DESC_IMPORT%
+echo   wizard, w                                            %L_CLI_DESC_WIZARD%
+echo   clean, c                      [1-6/1-3] [id/All]     %L_CLI_DESC_CLEAN%
+echo   state, s                                             %L_CLI_DESC_STATE%
+echo   check-all                                            %L_CLI_DESC_CHKSUM_ALL%
+echo   check-clear                   [id/All]               %L_CLI_DESC_CHKSUM_CLEAR%
+echo   check                         ^<id^>                 %L_CLI_DESC_CHKSUM%
+echo   help, -h, --help                                     %L_CLI_DESC_HELP%
 echo.
 echo !C_GRY!!L_CLI_HELP_FOOT!!C_RST!
 echo !C_GRY!!L_CLI_USAGE_HEAD!!C_RST!
@@ -1797,7 +1822,11 @@ if "!BUILD_STATUS!"=="0" (
 exit /b !BUILD_STATUS!
 
 :CLI_EDIT
-if not defined CLI_ARG1 echo !L_CLI_ERR_PROFILE_REQUIRED! & exit /b 1
+:: Без ID — общий интерактивный селектор из EDIT_PROFILE (как в Bash).
+if not defined CLI_ARG1 (
+    set "ROUTERFW_CLI_EDIT_PICKER=1"
+    goto EDIT_PROFILE
+)
 for /f "tokens=* delims= " %%A in ("!CLI_ARG1!") do set "cli_trim=%%A"
 for /l %%# in (1,1,64) do if defined cli_trim if "!cli_trim:~-1!"==" " set "cli_trim=!cli_trim:~0,-1!"
 if "!cli_trim!"=="" echo !L_CLI_ERR_PROFILE_REQUIRED! & exit /b 1
@@ -1981,6 +2010,15 @@ echo #^!/bin/bash > "%RUNNER_SCRIPT%"
 echo set -e >> "%RUNNER_SCRIPT%"
 echo export HOME=/home/build >> "%RUNNER_SCRIPT%"
 echo cd /home/build/openwrt >> "%RUNNER_SCRIPT%"
+echo # Save the existing worktree configuration. Menuconfig never commits it directly. >> "%RUNNER_SCRIPT%"
+echo ORIGINAL_CONFIG_TMP=$(mktemp /tmp/routerfw-menuconfig-config.XXXXXX) >> "%RUNNER_SCRIPT%"
+echo HAD_ORIGINAL_CONFIG=0 >> "%RUNNER_SCRIPT%"
+echo if [ -f .config ]; then cp -p .config "$ORIGINAL_CONFIG_TMP"; HAD_ORIGINAL_CONFIG=1; fi >> "%RUNNER_SCRIPT%"
+echo restore_menuconfig_config() { >> "%RUNNER_SCRIPT%"
+echo     if [ "$HAD_ORIGINAL_CONFIG" -eq 1 ]; then cp -p "$ORIGINAL_CONFIG_TMP" .config; else rm -f .config; fi >> "%RUNNER_SCRIPT%"
+echo     rm -f "$ORIGINAL_CONFIG_TMP" >> "%RUNNER_SCRIPT%"
+echo } >> "%RUNNER_SCRIPT%"
+echo trap restore_menuconfig_config EXIT >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo # --- DEBUG INFO --- >> "%RUNNER_SCRIPT%"
 echo echo "[DEBUG] User: $(whoami)" >> "%RUNNER_SCRIPT%"
@@ -2037,7 +2075,6 @@ echo if [ -f "/output/manual_config" ]; then >> "%RUNNER_SCRIPT%"
 echo     echo "[CONFIG] !!! Found manual_config. Restoring previous state... !!!" >> "%RUNNER_SCRIPT%"
 echo     cp /output/manual_config .config >> "%RUNNER_SCRIPT%"
 echo     # Force update symbols in case feeds changed >> "%RUNNER_SCRIPT%"
-echo     make defconfig >> "%RUNNER_SCRIPT%"
 echo else >> "%RUNNER_SCRIPT%"
 echo     echo "[CONFIG] No manual_config found. Generating from profile..." >> "%RUNNER_SCRIPT%"
 echo     echo "CONFIG_TARGET_$SRC_TARGET=y" ^> .config >> "%RUNNER_SCRIPT%"
@@ -2066,8 +2103,12 @@ echo. >> "%RUNNER_SCRIPT%"
 echo     if [ -n "$SRC_EXTRA_CONFIG" ]; then >> "%RUNNER_SCRIPT%"
 echo         printf "%%s\n" "$SRC_EXTRA_CONFIG" ^| sed 's/\r$//' ^>^> .config >> "%RUNNER_SCRIPT%"
 echo     fi >> "%RUNNER_SCRIPT%"
-echo     make defconfig >> "%RUNNER_SCRIPT%"
 echo fi >> "%RUNNER_SCRIPT%"
+echo # Cache policy matches the Source Builder and Linux Menuconfig. >> "%RUNNER_SCRIPT%"
+echo sed -i -e '/^^CONFIG_DEVEL=/d' -e '/^^# CONFIG_DEVEL is not set$/d' -e '/^^CONFIG_CCACHE=/d' -e '/^^# CONFIG_CCACHE is not set$/d' -e '/^^CONFIG_CCACHE_DIR=/d' -e '/^^# CONFIG_CCACHE_DIR is not set$/d' .config >> "%RUNNER_SCRIPT%"
+echo printf '%%s\n' 'CONFIG_DEVEL=y' 'CONFIG_CCACHE=y' 'CONFIG_CCACHE_DIR="/ccache"' ^>^> .config >> "%RUNNER_SCRIPT%"
+echo make defconfig >> "%RUNNER_SCRIPT%"
+echo if grep -qx 'CONFIG_DEVEL=y' .config ^&^& grep -qx 'CONFIG_CCACHE=y' .config ^&^& grep -qx 'CONFIG_CCACHE_DIR="/ccache"' .config; then :; else echo '[CONFIG ERROR] OpenWrt rejected persistent CCache settings after defconfig.' ^>^&2; exit 1; fi >> "%RUNNER_SCRIPT%"
 echo. >> "%RUNNER_SCRIPT%"
 echo # --- 4. Menuconfig --- >> "%RUNNER_SCRIPT%"
 echo echo [START] Launching Menuconfig UI... >> "%RUNNER_SCRIPT%"
@@ -2386,4 +2427,4 @@ if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJlYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
 exit /b
-:: checksum:MD5=39c5c4cf4e8891b2baffe0f3dc056466
+:: checksum:MD5=a2527e7d06b22b84e7642cb4530ea299

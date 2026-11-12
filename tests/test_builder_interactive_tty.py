@@ -21,7 +21,10 @@ SHELL = (ROOT / "_Builder.sh").read_text(encoding="utf-8")
 
 
 def function(name: str) -> str:
-    match = re.search(rf"(?ms)^{re.escape(name)}\(\) \{{\n.*?^\}}\n", SHELL)
+    # A nested function is present inside run_menuconfig's generated heredoc.
+    # Its closing brace is not the end of the host function; require a blank
+    # line after the closing brace to find the actual function boundary.
+    match = re.search(rf"(?ms)^{re.escape(name)}\(\) \{{\n.*?^\}}\n(?=\n|\Z)", SHELL)
     if match is None:
         raise AssertionError(f"Missing Bash function: {name}")
     return match.group(0)

@@ -70,6 +70,7 @@ while [ $_i -le 9 ]; do
     fi
     if [[ "$_arg" == --runtime=* ]] && [ ${#_arg} -ge 11 ]; then
         _val="${_arg:10}"
+        _val="${_val,,}"
         if [[ "$_val" =~ ^(auto|docker|podman)$ ]]; then
             RUNTIME_OVERRIDE="${_val,,}"
             RUNTIME_EXPLICIT=1
@@ -81,6 +82,7 @@ while [ $_i -le 9 ]; do
     fi
     if [[ "$_arg" == --runtime || "$_arg" == -r ]]; then
         _next="${_cli_args[$((_i+1))]}"
+        _next="${_next,,}"
         if [[ -n "$_next" && "$_next" =~ ^(auto|docker|podman)$ ]]; then
             RUNTIME_OVERRIDE="${_next,,}"
             RUNTIME_EXPLICIT=1
@@ -1250,11 +1252,14 @@ do_checksum_clear() {
     local arg="$1"
     
     # Если аргумент "all" или пустой — очищаем всё (включая распаковщик)
-    if [ -z "$arg" ] || [ "$arg" == "all" ]; then
+    if [ -z "$arg" ] || [ "${arg,,}" = "all" ]; then
         local unpacker=""
         [ -f "_unpacker.sh" ] && unpacker="_unpacker.sh"
-        [ -f "_unpacker.bat" ] && unpacker="_unpacker.bat" # на случай кросс-платформенности
-        
+        if [ -z "$unpacker" ]; then
+            echo -e "${C_ERR}$L_CHKSUM_ERR_NO_UNPACKER${C_RST}"
+            return 1
+        fi
+
         echo -e "${C_LBL}[CHECKSUM CLEAR]${C_RST} Starting global hash clearance..."
         local n=0
         
@@ -1319,6 +1324,24 @@ set -e
 export HOME=/home/build
 cd /home/build/openwrt
 
+# Menuconfig is a transaction: a rejected edit must never change the persistent
+# build worktree's .config (and the next Source Builder's incremental state).
+ORIGINAL_CONFIG_TMP=\$(mktemp /tmp/routerfw-menuconfig-config.XXXXXX)
+HAD_ORIGINAL_CONFIG=0
+if [ -f .config ]; then
+    cp -p .config "\$ORIGINAL_CONFIG_TMP"
+    HAD_ORIGINAL_CONFIG=1
+fi
+restore_menuconfig_config() {
+    if [ "\$HAD_ORIGINAL_CONFIG" -eq 1 ]; then
+        cp -p "\$ORIGINAL_CONFIG_TMP" .config
+    else
+        rm -f .config
+    fi
+    rm -f "\$ORIGINAL_CONFIG_TMP"
+}
+trap restore_menuconfig_config EXIT
+
 # --- 1. Load Environment ---
 echo "[INIT] Loading profile vars from: \$CONF_FILE"
 cat "/profiles/\$CONF_FILE" | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > /tmp/env.sh
@@ -1352,7 +1375,6 @@ rm -f .config
 if [ -f "/output/manual_config" ]; then
     echo "[CONFIG] Found manual_config. Restoring..."
     cp /output/manual_config .config
-    make defconfig
 else
     echo "[CONFIG] Generating from profile..."
     echo "CONFIG_TARGET_\${SRC_TARGET}=y" > .config
@@ -1382,8 +1404,13 @@ else
             [ -n "\$line" ] && echo "\$line" >> .config
         done
     fi
-    make defconfig
 fi
+
+# Keep the interactive configuration consistent with normal Source Builder.
+sed -i -e '/^CONFIG_DEVEL=/d' -e '/^# CONFIG_DEVEL is not set$/d' -e '/^CONFIG_CCACHE=/d' -e '/^# CONFIG_CCACHE is not set$/d' -e '/^CONFIG_CCACHE_DIR=/d' -e '/^# CONFIG_CCACHE_DIR is not set$/d' .config
+printf '%s\n' 'CONFIG_DEVEL=y' 'CONFIG_CCACHE=y' 'CONFIG_CCACHE_DIR="/ccache"' >> .config
+make defconfig
+if ! grep -qx 'CONFIG_DEVEL=y' .config || ! grep -qx 'CONFIG_CCACHE=y' .config || ! grep -qx 'CONFIG_CCACHE_DIR="/ccache"' .config; then echo '[CONFIG ERROR] OpenWrt rejected persistent CCache settings after defconfig.' >&2; exit 1; fi
 
 # --- 4. Menuconfig ---
 echo "[START] Launching Menuconfig UI..."
@@ -1872,18 +1899,18 @@ dispatch_cli() {
             echo -e "${C_GRY}${L_CLI_RUNTIME_KEY}${C_RST}"
             echo -e "${C_GRY}${L_CLI_MODE_PREFIX}${C_RST}"
             echo ""
-            printf "  %-20s %-22s %s\n" "build, b" "<id>" "$L_CLI_DESC_BUILD"
-            printf "  %-20s %-22s %s\n" "build-all, a, all" "" "$L_CLI_DESC_BUILD_ALL"
-            printf "  %-20s %-22s %s\n" "edit, e" "[id]" "$L_CLI_DESC_EDIT"
-            printf "  %-20s %-22s %s\n" "menuconfig, k" "<id>" "$L_CLI_DESC_MENUCONFIG"
-            printf "  %-20s %-22s %s\n" "import, i" "<id>" "$L_CLI_DESC_IMPORT"
-            printf "  %-20s %-22s %s\n" "wizard, w" "" "$L_CLI_DESC_WIZARD"
-            printf "  %-20s %-22s %s\n" "clean, c" "[1-6/1-3] [id/All]" "$L_CLI_DESC_CLEAN"
-            printf "  %-20s %-22s %s\n" "state, s" "" "$L_CLI_DESC_STATE"
-            printf "  %-20s %-22s %s\n" "check-all" "" "$L_CLI_DESC_CHKSUM_ALL"
-            printf "  %-20s %-22s %s\n" "check-clear" "[id/All]" "$L_CLI_DESC_CHKSUM_CLEAR"
-            printf "  %-20s %-22s %s\n" "check" "<id>" "$L_CLI_DESC_CHKSUM"
-            printf "  %-20s %-22s %s\n" "help, -h, --help" "" "$L_CLI_DESC_HELP"
+            printf "  %-29s %-22s %s\n" "build, b" "<id>" "$L_CLI_DESC_BUILD"
+            printf "  %-29s %-22s %s\n" "build-all, a, all, build_all" "" "$L_CLI_DESC_BUILD_ALL"
+            printf "  %-29s %-22s %s\n" "edit, e" "[id]" "$L_CLI_DESC_EDIT"
+            printf "  %-29s %-22s %s\n" "menuconfig, k" "<id>" "$L_CLI_DESC_MENUCONFIG"
+            printf "  %-29s %-22s %s\n" "import, i" "<id>" "$L_CLI_DESC_IMPORT"
+            printf "  %-29s %-22s %s\n" "wizard, w" "" "$L_CLI_DESC_WIZARD"
+            printf "  %-29s %-22s %s\n" "clean, c" "[1-6/1-3] [id/All]" "$L_CLI_DESC_CLEAN"
+            printf "  %-29s %-22s %s\n" "state, s" "" "$L_CLI_DESC_STATE"
+            printf "  %-29s %-22s %s\n" "check-all" "" "$L_CLI_DESC_CHKSUM_ALL"
+            printf "  %-29s %-22s %s\n" "check-clear" "[id/All]" "$L_CLI_DESC_CHKSUM_CLEAR"
+            printf "  %-29s %-22s %s\n" "check" "<id>" "$L_CLI_DESC_CHKSUM"
+            printf "  %-29s %-22s %s\n" "help, -h, --help" "" "$L_CLI_DESC_HELP"
             echo ""
             echo -e "${C_GRY}${L_CLI_HELP_FOOT/"_Builder.bat"/"$script_name"}${C_RST}"
             echo -e "${C_GRY}${L_CLI_USAGE_HEAD}${C_RST}"
@@ -1933,17 +1960,17 @@ dispatch_cli() {
             ;;
         CHECKSUM_ALL)
             do_checksum_all
-            exit 0
+            exit $?
             ;;
         CHECKSUM_CLEAR)
             # Передаем CLI_ARG1 в функцию (может быть пустым, "all" или ID)
             do_checksum_clear "$CLI_ARG1"
-            exit 0
+            exit $?
             ;;
         CHECKSUM)
             resolve_profile_by_id "$CLI_ARG1" || exit 1
             do_checksum_profile "$SELECTED_CONF"
-            exit 0
+            exit $?
             ;;
         BUILD)
             trim1=$(printf '%s' "$CLI_ARG1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -1973,8 +2000,18 @@ dispatch_cli() {
                 echo ""
                 echo -e "  ${C_LBL}[${C_KEY}0${C_LBL}]${C_RST} ${L_BACK}"
                 echo ""
-                read -p "  ID: " e_choice
-                if [[ "$e_choice" =~ ^[0-9]+$ ]] && [ "$e_choice" -le "$count" ] && [ "$e_choice" -gt 0 ]; then
+                if ! read -r -p "  ID: " e_choice; then
+                    echo -e "$L_CLI_ERR_PROFILE_REQUIRED"
+                    exit 1
+                fi
+                e_choice="${e_choice%$'\r'}"
+                # CLI without an ID deliberately offers the same profile picker as the menu.
+                [ "$e_choice" = "0" ] && exit 0
+                if [[ ! "$e_choice" =~ ^[0-9]+$ ]] || [ "$e_choice" -lt 1 ] || [ "$e_choice" -gt "$count" ]; then
+                    echo -e "${L_CLI_ERR_PROFILE} $e_choice"
+                    exit 1
+                fi
+                if [ "$e_choice" -gt 0 ]; then
                     sel_conf="${profiles[$e_choice]}"
                     sel_id="${sel_conf%.conf}"
                     echo -e "${C_VAL}[${L_ANALYSIS}]${C_RST} ${C_KEY}${sel_id}${C_RST}"
@@ -2382,4 +2419,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=5c42c487a1de92bb03e8ad4165cabfb7
+# checksum:MD5=4606bdc9cad5a4341bf586dcca0be192
