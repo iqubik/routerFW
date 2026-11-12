@@ -33,6 +33,8 @@ You already know that `Source Builder` is required for deep modifications. This 
 *   A simple "straightforward" build results in dependency errors.
 *   You want to be certain that your build includes all recommendations and optimizations from the source code author.
 
+**General rule:** the profile and OpenWrt determine the target device and its output artifacts; routerFW does not require any specific bootloader or filename. After `make`, available files from the selected `target/subtarget` are exported (except `packages/`). An incremental build can retain outputs from an earlier run, so verify freshness after changing configurations.
+
 ### Practical Example: Building for Rax3000m from a Custom Repository
 
 We will analyze a real-world case described in `debug.md`: building firmware for the `rax3000m` from the `padavanonly` repository.
@@ -108,4 +110,4 @@ For ready-made images for other models or vanilla OpenWrt, see the 4pda discussi
 **Summary:** You have completed a Source Builder workflow using `make defconfig` and a source compilation. It lets the OpenWrt build system resolve configuration dependencies, but it cannot guarantee compatibility of every third-party package or modification. This is a more complete workflow than simply editing `SRC_EXTRA_CONFIG`.
 
 In the next advanced lesson, we will show you how to embed your own files into SourceBuild and how to work with build files and VerMagic.
-# checksum:MD5=2b72d09254dae2ee587df7783276f7de
+# checksum:MD5=f5285e439d1bc2992942182cf414d4d4

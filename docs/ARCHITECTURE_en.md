@@ -295,7 +295,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               └─[13] Non-destructive artifact export (cp, not mv) → firmware_output/sourcebuilder/<profile>/<timestamp>/
   │
   ├─ Runtime-aware output permission fix to host UID, same as Image Builder
-  ├─ Post-build: detect *imagebuilder*.tar.zst → offer to update IMAGEBUILDER_URL in profile
+  ├─ Post-build: one new output + CONFIG_IB=y + archive → offer to update IMAGEBUILDER_URL in profile
   └─ Post-build: offer interactive shell (run_compose run --rm -it /bin/bash)
 ```
 
@@ -412,4 +412,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=fbcc199978716ae416dfe362dab9de2d
+# checksum:MD5=d09beaf44c4bda41b48d2254306ed307

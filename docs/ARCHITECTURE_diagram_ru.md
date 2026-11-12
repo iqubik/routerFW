@@ -243,7 +243,7 @@ SHA256 файлов + ownership новых каталогов\nудаление 
     SB_CHOWN --> SB_OK{"Сборка\nуспешна?"}
     SB_OK --> |нет| SB_FATAL["L_BUILD_FATAL"]
     SB_FATAL --> SB_SHELL_Q2
-    SB_OK --> |да| IB_TAR{"*imagebuilder*\n.tar.zst в выводе?"}
+    SB_OK --> |да| IB_TAR{"Ровно один новый каталог?\nCONFIG_IB=y и архив ImageBuilder?"}
     IB_TAR --> |да| SB_Q1["Вопрос: Обновить\nIMAGEBUILDER_URL? y/N"]
     SB_Q1 --> SB_UPDATE{"Y?"}
     SB_UPDATE --> |да| SB_WRITE["Правка profiles/<id>.conf\nдобавить/закомментировать IMAGEBUILDER_URL"]
@@ -331,4 +331,4 @@ flowchart TD
 | X | custom_patches/<id> non-empty |
 | OI | firmware_output/imagebuilder/<id> has files |
 | OS | firmware_output/sourcebuilder/<id> has files |
-# checksum:MD5=c8fdb9e8cbdd78664c092201e513ed5b
+# checksum:MD5=22b4d1d7f66fd0acce9f2d02dfd6750c

@@ -42,11 +42,11 @@ Release 4.71 фиксирует Windows regression suite: 53 теста прой
 ## Технические ограничения, которые должны оставаться видимыми в документации
 
 - Source Builder использует persistent workdir, DL cache и CCache. Это ускоряет повторные сборки, но делает корректность очистки и синхронизации состояния важной.
-- `custom_patches` копируется через `rsync -a` без `--delete`; удалённые из overlay untracked-файлы могут остаться в workdir.
-- Hooks выполняются до финального `rsync -a --delete` из `custom_files` в `files/`; сгенерированные hooks файлы могут быть удалены, если их нет в overlay.
-- При ошибке параллельной компиляции Source Builder выполняет одну попытку `make -j1 V=s` (если не был выбран `debug`). Ошибки `EROFS`/`EIO` не классифицируются и не исправляются этим fallback.
+- Управляемые `custom_patches` синхронизируются с учётом ownership-манифеста: неизменённые удалённые overlay-файлы убираются, неизвестные или изменённые пользователем файлы защищены.
+- Оверлей `custom_files` переносится в `files/` до hooks без `--delete`; файлы, созданные hooks в `files/`, сохраняются и учитываются по поддерживаемым правилам ownership.
+- Перед загрузкой и сборкой Source Builder проверяет доступность хранилищ, при подтверждённых `EROFS`/`EIO` останавливается. При прочих ошибках параллельной компиляции выполняется диагностический `make -j1 V=s` (если не выбран `debug`); он не устраняет неисправности хранилища.
 - Image Builder отключает APK signature checking в make invocation для поддержки локальных неподписанных APK; это также затрагивает сетевые APK.
-- Текущая логика feeds может пропустить обновление feeds, если основной Git-коммит не изменился. Это поведение требует отдельного инженерного решения; данный документационный слайс его не меняет.
+- Feeds обновляются по ключу репозитория/коммита/конфигурации с TTL (по умолчанию 24 ч). Это политика свежести, но не строгая фиксация внешних feed-коммитов.
 
 ## Проверки документации в этом срезе
 
@@ -103,11 +103,11 @@ Release 4.71 records 53 passing Windows tests. Argument preservation across `CAL
 ## Technical limitations that must remain visible in documentation
 
 - Source Builder uses persistent workdir, download cache, and CCache. This speeds up repeat builds but makes state cleanup and synchronization important.
-- `custom_patches` is copied with `rsync -a` (without `--delete`); removed untracked overlay files can remain in the worktree.
-- Hooks run before the final `rsync -a --delete` from `custom_files` to `files/`; hook-generated files can be removed if they are absent from the overlay.
-- A failed parallel Source Builder compile triggers one `make -j1 V=s` retry (unless `debug` was selected). `EROFS`/`EIO` failures are not classified or repaired by this fallback.
+- Managed `custom_patches` are synchronized using an ownership manifest: unchanged removed overlay files can be pruned, while unknown or user-modified files are protected.
+- The `custom_files` overlay is applied to `files/` **before** hooks, without `--delete`. Hook-generated `files/` outputs are retained and tracked within the supported ownership boundary.
+- Source Builder probes storage before downloads and compilation and aborts on confirmed `EROFS`/`EIO`. Other parallel compilation failures trigger a diagnostic `make -j1 V=s` retry (unless `debug` was selected); it cannot repair storage faults.
 - Image Builder disables APK signature checking in its make invocation to allow local unsigned APKs; this also affects network APK signature verification.
-- Current feed-update logic may skip feed refresh when the main Git commit is unchanged. This requires a separate engineering decision; this documentation slice does not change it.
+- Feeds refresh uses repository/commit/configuration identity and a TTL (24 hours by default). This is a freshness policy, not a strict pin of external feed commits.
 
 ## Documentation checks in this slice
 
@@ -122,4 +122,4 @@ Release 4.71 records 53 passing Windows tests. Argument preservation across `CAL
 - Checked relative links and checksum footers for modified files.
 
 **Not tested in this audit:** real firmware builds, local Windows runtime, Docker/Podman execution, and local ShellCheck. Builder source-code changes are outside this documentation slice.
-# checksum:MD5=ef4a78c51991a56eed7aa827aebd6703
+# checksum:MD5=1d0965d0e685f912fe68319b2bf34c21

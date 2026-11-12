@@ -35,6 +35,8 @@ Important ordering: overlay files must be copied **before** hooks so hook-genera
 
 Before downloads and compilation, and after `make` failures, Source Builder probes worktree, `dl`, CCache, `/tmp`, `/output`. Confirmed storage faults abort without retry or automatic cleanup.
 
+**Architecture invariant:** shared Source Builder orchestration and export must not branch on MediaTek, BL2, FIP, U-Boot or individual devices. The exporter verifies and publishes files present in BIN_DIR; it cannot guarantee OpenWrt regenerated every expected image in a persistent worktree. Host post-build discovery must require exactly one new output directory, `CONFIG_IB=y`, and an ImageBuilder archive; absence of the optional archive is normal.
+
 ## Container images
 
 | Dockerfile | Base image | Purpose |

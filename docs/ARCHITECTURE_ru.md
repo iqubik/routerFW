@@ -294,7 +294,7 @@ _Builder.sh/bat  →  build_routine(profile.conf)
   │               └─[13] Безразрушительный экспорт артефактов (cp, не mv) → firmware_output/sourcebuilder/<профиль>/<метка времени>/
   │
   ├─ Runtime-aware исправление прав вывода под UID хоста, как в Image Builder
-  ├─ После сборки: поиск *imagebuilder*.tar.zst → предложение обновить IMAGEBUILDER_URL в профиле
+  ├─ После сборки: один новый каталог + CONFIG_IB=y + архив → предложение обновить IMAGEBUILDER_URL в профиле
   └─ После сборки: предложение интерактивной оболочки (run_compose run --rm -it /bin/bash)
 ```
 
@@ -411,4 +411,4 @@ _packer.sh / _packer.bat  (v2.7MT)
 ## 13. Полная карта процессов (Mermaid)
 
 См. [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md): **§1** Старт · **§2** Главное меню (все команды) · **§3** Сборка + пост-действия · **§4** Cleanup Wizard · **§5** Поток Menuconfig + легенда. EN-диаграммы: [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md).
-# checksum:MD5=466648cdd3ecd0a019c14c6b3d1168a6
+# checksum:MD5=feec4b05a5ee0a4701a191ea2c761679

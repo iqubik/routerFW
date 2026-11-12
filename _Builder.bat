@@ -605,7 +605,7 @@ if /i not "!enter_c!"=="Y" goto EDIT_DONE
 
 set "TARGET_VAL="
 set "IS_LEGACY="
-for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr "!TARGET_VAR!"`) do (
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!SEL_CONF!" ^| findstr /R /C:"^ *!TARGET_VAR! *="`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
     for /f "tokens=* delims= " %%b in ("!VAL!") do set "TARGET_VAL=%%b"
@@ -1929,7 +1929,7 @@ echo.
 echo !L_K_SETUP! %PROFILE_ID%...
 
 :: 1. Определение версии
-for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "%TARGET_VAR%"`) do (
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr /R /C:"^ *%TARGET_VAR% *="`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
     for /f "tokens=* delims= " %%b in ("!VAL!") do set "TARGET_VAL=%%b"
@@ -2162,7 +2162,7 @@ echo !L_P_PROC! %H_PROF%: %CONF_FILE%
 echo !L_P_MODE!  %BUILD_MODE%
 
 :: 1. ИЗВЛЕЧЕНИЕ ПЕРЕМЕННОЙ
-for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr "%TARGET_VAR%"`) do (
+for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\%CONF_FILE%" ^| findstr /R /C:"^ *%TARGET_VAR% *="`) do (
     set "VAL=%%a"
     set "VAL=!VAL:"=!"
     for /f "tokens=* delims= " %%b in ("!VAL!") do set "TARGET_VAL=%%b"
@@ -2292,9 +2292,20 @@ set "PROJ_NAME=%CHILD_PROJ_NAME%"
 set "SERVICE_NAME=%CHILD_SERVICE_NAME%"
 set "BUILD_MODE=%CHILD_BUILD_MODE%"
 if defined CHILD_WINDOW_TITLE title !CHILD_WINDOW_TITLE!
+set "SOURCE_OUTPUT_SNAPSHOT="
+if "%BUILD_MODE%"=="SOURCE" (
+    set "SOURCE_OUTPUT_SNAPSHOT=%TEMP%\routerfw-source-output-%RANDOM%-%RANDOM%.txt"
+    if exist "!SOURCE_OUTPUT_SNAPSHOT!" del "!SOURCE_OUTPUT_SNAPSHOT!" >nul 2>&1
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $names=@(Get-ChildItem -LiteralPath $env:HOST_OUTPUT_DIR -Directory | Select-Object -ExpandProperty Name | Sort-Object); [IO.File]::WriteAllLines($env:SOURCE_OUTPUT_SNAPSHOT, $names, [Text.UTF8Encoding]::new($false))" >nul 2>&1
+    if errorlevel 1 (
+        if exist "!SOURCE_OUTPUT_SNAPSHOT!" del "!SOURCE_OUTPUT_SNAPSHOT!" >nul 2>&1
+        set "SOURCE_OUTPUT_SNAPSHOT="
+    )
+)
 call :RUN_COMPOSE -p %PROJ_NAME% up --build --force-recreate --remove-orphans %SERVICE_NAME%
 set "BUILD_STATUS=%errorlevel%"
 if not "%BUILD_STATUS%"=="0" (
+    if exist "!SOURCE_OUTPUT_SNAPSHOT!" del "!SOURCE_OUTPUT_SNAPSHOT!" >nul 2>&1
     echo %L_BUILD_FATAL% %L_EXIT_CODE_LABEL% %BUILD_STATUS%
     pause
     exit /b %BUILD_STATUS%
@@ -2302,7 +2313,7 @@ if not "%BUILD_STATUS%"=="0" (
 echo.
 echo %L_FINISHED%
 if "%BUILD_MODE%"=="SOURCE" (
-    call :SOURCE_POST_BUILD "%SELECTED_CONF%" "%HOST_OUTPUT_DIR%" "%PROFILE_ID%"
+    call :SOURCE_POST_BUILD "%SELECTED_CONF%" "%HOST_OUTPUT_DIR%" "%PROFILE_ID%" "!SOURCE_OUTPUT_SNAPSHOT!"
     powershell -NoProfile -Command "$Host.UI.RawUI.FlushInputBuffer()"
     set /p "stay=%L_K_STAY% "
     if /i "!stay!"=="y" (
@@ -2317,7 +2328,18 @@ pause
 exit /b 0
 
 :SOURCE_POST_BUILD
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$out='%~2'; $conf='%~1'; if([string]::IsNullOrWhiteSpace($out)){ $out='./firmware_output/sourcebuilder/%~3' }; $cleanOut=$out.Replace('./',''); if(Test-Path -LiteralPath $cleanOut){ $latest=Get-ChildItem -LiteralPath $cleanOut -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($latest){ $best=Get-ChildItem -LiteralPath $latest.FullName -Filter '*imagebuilder*.tar.zst' -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($best){ $u=(Resolve-Path -LiteralPath $best.FullName -Relative).Replace('.\','').Replace('\','/'); Write-Host '%L_IB_UPDATE_ASK%' -ForegroundColor Cyan; Write-Host ('  '+$u) -ForegroundColor Yellow; $r=Read-Host '%L_IB_UPDATE_PROMPT%'; if($r -eq 'y'){ $pf='profiles/'+$conf; if(Test-Path -LiteralPath $pf){ $lines=Get-Content -LiteralPath $pf -Encoding UTF8; $newLine='IMAGEBUILDER_URL='+[char]34+$u+[char]34; $activeIndex=$null; $commentIndex=$null; for($i=0;$i -lt $lines.Count;$i++){ $trimmed=$lines[$i].Trim(); if($trimmed -like 'IMAGEBUILDER_URL=*'){ $activeIndex=$i } elseif($trimmed -like '#*IMAGEBUILDER_URL=*'){ $commentIndex=$i } }; if($activeIndex -ne $null){ $lines[$activeIndex]='#'+$lines[$activeIndex]; $lines=$lines[0..$activeIndex]+$newLine+$lines[($activeIndex+1)..($lines.Count-1)] } elseif($commentIndex -ne $null){ $lines+=$newLine } else { $lines+=$newLine }; [System.IO.File]::WriteAllLines($pf,$lines,[System.Text.UTF8Encoding]::new($false)); Write-Host '%L_IB_UPDATE_OK%' -ForegroundColor Green } } } } }"
+set "IB_ARCHIVE="
+if exist "%~4" for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $root=(Resolve-Path -LiteralPath $env:HOST_OUTPUT_DIR).Path; $before=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase); foreach($n in [IO.File]::ReadAllLines($env:SOURCE_OUTPUT_SNAPSHOT)){[void]$before.Add($n)}; $dirs=@(Get-ChildItem -LiteralPath $root -Directory | Where-Object {-not $before.Contains($_.Name)}); if($dirs.Count -eq 1){$cfg=Join-Path $dirs[0].FullName 'build.config'; if((Test-Path -LiteralPath $cfg) -and (Select-String -LiteralPath $cfg -Pattern '^CONFIG_IB=y$' -Quiet)){$a=Get-ChildItem -LiteralPath $dirs[0].FullName -Filter '*imagebuilder*.tar.zst' -Recurse -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($a){$r=Resolve-Path -LiteralPath $a.FullName -Relative; if($r.StartsWith('.\')){$r=$r.Substring(2)}; Write-Output ($r -replace '\\','/')}}}"`) do set "IB_ARCHIVE=%%I"
+if defined IB_ARCHIVE (
+    echo %L_IB_UPDATE_ASK%
+    echo   !IB_ARCHIVE!
+    set /p "ib_update=%L_IB_UPDATE_PROMPT%"
+    if /i "!ib_update!"=="y" (
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $pf='profiles/%~1'; $lines=Get-Content -LiteralPath $pf -Encoding UTF8; $newLine='IMAGEBUILDER_URL='+[char]34+$env:IB_ARCHIVE+[char]34; $activeIndex=$null; for($i=0;$i -lt $lines.Count;$i++){ if($lines[$i].Trim() -like 'IMAGEBUILDER_URL=*'){ $activeIndex=$i } }; if($activeIndex -ne $null){ $lines[$activeIndex]='#'+$lines[$activeIndex]; $lines=@($lines[0..$activeIndex])+@($newLine)+@($lines | Select-Object -Skip ($activeIndex+1)) } else { $lines+=$newLine }; [System.IO.File]::WriteAllLines($pf,$lines,[System.Text.UTF8Encoding]::new($false))"
+        if not errorlevel 1 echo %L_IB_UPDATE_OK%
+    )
+)
+if exist "%~4" del "%~4" >nul 2>&1
 exit /b 0
 
 :: =========================================================
@@ -2364,4 +2386,4 @@ if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJlYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
 exit /b
-:: checksum:MD5=7a9bd25daef4458d9672d514361fb1fb
+:: checksum:MD5=39c5c4cf4e8891b2baffe0f3dc056466

@@ -158,4 +158,4 @@ routerfw_normalize_overlay_permissions() {
     rm -f -- "$entries"
     printf '[PERMISSIONS] Normalized %d files and %d directories; host sources untouched.\n' "$file_count" "$dir_count"
 }
-# checksum:MD5=138c65ad1cb96de6f7a0605603377da0
+# checksum:MD5=12e449666299841f9db22547916343a1

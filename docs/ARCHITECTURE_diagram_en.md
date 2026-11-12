@@ -241,7 +241,7 @@ SHA256 file + new-directory ownership\nprune only empty managed dirs; .config\nm
     SB_CHOWN --> SB_OK{"Build\nsuccess?"}
     SB_OK --> |no| SB_FATAL["L_BUILD_FATAL"]
     SB_FATAL --> SB_SHELL_Q2
-    SB_OK --> |yes| IB_TAR{"*imagebuilder*\n.tar.zst in output?"}
+    SB_OK --> |yes| IB_TAR{"Exactly one new output?\nCONFIG_IB=y and ImageBuilder archive?"}
     IB_TAR --> |yes| SB_Q1["Prompt: Update\nIMAGEBUILDER_URL? y/N"]
     SB_Q1 --> SB_UPDATE{"Y?"}
     SB_UPDATE --> |yes| SB_WRITE["Edit profiles/<id>.conf\nadd/comment IMAGEBUILDER_URL"]
@@ -329,4 +329,4 @@ flowchart TD
 | X | custom_patches/<id> non-empty |
 | OI | firmware_output/imagebuilder/<id> has files |
 | OS | firmware_output/sourcebuilder/<id> has files |
-# checksum:MD5=dbce9d134944efb20473226b36ab04f4
+# checksum:MD5=83cb722ca4577d41355d82a9e34af4fc

@@ -308,6 +308,20 @@ run_compose() {
         compose_args+=(-f "$f")
     done
     if [ "${DOCKER_WINDOWS_BRIDGE:-0}" = "1" ]; then
+        # An interactive container must inherit real terminal handles. Piping its
+        # output through tee breaks Windows/WSL console interop (menuconfig/shell).
+        # Keep the captured/retry route for non-interactive build commands only.
+        local interactive_arg
+        for interactive_arg in "$@"; do
+            case "$interactive_arg" in
+                -it|-ti|--tty|--interactive)
+                    env "${env_args[@]}" "${COMPOSE_CMD[@]}" "${compose_args[@]}" "$@"
+                    compose_status=$?
+                    [ -z "$compose_env_file" ] || rm -f -- "$compose_env_file"
+                    return "$compose_status"
+                    ;;
+            esac
+        done
         while :; do
             compose_output_file=".routerfw-compose-output-$$-$RANDOM.log"
             env "${env_args[@]}" "${COMPOSE_CMD[@]}" "${compose_args[@]}" "$@" 2>&1 | tee "$compose_output_file"
@@ -330,6 +344,21 @@ run_compose() {
     compose_status=$?
     [ -n "$compose_env_file" ] && rm -f -- "$compose_env_file"
     return "$compose_status"
+}
+
+# Interactive Compose requires a real stdin TTY (and a direct console stdout).
+# A controlling terminal can be available even when this shell's stdin is piped.
+run_compose_interactive() {
+    local base="$1"
+    shift
+    if [ -t 0 ] && [ -t 1 ]; then
+        run_compose "$base" "$@"
+    elif ( : <>/dev/tty ) 2>/dev/null; then
+        run_compose "$base" "$@" </dev/tty >/dev/tty
+    else
+        echo "[ERROR] Interactive container requires a terminal. Run routerFW in a terminal (not via a pipe or headless runner)." >&2
+        return 1
+    fi
 }
 
 run_container() {
@@ -705,6 +734,59 @@ check_dir "custom_patches"
 
 # === 2. ФУНКЦИИ СБОРКИ (CORE) ===
 
+# BEGIN SOURCE OUTPUT HELPERS
+source_profile_value() {
+    awk -F= -v key="$1" '
+        $0 !~ /^[[:space:]]*#/ && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {
+            value = substr($0, index($0, "=") + 1)
+            sub(/^[[:space:]]*"/, "", value)
+            sub(/".*$/, "", value)
+            gsub(/\r/, "", value)
+            result = value
+        }
+        END { print result }
+    ' "$2"
+}
+
+source_output_snapshot() {
+    local root="$1" file="$2" entry
+    [ -d "$root" ] || return 1
+    : > "$file" || return 1
+    for entry in "$root"/*; do
+        if [ -d "$entry" ]; then
+            printf '%s\n' "${entry##*/}" >> "$file" || return 1
+        fi
+    done
+}
+
+source_output_new_dir() {
+    local root="$1" snapshot="$2" entry found="" count=0
+    [ -d "$root" ] && [ -f "$snapshot" ] && [ -r "$snapshot" ] || return 1
+    for entry in "$root"/*; do
+        [ -d "$entry" ] || continue
+        if ! grep -Fqx "${entry##*/}" "$snapshot"; then
+            found="$entry"
+            count=$((count + 1))
+        fi
+    done
+    [ "$count" -eq 1 ] || return 1
+    printf '%s\n' "$found"
+}
+
+source_output_ib_enabled() {
+    grep -Fxq 'CONFIG_IB=y' "$1"
+}
+
+source_output_ib_archive() {
+    local archive
+    source_output_ib_enabled "$1/build.config" || return 1
+    archive=$(find "$1" -type f -name '*imagebuilder*.tar.zst' \
+        -exec ls -t {} + 2>/dev/null | head -n 1)
+    [ -n "$archive" ] || return 1
+    printf '%s\n' "$archive"
+}
+# END SOURCE OUTPUT HELPERS
+
 build_routine() {
     local conf_file="$1"
     local p_id="${conf_file%.conf}"
@@ -712,7 +794,8 @@ build_routine() {
     
     [[ "$BUILD_MODE" == "IMAGE" ]] && target_var="IMAGEBUILDER_URL" || target_var="SRC_BRANCH"
     
-    local target_val=$(grep "$target_var=" "profiles/$conf_file" | cut -d'"' -f2 | tr -d '\r')
+    local target_val
+    target_val=$(source_profile_value "$target_var" "profiles/$conf_file")
     [ -z "$target_val" ] && { echo -e "${C_ERR}[SKIP] $target_var not found${C_RST}"; return 1; }
 
     # Строгая проверка Legacy, как в BAT файле
@@ -788,6 +871,14 @@ build_routine() {
     sleep 2
 
     # 4. Запуск (up, как в .bat: контейнер [project]_[service]_1; --build — свежий образ с CA)
+    local output_snapshot_file=""
+    if [ "$BUILD_MODE" == "SOURCE" ]; then
+        output_snapshot_file=$(mktemp) || return 1
+        if ! source_output_snapshot "${HOST_OUTPUT_DIR#./}" "$output_snapshot_file"; then
+            rm -f "$output_snapshot_file"
+            output_snapshot_file=""
+        fi
+    fi
     run_compose "$comp_file" -p "$proj_name" up --build --force-recreate --remove-orphans "$service"
     # === ВАЖНО: ЗАПОМИНАЕМ РЕЗУЛЬТАТ СБОРКИ ===
     local build_status=$?
@@ -811,12 +902,12 @@ build_routine() {
             fi
 
             # === POST-BUILD: поиск *imagebuilder*.tar.zst и обновление IMAGEBUILDER_URL ===
-            local ib_archive="" latest_output=""
-            latest_output=$(find "${HOST_OUTPUT_DIR#./}" -mindepth 1 -maxdepth 1 -type d \
-                -exec ls -td {} + 2>/dev/null | head -n 1 || true)
-            if [ -n "$latest_output" ]; then
-                ib_archive=$(find "$latest_output" -type f -name "*imagebuilder*.tar.zst" \
-                    -exec ls -t {} + 2>/dev/null | head -n 1 || true)
+            local ib_archive="" current_output=""
+            if [ -n "$output_snapshot_file" ]; then
+                current_output=$(source_output_new_dir "${HOST_OUTPUT_DIR#./}" "$output_snapshot_file" 2>/dev/null || true)
+            fi
+            if [ -n "$current_output" ]; then
+                ib_archive=$(source_output_ib_archive "$current_output" 2>/dev/null || true)
             fi
             if [ -n "$ib_archive" ]; then
                 # Нормализуем путь: убираем ведущий ./ если есть
@@ -850,6 +941,8 @@ build_routine() {
                 echo -e "\n${L_BUILD_FATAL}"
             fi
         fi
+
+        [ -z "$output_snapshot_file" ] || rm -f "$output_snapshot_file"
         
         if [ -z "$CLI_CMD" ]; then
             echo -e "${C_LBL}[SHELL]${C_RST} ${L_K_STAY}"
@@ -858,7 +951,7 @@ build_routine() {
                 echo -e "${L_K_ENTER_SHELL}"
                 echo -e "${L_K_SHELL_H3}"
                 # Запускаем новый интерактивный контейнер
-                run_compose "$comp_file" -p "$proj_name" run --rm -it "$service" /bin/bash
+                run_compose_interactive "$comp_file" -p "$proj_name" run --rm -it "$service" /bin/bash
             fi
         fi
     fi
@@ -1330,7 +1423,13 @@ EOF
     # 4. ФАКТИЧЕСКИЙ ЗАПУСК КОНТЕЙНЕРА
     local run_cmd="chown -R build:build /home/build/openwrt && chown build:build /output && tr -d '\r' < /output/_menuconfig_runner.sh > /tmp/r.sh && chmod +x /tmp/r.sh && sudo -E -u build bash /tmp/r.sh"
     
-    run_compose "system/docker-compose-src.yaml" -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "$run_cmd"
+    local menuconfig_status=0
+    run_compose_interactive "system/docker-compose-src.yaml" -p "srcbuild_$p_id" run --rm -it "$service" /bin/bash -c "$run_cmd" || menuconfig_status=$?
+    if [ "$menuconfig_status" -ne 0 ]; then
+        rm -f -- "$out_path/_menuconfig_runner.sh"
+        echo "[ERROR] Menuconfig container exited with status $menuconfig_status; existing manual_config was not applied." >&2
+        return "$menuconfig_status"
+    fi
     
     # --- БЛОК ПОСТ-ОБРАБОТКИ КОНФИГУРАЦИИ ---
     if [ -f "$out_path/manual_config" ]; then
@@ -1375,9 +1474,12 @@ EOF
     # Очистка временного файла
     rm -f "$out_path/_menuconfig_runner.sh"
     
-    # Пауза, чтобы прочитать результат работы скрипта импорта
+    # Пауза нужна только в интерактивном меню, не в CLI Menuconfig.
     echo ""
-    read -p "$L_PRESS_ENTER"
+    if [ -z "${CLI_CMD:-}" ]; then
+        read -p "$L_PRESS_ENTER" || true
+    fi
+    return 0
 }
 
 # === GRANULAR CLEANUP SYSTEM ===
@@ -1926,7 +2028,7 @@ dispatch_cli() {
             fi
             resolve_profile_by_id "$CLI_ARG1" || exit 1
             run_menuconfig "$SELECTED_CONF"
-            exit 0
+            exit $?
             ;;
         IMPORT)
             if [ "$BUILD_MODE" != "SOURCE" ]; then
@@ -2280,4 +2382,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=aec9db0bceb08e7ffd41ba7e1daf401d
+# checksum:MD5=5c42c487a1de92bb03e8ad4165cabfb7
