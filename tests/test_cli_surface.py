@@ -15,9 +15,11 @@ from bash_runner import bash_executable, bash_environment
 
 REPO = Path(__file__).resolve().parents[1]
 PLATFORMS = ("sh", "bat") if os.name == "nt" else ("sh",)
+CLI_FIXTURE = None
 
 
-def invoke(name, *args, input_text=None, cwd=REPO, runtime=None):
+def invoke(name, *args, input_text=None, cwd=None, runtime=None):
+    cwd = cwd or CLI_FIXTURE or REPO
     env = dict(os.environ, ROUTERFW_TEST_MODE="1", ROUTERFW_NO_CLS="1", TERM="dumb")
     if runtime is not None:
         env["ROUTERFW_RUNTIME"] = runtime
@@ -56,6 +58,34 @@ def invoke_cases(cases):
 
 
 class CliSurfaceParity(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        global CLI_FIXTURE
+        cls.fixture = tempfile.TemporaryDirectory(prefix="routerfw-cli-fixture-")
+        CLI_FIXTURE = Path(cls.fixture.name)
+        (CLI_FIXTURE / "system" / "lang").mkdir(parents=True)
+        (CLI_FIXTURE / "profiles").mkdir()
+        for name in ("_Builder.sh", "_Builder.bat"):
+            shutil.copy2(REPO / name, CLI_FIXTURE / name)
+        for name in ("en.env", "ru.env"):
+            shutil.copy2(REPO / "system" / "lang" / name, CLI_FIXTURE / "system" / "lang" / name)
+        shutil.copy2(REPO / "system" / "version.env", CLI_FIXTURE / "system" / "version.env")
+        (CLI_FIXTURE / "profiles" / "fixture.conf").write_text(
+            'PROFILE_NAME="fixture"\nTARGET_PROFILE="fixture"\nSRC_ARCH="test"\n',
+            encoding="utf-8",
+        )
+        for directory in (
+            "custom_files", "custom_packages", "src_packages", "custom_patches",
+            "firmware_output/imagebuilder", "firmware_output/sourcebuilder",
+        ):
+            (CLI_FIXTURE / directory).mkdir(parents=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        global CLI_FIXTURE
+        cls.fixture.cleanup()
+        CLI_FIXTURE = None
+
     def test_runtime_accepts_mixed_case_and_rejects_unknown(self):
         options = {
             ("--runtime=DoCkEr", "help"): True,
