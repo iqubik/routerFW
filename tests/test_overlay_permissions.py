@@ -19,6 +19,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+import temp_support
 POLICY = REPO / "system" / "overlay_permissions.sh"
 IB = REPO / "system" / "ib_builder.sh"
 SB = REPO / "system" / "src_builder.sh"

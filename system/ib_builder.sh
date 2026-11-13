@@ -13,6 +13,62 @@ log() { echo -e "${GREEN}[INFO] $1${NC}"; }
 warn() { echo -e "${YELLOW}[WARN] $1${NC}"; }
 error() { echo -e "${RED}[FATAL] $1${NC}"; exit 1; }
 
+snapshot_runtime() {
+python3 -B - "$@" <<'PY_ROUTERFW_SNAPSHOT'
+import hashlib, json, os, sys
+from pathlib import Path
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+def tree_hash(path):
+    digest = hashlib.sha256()
+    if not path.exists():
+        return digest.hexdigest()
+    for item in sorted(path.rglob("*"), key=lambda p: p.relative_to(path).as_posix()):
+        rel = item.relative_to(path).as_posix()
+        if item.is_symlink():
+            digest.update(f"L\0{rel}\0{os.readlink(item)}\0".encode())
+        elif item.is_file():
+            digest.update(f"F\0{rel}\0{sha256(item)}\0".encode())
+        elif item.is_dir():
+            digest.update(f"D\0{rel}\0".encode())
+    return digest.hexdigest()
+
+action, *args = sys.argv[1:]
+if action == "capture":
+    profile, profile_id, destination, *inputs = args
+    snapshot = {"schema": 1, "profile_id": profile_id, "profile_sha256": sha256(profile),
+                "inputs": {label: tree_hash(Path(path)) for label, path in
+                           (value.split("=", 1) for value in inputs)}}
+    target = Path(destination)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+elif action == "finalize":
+    capture_file, output, mode, config = args
+    output = Path(output)
+    snapshot = json.loads(Path(capture_file).read_text(encoding="utf-8"))
+    config = Path(config)
+    snapshot.update({"mode": mode, "config_sha256": sha256(config) if config.is_file() else None})
+    (output / "routerfw-build-snapshot.json").write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    checksums, upstream = output / "sha256sums", output / ".routerfw-upstream.sha256sums"
+    if checksums.is_file() and not upstream.exists():
+        checksums.replace(upstream)
+    entries = [path for path in output.rglob("*") if path.is_file() and path != checksums]
+    checksums.write_text("".join(
+        f"{sha256(path)} *{path.relative_to(output).as_posix()}\n"
+        for path in sorted(entries, key=lambda item: item.relative_to(output).as_posix())
+    ), encoding="utf-8")
+else:
+    raise SystemExit(f"unknown snapshot action: {action}")
+PY_ROUTERFW_SNAPSHOT
+}
+
 # Shared policy: never inherit permission bits from Windows/NTFS into rootfs.
 [ -f /overlay_permissions.sh ] || error "Shared overlay permissions module not mounted."
 # shellcheck source=system/overlay_permissions.sh
@@ -42,6 +98,10 @@ OUTPUT_BASE="/output/$REL_PATH"
 
 START_TIME=$(date +%s)
 TIMESTAMP=$(TZ='UTC-3' date +%d%m%y-%H%M%S)
+BUILD_CAPTURE="/tmp/routerfw-build-${CONF_FILE%.conf}-$$.json"
+trap 'rm -f -- "$BUILD_CAPTURE"' EXIT
+snapshot_runtime capture "/profiles/$CONF_FILE" "${CONF_FILE%.conf}" "$BUILD_CAPTURE" \
+    "custom_files=/overlay_files" "custom_packages=/input_packages"
 
 # --- 2. СКАЧИВАНИЕ SDK (БЕЗ ОЖИДАНИЯ, С ПЕРЕЗАПУСКОМ) ---
 if [[ "$IMAGEBUILDER_URL" =~ ^https?:// ]]; then
@@ -405,6 +465,7 @@ log "Saving artifacts..."
 TARGET_DIR="$OUTPUT_BASE/$TIMESTAMP"
 mkdir -p "$TARGET_DIR"
 find bin/targets -type f -not -path "*/packages/*" -exec cp {} "$TARGET_DIR/" \;
+snapshot_runtime finalize "$BUILD_CAPTURE" "$TARGET_DIR" imagebuilder "$TARGET_DIR/config.buildinfo"
 
 # Метаданные ядра из profiles.json (версия и vermagic)
 META_FILE="$TARGET_DIR/profiles.json"
@@ -439,4 +500,4 @@ echo -e "\n============================================================"
 echo -e "=== Build completed in ${ELAPSED}s."
 echo -e "=== Artifacts: firmware_output/$REL_PATH/$TIMESTAMP"
 echo -e "============================================================\n"
-# checksum:MD5=54174c32504ef1b45be2b6c9950464f2
+# checksum:MD5=08ba05dc54724fc903184892119a1d4f

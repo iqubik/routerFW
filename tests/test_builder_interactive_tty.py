@@ -17,6 +17,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+import temp_support
 SHELL = (ROOT / "_Builder.sh").read_text(encoding="utf-8")
 
 
@@ -37,6 +38,29 @@ HELPERS = "\n".join(function(name) for name in (
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "POSIX pseudo-terminal required")
 class MenuconfigTty(unittest.TestCase):
+    def test_wsl_docker_bridge_forces_compose_ansi_when_output_is_piped(self):
+        with tempfile.TemporaryDirectory(prefix="routerfw-compose-ansi-") as td:
+            root = Path(td)
+            args_file = root / "args"
+            fake = root / "compose-mock"
+            fake.write_text(
+                "#!/bin/bash\nprintf '%s\\n' \"$@\" > \"$COMPOSE_ARGS_LOG\"\n",
+                encoding="utf-8",
+            )
+            fake.chmod(0o755)
+            code = (HELPERS + "\n"
+                    + 'write_compose_env_file() { :; }\n'
+                    + 'CONTAINER_RUNTIME=docker\nDOCKER_WINDOWS_BRIDGE=1\n'
+                    + 'COMPOSE_LABEL="docker.exe compose"\n'
+                    + f'COMPOSE_CMD=("{fake}")\n'
+                    + 'run_compose system/docker-compose-src.yaml version\n')
+            result = subprocess.run(
+                ["bash", "-c", code], capture_output=True, text=True, cwd=root,
+                env={**os.environ, "COMPOSE_ARGS_LOG": str(args_file)},
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("--ansi\nalways\n", args_file.read_text(encoding="utf-8"))
+
     def test_wsl_bridge_interactive_compose_inherits_terminal_on_both_streams(self):
         import pty
         import select

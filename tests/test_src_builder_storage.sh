@@ -4,6 +4,8 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+source "$ROOT/tests/test_tmp.sh"
+export TMPDIR="$(routerfw_test_tmp "$ROOT")"
 SOURCE="$ROOT/system/src_builder.sh"
 TMP=$(mktemp -d)
 trap 'rm -rf -- "$TMP"' EXIT

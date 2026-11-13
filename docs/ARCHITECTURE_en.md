@@ -49,7 +49,7 @@ Both entry points are **feature-parity** wrappers: same menus, same logic, diffe
 - Linux: `bash ./tester.sh` runs checks without starting containers; `bash ./tester.sh --ci` runs the entire suite, including Docker and Podman.
 - Individual container checks: `bash ./tester.sh "Docker Smoke"` and `bash ./tester.sh "Podman Smoke"`. The corresponding CI jobs use these exact commands.
 
-Smoke tests build the builder images and check IB/SRC volume writes, user permissions, and glibc compatibility. They require working runtimes, Compose, Python 3, and network access; a missing dependency fails the selected check. Each test uses its own Compose project and removes only its own containers, volumes, and output files. These checks do not build firmware or open Menuconfig. Use a separate fresh working copy to reproduce clean-checkout behavior. Logs: `tester_log_win.md` / `tester_log_lin.md`; CI uploads them even on failure.
+Smoke tests build the builder images and check IB/SRC volume writes, user permissions, and glibc compatibility. They require working runtimes, Compose, Python 3, and network access; a missing dependency fails the selected check. Each test uses its own Compose project and removes only its own containers, volumes, and output files. These checks do not build firmware or open Menuconfig. Use a separate fresh working copy to reproduce clean-checkout behavior. Logs: `tmp/tester_log_win.md` / `tmp/tester_log_lin.md`; CI uploads them even on failure.
 
 ---
 
@@ -412,4 +412,4 @@ Packer and unpacker are covered by CI on Linux and Windows: deterministic regene
 ## 13. Full Process Map (Mermaid)
 
 See [ARCHITECTURE_diagram_en.md](ARCHITECTURE_diagram_en.md): **§1** Startup · **§2** Main menu (all choices) · **§3** Build routine + post-actions · **§4** Cleanup Wizard · **§5** Menuconfig flow + legend. RU diagrams: [ARCHITECTURE_diagram_ru.md](ARCHITECTURE_diagram_ru.md).
-# checksum:MD5=d09beaf44c4bda41b48d2254306ed307
+# checksum:MD5=68bc7f5cf2697dc29f4939bcc49f1dc4

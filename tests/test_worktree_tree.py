@@ -10,6 +10,7 @@ import unittest
 
 
 REPO = Path(__file__).resolve().parents[1]
+import temp_support
 SCRIPT = REPO / "scripts" / "write_worktree_tree.ps1"
 BATCH = REPO / "capture_worktree_diff.bat"
 SHELL = None
@@ -60,7 +61,8 @@ class DiffTreePowerShellRuntimeTests(unittest.TestCase):
         return subprocess.run(
             [SHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT),
              "-Root", str(root or self.root), "-Output", str(self.output), "-MaxEntries", str(cap)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
             check=False,
         )
 

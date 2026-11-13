@@ -32,6 +32,8 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+source "$SCRIPT_DIR/tests/test_tmp.sh"
+export TMPDIR="$(routerfw_test_tmp "$SCRIPT_DIR")"
 
 SH="_Builder.sh"
 PASS=0
@@ -39,7 +41,7 @@ FAIL=0
 export ROUTERFW_NO_CLS=1
 export ROUTERFW_TEST_MODE=1
 
-LOG="$SCRIPT_DIR/tester_log_lin.md"
+LOG="${ROUTERFW_TEST_LOG:-$SCRIPT_DIR/tmp/tester_log_lin.md}"
 TASK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/routerfw-tester-sh.XXXXXX")"
 TESTER_JOBS="${ROUTERFW_TEST_JOBS:-}"
 if [ -z "$TESTER_JOBS" ]; then
@@ -215,8 +217,9 @@ enqueue_task() {
   local rc_file="$TASK_DIR/$TASK_SEQ.rc"
   (
     set +e
-    "$@" > "$out" 2>&1
-    printf '%s\n' "$?" > "$rc_file"
+    TIMEFORMAT='%3R'
+    { time "$@" > "$out" 2>&1; got=$?; } 2> "$rc_file.time"
+    printf '%s\n' "$got" > "$rc_file"
   ) &
 
   TASK_PIDS+=("$!")
@@ -229,7 +232,7 @@ enqueue_task() {
 }
 
 wait_all() {
-  local i pid label kind expect out rc_file got
+  local i pid label kind expect out rc_file got duration milliseconds
   [ "${#TASK_PIDS[@]}" -eq 0 ] && return 0
 
   for pid in "${TASK_PIDS[@]}"; do
@@ -257,6 +260,12 @@ wait_all() {
     else
       TEE_LINE="[FAIL] $label (expected exit $expect, got $got)" tee_line
       ((FAIL++)) || true
+    fi
+    if IFS= read -r duration < "$rc_file.time" &&
+       [[ "$duration" =~ ^([0-9]+)[.,]([0-9]{3})$ ]]; then
+      milliseconds=$((10#${BASH_REMATCH[1]} * 1000 + 10#${BASH_REMATCH[2]}))
+      TEE_LINE="[TIME] $milliseconds ms | $label" tee_line
+      printf '%s\n' "$milliseconds ms | $label" >> "$TASK_DIR/timings"
     fi
   done
 
@@ -358,7 +367,7 @@ TEE_LINE="" tee_line
 # Сравнение ключей
 run_check 0 "Source Builder Storage Recovery" "bash tests/test_src_builder_storage.sh && bash tests/test_src_builder_git_feeds.sh && bash tests/test_src_builder_lifecycle.sh"
 run_check 0 "Source Builder Post-Build Discovery" "bash tests/test_builder_postbuild.sh && bash tests/test_source_post_build_sh.sh"
-run_check 0 "Source Tree Packager" 'if command -v python3 >/dev/null 2>&1 && python3 -c "import sys; assert sys.version_info >= (3, 10)"; then python3 -m unittest discover -s tests -p "test_*.py" -q; elif [ -n "${CI:-}" ]; then echo "[FAIL] CI requires Python 3.10+ for source exporter regressions"; exit 1; else echo "[SKIP] Optional Python 3.10+ unavailable; source packaging tests not run"; fi'
+run_check 0 "Python Regression Suite" 'if command -v python3 >/dev/null 2>&1 && python3 -B -c "import sys; assert sys.version_info >= (3, 10)"; then python3 -B tests/run_unittest.py; elif [ -n "${CI:-}" ]; then echo "[FAIL] CI requires Python 3.10+ for source exporter regressions"; exit 1; else echo "[SKIP] Optional Python 3.10+ unavailable; source packaging tests not run"; fi'
 run_check 0 "Bash Syntax" 'set -e -o pipefail; for f in _Builder.sh _unpacker.sh tester.sh system/*.sh tests/*.sh; do bash -n "$f"; done; git ls-files -z -- "custom_files/**/*.sh" "scripts/**/*.sh" "scripts/*.sh" | xargs -0 -r -n1 bash -n'
 run_check 0 "ShellCheck" 'command -v shellcheck >/dev/null || { echo "Install shellcheck to run the same checks as CI"; exit 1; }; shellcheck --severity=error _Builder.sh tester.sh system/*.sh'
 run_check 0 "Localization Keys" "diff <(grep -E '^(L_|H_)' system/lang/ru.env | sed 's/=.*//' | sort) <(grep -E '^(L_|H_)' system/lang/en.env | sed 's/=.*//' | sort)"
@@ -409,6 +418,13 @@ fi
 if [ "$PASS" -eq 0 ] && [ "$FAIL" -eq 0 ]; then
   TEE_LINE='[FAIL] No tests matched the supplied labels.' tee_line
   FAIL=1
+fi
+if [ -s "$TASK_DIR/timings" ]; then
+  TEE_LINE="" tee_line
+  TEE_LINE="Slowest checks (up to 5):" tee_line
+  while IFS= read -r timing; do
+    TEE_LINE="[TOP] $timing" tee_line
+  done < <(sort -nr "$TASK_DIR/timings" | head -n 5)
 fi
 TEE_LINE="" tee_line
 TEE_LINE="=== Итого: $PASS OK, $FAIL FAIL ===" tee_line

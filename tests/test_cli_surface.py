@@ -2,6 +2,7 @@
 # file: tests/test_cli_surface.py
 """SH/BAT CLI contract regression without Docker/Podman or firmware compilation."""
 
+from concurrent.futures import ThreadPoolExecutor
 import os
 import re
 import shutil
@@ -11,11 +12,15 @@ import unittest
 from pathlib import Path
 
 from bash_runner import bash_executable, bash_environment
+import temp_support
 
 REPO = Path(__file__).resolve().parents[1]
+PLATFORMS = ("sh", "bat") if os.name == "nt" else ("sh",)
+CLI_FIXTURE = None
 
 
-def invoke(name, *args, input_text=None, cwd=REPO, runtime=None):
+def invoke(name, *args, input_text=None, cwd=None, runtime=None):
+    cwd = cwd or CLI_FIXTURE or REPO
     env = dict(os.environ, ROUTERFW_TEST_MODE="1", ROUTERFW_NO_CLS="1", TERM="dumb")
     if runtime is not None:
         env["ROUTERFW_RUNTIME"] = runtime
@@ -44,22 +49,59 @@ def invoke(name, *args, input_text=None, cwd=REPO, runtime=None):
                            stdout=p.stdout.decode("utf-8", "replace"))
 
 
+def invoke_cases(cases, *, cwd=None):
+    # These CLI cases use test mode, independent stdin, and read-only profiles.
+    bash_executable()
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        return list(workers.map(
+            lambda case: invoke(case[0], *case[1], input_text=case[2], cwd=cwd), cases,
+        ))
+
+
 class CliSurfaceParity(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        global CLI_FIXTURE
+        cls.fixture = tempfile.TemporaryDirectory(prefix="routerfw-cli-fixture-")
+        CLI_FIXTURE = Path(cls.fixture.name)
+        (CLI_FIXTURE / "system" / "lang").mkdir(parents=True)
+        (CLI_FIXTURE / "profiles").mkdir()
+        for name in ("_Builder.sh", "_Builder.bat"):
+            shutil.copy2(REPO / name, CLI_FIXTURE / name)
+        for name in ("en.env", "ru.env"):
+            shutil.copy2(REPO / "system" / "lang" / name, CLI_FIXTURE / "system" / "lang" / name)
+        shutil.copy2(REPO / "system" / "version.env", CLI_FIXTURE / "system" / "version.env")
+        (CLI_FIXTURE / "profiles" / "fixture.conf").write_text(
+            'PROFILE_NAME="fixture"\nTARGET_PROFILE="fixture"\nSRC_ARCH="test"\n',
+            encoding="utf-8",
+        )
+        for directory in (
+            "custom_files", "custom_packages", "src_packages", "custom_patches",
+            "firmware_output/imagebuilder", "firmware_output/sourcebuilder",
+        ):
+            (CLI_FIXTURE / directory).mkdir(parents=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        global CLI_FIXTURE
+        cls.fixture.cleanup()
+        CLI_FIXTURE = None
+
     def test_runtime_accepts_mixed_case_and_rejects_unknown(self):
-        platforms = ["sh", "bat"] if os.name == "nt" else ["sh"]
-        for platform in platforms:
-            for args in [("--runtime=DoCkEr", "help"),
-                         ("--runtime", "PODMAN", "help"),
-                         ("-r", "AuTo", "help")]:
-                with self.subTest(platform=platform, args=args):
-                    p = invoke(platform, *args)
-                    self.assertEqual(p.returncode, 0, p.stdout[-1200:])
-            p = invoke(platform, "--runtime=invalid", "help")
-            self.assertNotEqual(p.returncode, 0, p.stdout[-1200:])
+        options = {
+            ("--runtime=DoCkEr", "help"): True,
+            ("--runtime", "PODMAN", "help"): True,
+            ("-r", "AuTo", "help"): True,
+            ("--runtime=invalid", "help"): False,
+        }
+        cases = [(platform, args, None) for platform in PLATFORMS for args in options]
+        for (platform, args, _), p in zip(cases, invoke_cases(cases)):
+            with self.subTest(platform=platform, args=args):
+                self.assertEqual(p.returncode == 0, options[args], p.stdout[-1200:])
 
     def test_help_lists_all_aliases_and_actual_contract(self):
-        for platform in (["sh", "bat"] if os.name == "nt" else ["sh"]):
-            p = invoke(platform, "help")
+        cases = [(platform, ("help",), None) for platform in PLATFORMS]
+        for (platform, _, _), p in zip(cases, invoke_cases(cases)):
             self.assertEqual(p.returncode, 0, p.stdout[-1200:])
             for expected in ["build_all", "[id/All]", "[1-6/1-3]", "edit, e",
                              "parallel", "sequential", "SOURCE unsupported", "source menuconfig 1"]:
@@ -68,25 +110,21 @@ class CliSurfaceParity(unittest.TestCase):
             self.assertNotIn("source build-all", p.stdout)
 
     def test_edit_without_id_selects_or_cancels(self):
-        platforms = ["sh", "bat"] if os.name == "nt" else ["sh"]
-        for platform in platforms:
-            with self.subTest(platform=platform, choice="cancel"):
-                p = invoke(platform, "edit", input_text="0\n")
-                self.assertEqual(p.returncode, 0, p.stdout[-1200:])
-            with self.subTest(platform=platform, choice="invalid"):
-                p = invoke(platform, "edit", input_text="invalid\n")
-                self.assertNotEqual(p.returncode, 0, p.stdout[-1200:])
+        cases = [(platform, ("edit",), choice)
+                 for platform in PLATFORMS for choice in ("0\n", "invalid\n")]
+        for (platform, _, choice), p in zip(cases, invoke_cases(cases)):
+            with self.subTest(platform=platform, choice=choice.strip()):
+                self.assertEqual(p.returncode == 0, choice == "0\n", p.stdout[-1200:])
 
     def test_build_all_alias_dispatched_and_source_refused(self):
-        platforms = ["sh", "bat"] if os.name == "nt" else ["sh"]
-        for platform in platforms:
-            for alias in ["build-all", "build_all"]:
-                with self.subTest(platform=platform, alias=alias):
-                    p = invoke(platform, "src", alias)
-                    self.assertNotEqual(p.returncode, 0, p.stdout[-1500:])
-                    # This must be the source-build restriction, not "profile not found".
-                    self.assertNotIn("Profile not found", p.stdout)
-                    self.assertNotIn("Specify profile", p.stdout)
+        cases = [(platform, ("src", alias), None)
+                 for platform in PLATFORMS for alias in ("build-all", "build_all")]
+        for (platform, (_, alias), _), p in zip(cases, invoke_cases(cases)):
+            with self.subTest(platform=platform, alias=alias):
+                self.assertNotEqual(p.returncode, 0, p.stdout[-1500:])
+                # This must be the source-build restriction, not "profile not found".
+                self.assertNotIn("Profile not found", p.stdout)
+                self.assertNotIn("Specify profile", p.stdout)
 
     def test_checksum_all_and_global_clear_fail_without_unpacker(self):
         # Copy only the host script plus localization into an isolated workspace;
@@ -102,12 +140,11 @@ class CliSurfaceParity(unittest.TestCase):
                              root / "system" / "lang" / locale)
             shutil.copy2(REPO / "system" / "version.env", root / "system" / "version.env")
             (root / "profiles" / "dummy.conf").write_text('PROFILE_NAME="dummy"\nTARGET_PROFILE="dummy"\n', encoding="utf-8")
-            platforms = ["sh", "bat"] if os.name == "nt" else ["sh"]
-            for platform in platforms:
-                for command in ["check-all", "check-clear"]:
-                    with self.subTest(platform=platform, command=command):
-                        p = invoke(platform, command, cwd=root)
-                        self.assertNotEqual(p.returncode, 0, p.stdout[-1500:])
+            cases = [(platform, (command,), None)
+                     for platform in PLATFORMS for command in ("check-all", "check-clear")]
+            for (platform, (command,), _), p in zip(cases, invoke_cases(cases, cwd=root)):
+                with self.subTest(platform=platform, command=command):
+                    self.assertNotEqual(p.returncode, 0, p.stdout[-1500:])
 
     def test_source_contract_in_batch_and_bash(self):
         sh = (REPO / "_Builder.sh").read_text(encoding="utf-8")

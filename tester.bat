@@ -32,10 +32,22 @@ set "PASS=0"
 set "FAIL=0"
 set "ROUTERFW_NO_CLS=1"
 set "ROUTERFW_TEST_MODE=1"
-set "LOG=%~dp0tester_log_win.md"
-set "TEMP_OUT=%~dp0tester_tmp_win_out.txt"
-set "TASK_DIR=%TEMP%\routerfw-tester-bat-%RANDOM%-%RANDOM%"
-mkdir "%TASK_DIR%" >nul 2>&1
+call "%~dp0scripts\python_runtime.bat"
+if not exist "%~dp0tmp" mkdir "%~dp0tmp" >nul 2>&1
+set "TMP=%~dp0tmp"
+set "TEMP=%~dp0tmp"
+set "LOG=%~dp0tmp\tester_log_win.md"
+if defined ROUTERFW_TEST_LOG set "LOG=%ROUTERFW_TEST_LOG%"
+set "TASK_DIR="
+for /L %%I in (1,1,10) do if not defined TASK_DIR (
+  set "TASK_CANDIDATE=%TEMP%\routerfw-tester-bat-!RANDOM!-!RANDOM!"
+  mkdir "!TASK_CANDIDATE!" >nul 2>&1 && set "TASK_DIR=!TASK_CANDIDATE!"
+)
+if not defined TASK_DIR (
+  >&2 echo [FAIL] Could not create a temporary test directory.
+  exit /b 1
+)
+set "TEMP_OUT=%TASK_DIR%\check.out"
 set "TESTER_JOBS=%ROUTERFW_TEST_JOBS%"
 if not defined TESTER_JOBS set "TESTER_JOBS=%NUMBER_OF_PROCESSORS%"
 if not defined TESTER_JOBS set "TESTER_JOBS=4"
@@ -150,7 +162,7 @@ rem ВНИМАНИЕ: Ниже исправленные регулярки (од
 call :run_ps 0 "Localization Keys" "$ProgressPreference='SilentlyContinue'; if ( (Compare-Object (gc system/lang/ru.env | Where-Object { $_ -match '^(L_|H_)' } | ForEach-Object { if ($_ -match '^([^=]+)=') { $Matches[1] } }) (gc system/lang/en.env | Where-Object { $_ -match '^(L_|H_)' } | ForEach-Object { if ($_ -match '^([^=]+)=') { $Matches[1] } })).Length -eq 0) { exit 0 } else { exit 1 }"
 call :run_ps 0 "BOM Signature" "$BOM_EXPECTED = @('system/create_profile.ps1', 'system/import_ipk.ps1'); $NO_BOM_EXPECTED = @('_Builder.sh', 'system/lang/ru.env', 'README.md'); $errors = 0; function Test-BOM($path) { $bytes = gc $path -Enc Byte -Total 3; return ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF); }; foreach ($f in $BOM_EXPECTED) { if (-not (Test-BOM $f)) { Write-Error ('BOM missing in ' + $f); $errors++; } }; foreach ($f in $NO_BOM_EXPECTED) { if (Test-BOM $f) { Write-Error ('Unexpected BOM in ' + $f); $errors++; } }; exit $errors"
 call :run_ps 0 "Source Builder Post-Build Discovery" "& powershell -NoProfile -ExecutionPolicy Bypass -File tests/test_source_post_build_bat.ps1; exit $LASTEXITCODE"
-call :run_ps 0 "Source Tree Packager" "$ErrorActionPreference='Stop'; $found=$false; if(Get-Command py -ErrorAction SilentlyContinue){ & py -3 -c 'import sys; sys.exit(sys.version_info < (3,10))' 2>$null; if($LASTEXITCODE -eq 0){ & py -3 -m unittest discover -s tests -p test_*.py -q; exit $LASTEXITCODE } }; foreach($exe in @('python','python3')){ if(Get-Command $exe -ErrorAction SilentlyContinue){ & $exe -c 'import sys; sys.exit(sys.version_info < (3,10))' 2>$null; if($LASTEXITCODE -eq 0){ & $exe -m unittest discover -s tests -p test_*.py -q; exit $LASTEXITCODE } } }; if($env:CI){throw 'CI requires Python 3.10+ for source exporter regressions'}; Write-Host '[SKIP] Optional Python 3.10+ unavailable; source packaging tests not run'; exit 0"
+call :run_ps 0 "Python Regression Suite" "$ErrorActionPreference='Stop'; $exe=$env:ROUTERFW_PYTHON_EXE; if(-not $exe -or -not (Test-Path -LiteralPath $exe)){throw 'Repository Python runtime is missing or invalid'}; & $exe -B -c 'import sys; sys.exit(sys.version_info < (3,10))'; if($LASTEXITCODE -ne 0){throw 'Repository Python runtime must be Python 3.10+'}; & $exe -B tests/run_unittest.py; exit $LASTEXITCODE"
 rem Real CALL sites and routing, with container execution replaced by the compose capture hook.
 call :run_ps 0 "Shell CALL Arguments" "$ErrorActionPreference='Stop'; $repo=(Get-Location).Path; $q=[char]34; $builder=[IO.File]::ReadAllText((Join-Path $repo '_Builder.bat')); $routing=[regex]::Match($builder,'(?ms)^:RUN_COMPOSE\r?\n.*?(?=^:SET_COMPOSE_FILE_ARGS\r?$)').Value; if(-not $routing){throw 'Compose routing not found'}; $cases=@(); foreach($file in (git ls-files -- '*.bat')){if($file -like '_unpacker*'){continue}; $n=0; foreach($line in [IO.File]::ReadAllLines((Join-Path $repo $file))){$n++; if($line -match '(?i)^\s*(rem\b|::)'){continue}; if($line -match '(?i)\bcall\s+:RUN_COMPOSE\b.*?/bin/(?:bash|sh)\s+-c\s+\x22(.*)\x22\s*$'){$cases+=@{Site=$file+':'+$n; Line=$line; Shell=$Matches[1]}}}}; if(-not $cases.Count){throw 'No inline shell CALL sites found'}; $root=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()); $tmp=Join-Path $root ('routerfw-shell-test-'+[guid]::NewGuid().ToString('N')); [void](New-Item -ItemType Directory -Path $tmp); try{$count=0; foreach($case in $cases){foreach($runtime in @('docker','podman')){foreach($plugin in @('0','1')){$log=Join-Path $tmp 'compose.log'; $script=Join-Path $tmp 'test.bat'; Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue; $vars=@('PROFILE_ID=sample','PROJ_NAME=srcbuild_sample','SERVICE_NAME=builder-src-openwrt','COMPOSE_BASE_FILE=system/docker-compose-src.yaml',('CONTAINER_EXE='+$runtime),('COMPOSE_EXE='+$runtime+'-compose'),('COMPOSE_IS_PLUGIN='+$plugin),('ROUTERFW_TEST_COMPOSE_LOG='+$log)); $prefix=@('@echo off','setlocal EnableDelayedExpansion')+@($vars | ForEach-Object {'set '+$q+$_+$q}); $body=($prefix+@($case.Line,'exit /b',$routing)) -join [Environment]::NewLine; [IO.File]::WriteAllText($script,$body,[Text.UTF8Encoding]::new($false)); & $env:ComSpec /d /c ($q+$script+$q); if($LASTEXITCODE -ne 0){throw ('CALL failed: '+$case.Site)}; $actual=[IO.File]::ReadAllText($log).TrimEnd([char]13,[char]10); if($actual -notmatch '/bin/(?:bash|sh) -c \x22(.*)\x22$'){throw ('Shell command lost: '+$case.Site)}; $actualShell=$Matches[1]; $expected=$case.Shell -replace '\x25+',[string][char]37; if($actualShell -cne $expected){throw ('Shell command corrupted: '+$case.Site+' ('+$runtime+', plugin='+$plugin+')'+[Environment]::NewLine+'Expected: '+$expected+[Environment]::NewLine+'Actual: '+$actualShell)}; $count++}}}; Write-Host ('Shell CALL arguments: '+$count+' checks passed across '+$cases.Count+' call sites.')}finally{if(-not ([IO.Path]::GetFullPath($tmp)).StartsWith($root,[StringComparison]::OrdinalIgnoreCase)){throw 'Test cleanup path escaped the temporary directory'}; Remove-Item -LiteralPath $tmp -Recurse -Force}"
 call :run_ps 0 "Version Sync" "$ver=((Get-Content system/version.env | Where-Object { $_ -match '^ROUTERFW_VERSION=' }) -replace '^ROUTERFW_VERSION=','').Trim(); $checks = @((Select-String -Path _Builder.sh -SimpleMatch ('VER_NUM=' + [char]34 + $ver + [char]34)), (Select-String -Path _Builder.bat -SimpleMatch ('set ' + [char]34 + 'VER_NUM=' + $ver + [char]34)), (Select-String -Path README.md -SimpleMatch ('v' + $ver + '+')), (Select-String -Path README.en.md -SimpleMatch ('v' + $ver + '+')), (Select-String -Path docs\\ARCHITECTURE_en.md -SimpleMatch ('Version: ' + $ver + '.')), (Select-String -Path docs\\ARCHITECTURE_ru.md -SimpleMatch ('Версия: ' + $ver + '.'))); if(($checks | Where-Object { $_ }).Count -eq 6){exit 0}else{exit 1}"
@@ -166,10 +178,16 @@ call :run_ps 0 "Worktree Diff Helper Diagnostics" "$ErrorActionPreference='Stop'
 call :run_ps 0 "Worktree Diff Helper ZIP Extension" "$ErrorActionPreference='Stop'; $helper=Get-Content -LiteralPath 'capture_worktree_diff.bat' -Raw; foreach($eol in @([string][char]10,([string][char]13+[char]10))){$fixture=($helper -replace '\r?\n',$eol); $m=[regex]::Match($fixture,'(?im)^\s*set \x22TEMP_ARCHIVE=(?<path>[^\x22\r\n]+)\x22\r?$'); if(-not $m.Success){throw 'TEMP_ARCHIVE setting not found'}; if([IO.Path]::GetExtension($m.Groups['path'].Value) -ne '.zip'){throw 'TEMP_ARCHIVE must end in .zip'}}; if($helper -notmatch '(?is)Compress-Archive.*?-DestinationPath\s+\$env:TEMP_ARCHIVE'){throw 'Compress-Archive destination mismatch'}; git check-ignore -q diff.new.zip; if($LASTEXITCODE -ne 0){throw 'diff.new.zip is not ignored'}; $tmp=Join-Path $env:TEMP ('routerfw-diff-zip-test-'+[guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Path $tmp | Out-Null; try{$src=Join-Path $tmp 'probe.txt'; [IO.File]::WriteAllText($src,'routerFW'); $dst=Join-Path $tmp 'probe.new.zip'; Compress-Archive -LiteralPath $src -DestinationPath $dst -CompressionLevel Optimal -Force; if(-not(Test-Path -LiteralPath $dst)){throw 'Compress-Archive ZIP smoke failed'}} finally{Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue}; exit 0"
 call :run_ps 0 "Worktree Diff Default Yes" "$t=Get-Content -LiteralPath 'capture_worktree_diff.bat' -Raw; if($t -notmatch '(?m)^    call :confirm_overwrite\r?$'){throw 'Prompt subroutine is not called'}; if($t -notmatch '(?ms)^:confirm_overwrite\r?\nrem .*?\r?\nset .OVERWRITE_REPLY=Y.\r?\nset /p .OVERWRITE_REPLY=.*?\[Y/n\]: '){throw 'Enter must default to Yes'}; if($t -notmatch '(?m)^if /i .*==.Y. exit /b 0\r?$'){throw 'Yes must continue'}; if($t -notmatch '(?m)^if /i .*==.N. exit /b 1\r?$'){throw 'No must cancel'}; exit 0"
 set "TEE_LINE=" & call :tee
+if exist "%TASK_DIR%\timings" (
+  set "TEE_LINE=Slowest checks (up to 5):" & call :tee
+  for /f "usebackq delims=" %%T in (`powershell -NoProfile -Command "Get-Content -LiteralPath (Join-Path $env:TASK_DIR 'timings') | Sort-Object { [long]($_ -split ' ',2)[0] } -Descending | Select-Object -First 5"`) do (
+    set "TEE_LINE=[TOP] %%T" & call :tee
+  )
+  set "TEE_LINE=" & call :tee
+)
 set "TEE_LINE=== Итого: !PASS! OK, !FAIL! FAIL ==="
 call :tee
 set "TEE_LINE=" & call :tee
-if exist "%TEMP_OUT%" del "%TEMP_OUT%"
 if exist "%TASK_DIR%" rd /s /q "%TASK_DIR%" >nul 2>&1
 if not "%FAIL%"=="0" exit /b 1
 exit /b 0
@@ -206,8 +224,10 @@ set "CMD=%~3"
 set "TEE_LINE=" & call :tee
 rem УБРАЛИ !CMD! ИЗ ВЫВОДА
 set "TEE_LINE=--- Check: !LABEL! ---" & call :tee
-powershell -Command "%~3" > "%TEMP_OUT%" 2>&1
+set "TEST_STARTED=!TIME!"
+powershell -NoProfile -Command "%~3" > "%TEMP_OUT%" 2>&1
 set "GOT=!errorlevel!"
+set "TEST_FINISHED=!TIME!"
 type "%TEMP_OUT%"
 type "%TEMP_OUT%" >> "%LOG%"
 set "TEE_LINE=" & call :tee
@@ -220,6 +240,7 @@ if "!EXPECT!"=="!GOT!" (
   set "TEE_LINE=[FAIL] !LABEL_ECHO! ^(expected exit !EXPECT!, got !GOT!^)" & call :tee
   set /a FAIL+=1
 )
+call :report_time "!TEST_STARTED!" "!TEST_FINISHED!"
 exit /b 0
 
 :run_env
@@ -244,6 +265,19 @@ exit /b 0
 if "!TEE_LINE!"=="" (echo. & echo. >> "%LOG%") else (echo !TEE_LINE! & echo !TEE_LINE! >> "%LOG%")
 exit /b 0
 
+:report_time
+rem CMD clock uses centiseconds. Account for a test crossing midnight.
+set "CLOCK_START=%~1"
+set "CLOCK_END=%~2"
+set "CLOCK_START=!CLOCK_START: =0!"
+set "CLOCK_END=!CLOCK_END: =0!"
+for /f "tokens=1-4 delims=:., " %%A in ("!CLOCK_START!") do set /a "TEST_MS=-((1%%A-100)*3600000 + (1%%B-100)*60000 + (1%%C-100)*1000 + (1%%D-100)*10)"
+for /f "tokens=1-4 delims=:., " %%A in ("!CLOCK_END!") do set /a "TEST_MS+=(1%%A-100)*3600000 + (1%%B-100)*60000 + (1%%C-100)*1000 + (1%%D-100)*10"
+if !TEST_MS! LSS 0 set /a TEST_MS+=86400000
+set "TEE_LINE=[TIME] !TEST_MS! ms | !LABEL!" & call :tee
+>> "%TASK_DIR%\timings" echo !TEST_MS! ms ^| !LABEL!
+exit /b 0
+
 :enqueue_run
 if !TASK_ACTIVE! GEQ %TESTER_JOBS% call :wait_all
 set /a TASK_COUNT+=1
@@ -266,9 +300,10 @@ set "TASK_DONE[!TASK_COUNT!]=!DONE_FILE!"
   echo set "ROUTERFW_NO_CLS=1"
   echo set "ROUTERFW_TEST_MODE=1"
   rem CLI tests must never inherit the console stdin: an accidental prompt would deadlock testgate.
+  echo set "TEST_STARTED=%%TIME%%"
   echo call "%~dp0%BAT%" %~3 %~4 %~5 %~6 %~7 %~8 %~9 ^<nul ^> "!OUT_FILE!" 2^>^&1
   echo set "GOT=%%ERRORLEVEL%%"
-  echo ^> "!RC_FILE!" echo %%GOT%%
+  echo ^> "!RC_FILE!" echo %%GOT%%;%%TEST_STARTED%%;%%TIME%%
   echo ^> "!DONE_FILE!" echo done
 ) > "!TASK_SCRIPT!"
 start "" /b "%ComSpec%" /c ""!TASK_SCRIPT!""
@@ -296,9 +331,10 @@ set "TASK_DONE[!TASK_COUNT!]=!DONE_FILE!"
   echo set "ROUTERFW_NO_CLS=1"
   echo set "ROUTERFW_TEST_MODE=1"
   echo set "ROUTERFW_TEST_BUILD_STATUS=%~3"
+  echo set "TEST_STARTED=%%TIME%%"
   echo call "%~dp0%BAT%" %~4 ^<nul ^> "!OUT_FILE!" 2^>^&1
   echo set "GOT=%%ERRORLEVEL%%"
-  echo ^> "!RC_FILE!" echo %%GOT%%
+  echo ^> "!RC_FILE!" echo %%GOT%%;%%TEST_STARTED%%;%%TIME%%
   echo ^> "!DONE_FILE!" echo done
 ) > "!TASK_SCRIPT!"
 start "" /b "%ComSpec%" /c ""!TASK_SCRIPT!""
@@ -321,7 +357,13 @@ for /L %%I in (1,1,%TASK_COUNT%) do (
   set "OUT=!TASK_OUT[%%I]!"
   set "RC=!TASK_RC[%%I]!"
   set "GOT=255"
-  if exist "!RC!" set /p "GOT="<"!RC!"
+  set "TEST_STARTED="
+  set "TEST_FINISHED="
+  if exist "!RC!" for /f "usebackq tokens=1-3 delims=;" %%A in ("!RC!") do (
+    set "GOT=%%A"
+    set "TEST_STARTED=%%B"
+    set "TEST_FINISHED=%%C"
+  )
   set "TEE_LINE=" & call :tee
   set "TEE_LINE=--- !TASK_KIND[%%I]!: !LABEL! ---" & call :tee
   if exist "!OUT!" type "!OUT!"
@@ -336,6 +378,7 @@ for /L %%I in (1,1,%TASK_COUNT%) do (
     set "TEE_LINE=[FAIL] !LABEL_ECHO! ^(expected exit !EXPECT!, got !GOT!^)" & call :tee
     set /a FAIL+=1
   )
+  if defined TEST_FINISHED call :report_time "!TEST_STARTED!" "!TEST_FINISHED!"
 )
 for /L %%I in (1,1,%TASK_COUNT%) do (
   set "TASK_EXPECT[%%I]="

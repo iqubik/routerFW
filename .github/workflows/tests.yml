@@ -32,7 +32,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: tester-log-linux
-          path: tester_log_lin.md
+          path: tmp/tester_log_lin.md
 
   windows-tests:
     runs-on: windows-2025
@@ -40,9 +40,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
       - name: Run local Batch suite (CLI, packer and unpacker)
         run: .\tester.bat
         shell: cmd
@@ -51,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: tester-log-windows
-          path: tester_log_win.md
+          path: tmp/tester_log_win.md
 
   docker-smoke:
     runs-on: ubuntu-24.04
@@ -68,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: tester-log-docker
-          path: tester_log_lin.md
+          path: tmp/tester_log_lin.md
 
   podman-smoke:
     runs-on: ubuntu-24.04
@@ -87,4 +84,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: tester-log-podman
-          path: tester_log_lin.md
+          path: tmp/tester_log_lin.md

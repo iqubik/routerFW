@@ -41,5 +41,5 @@ Each row targets an **existing, exact path** in `custom_files`. A leading `/` is
 
 Inspect the actual SquashFS within `sysupgrade.itb`: `/etc/routerfw/overlay-probe.txt` should be `0644`, `/etc/routerfw/` `0755`, and `/etc/uci-defaults/99-permissions.sh` `0644`. Rebuild to affect existing firmware images. Keep the persistent Docker volume when checking SB ON → OFF and v1 → v2.
 
-Offline tests: `python3 -m unittest tests.test_overlay_permissions` and `bash tests/test_src_builder_lifecycle.sh`. Both `_packer.sh` and `_packer.bat` include the shared policy module and this documentation in distributed `_unpacker` resources.
-# checksum:MD5=c4ea881c1b1c940e4478260450a777f2
+Offline tests: `python3 -B -m unittest tests.test_overlay_permissions` and `bash tests/test_src_builder_lifecycle.sh`. Both `_packer.sh` and `_packer.bat` include the shared policy module and this documentation in distributed `_unpacker` resources.
+# checksum:MD5=5e790572556ccdd3f1003a509a55499d

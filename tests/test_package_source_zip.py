@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "package_source_zip.py"
+import temp_support
 spec = importlib.util.spec_from_file_location("routerfw_package_source_zip", SCRIPT)
 assert spec and spec.loader
 mod = importlib.util.module_from_spec(spec)
@@ -44,13 +45,13 @@ class SourceZipTests(unittest.TestCase):
 
     def test_core_code_agent_rules_profiles_ci_included(self):
         for name in ("_Builder.bat", "_Builder.sh", "system/src_builder.sh", "docs/audit.md",
-                     ".cursor/rules/project-overview.mdc", ".github/workflows/tests.yml",
-                     "profiles/router.conf", "GEMINI.md", "pub.md"):
+                     "AGENTS.md", ".github/workflows/tests.yml",
+                     "profiles/router.conf", "pub.md"):
             self._write(name)
         mod.create_source_zip(self.root, self.out)
         names = self._names()
-        self.assertTrue({"README.md", "GEMINI.md", "pub.md", "profiles/router.conf",
-                         ".github/workflows/tests.yml", ".cursor/rules/project-overview.mdc"} <= names)
+        self.assertTrue({"README.md", "AGENTS.md", "pub.md", "profiles/router.conf",
+                         ".github/workflows/tests.yml"} <= names)
 
     def test_all_six_requested_directories_excluded(self):
         for name in ("firmware_output", ".git", "builds", "bck", "nw_test", "nl_test"):
@@ -113,6 +114,12 @@ class SourceZipTests(unittest.TestCase):
         mod.create_source_zip(self.root, self.out)
         self.assertEqual(self._names(), {"README.md", "scripts/other.py"})
 
+    def test_embedded_python_runtime_is_excluded_from_review_archive(self):
+        self._write("tools/runtime/python313/python313._pth")
+        self._write("tools/runtime/python313/_testmodule.pyd")
+        mod.create_source_zip(self.root, self.out)
+        self.assertEqual(self._names(), {"README.md"})
+
     def test_cyrillic_and_special_characters_preserved(self):
         name = "docs/Кириллица & ! (x).md"
         for newline in ("\n", "\r\n"):
@@ -159,7 +166,7 @@ class SourceZipTests(unittest.TestCase):
 
     def test_cli_cancel_preserves_old_archive(self):
         self.out.write_bytes(b"original")
-        proc = subprocess.run([sys.executable, str(SCRIPT), "--root", str(self.root)],
+        proc = subprocess.run([sys.executable, "-B", str(SCRIPT), "--root", str(self.root)],
                               input="n\n", text=True, capture_output=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(self.out.read_bytes(), b"original")
@@ -167,11 +174,11 @@ class SourceZipTests(unittest.TestCase):
 
     def test_cli_enter_overwrites_and_yes_is_noninteractive(self):
         self.out.write_bytes(b"original")
-        proc = subprocess.run([sys.executable, str(SCRIPT), "--root", str(self.root)],
+        proc = subprocess.run([sys.executable, "-B", str(SCRIPT), "--root", str(self.root)],
                               input="\n", text=True, capture_output=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(self._names(), {"README.md"})
-        proc2 = subprocess.run([sys.executable, str(SCRIPT), "--root", str(self.root), "--yes"],
+        proc2 = subprocess.run([sys.executable, "-B", str(SCRIPT), "--root", str(self.root), "--yes"],
                                text=True, capture_output=True)
         self.assertEqual(proc2.returncode, 0, proc2.stderr)
         self.assertNotIn("[Y/n]", proc2.stdout)
@@ -179,7 +186,7 @@ class SourceZipTests(unittest.TestCase):
     def test_cli_refuses_non_zip_destination(self):
         target = self.root / "do_not_overwrite.txt"
         target.write_bytes(b"valuable")
-        proc = subprocess.run([sys.executable, str(SCRIPT), "--root", str(self.root),
+        proc = subprocess.run([sys.executable, "-B", str(SCRIPT), "--root", str(self.root),
                                "--output", str(target), "--yes"],
                               text=True, capture_output=True)
         self.assertNotEqual(proc.returncode, 0)
@@ -280,6 +287,8 @@ class SourceZipTests(unittest.TestCase):
         self.assertNotIn("_observe_self.bat", text)
         self.assertIn("package_source_zip.py", text)
         self.assertIn("--root", text)
+        self.assertIn("-b", text)
+        self.assertIn("scripts\\python_runtime.bat", text)
 
 
 if __name__ == "__main__":

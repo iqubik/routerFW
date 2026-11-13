@@ -105,6 +105,8 @@
 | `check-clear` | — | `[<id>]` | Очистить checksum:MD5 из всех файлов или одного профиля |
 | `help` | `-h`, `--help` | — | Справка по ключам и выход |
 
+Для профилирования `state`/`s` задайте `ROUTERFW_STATE_PROFILE=1`: в stderr появятся времена этапов `arch`, `inputs`, `outputs` по профилям и общее время сканирования. По умолчанию дополнительный вывод выключен.
+
 **Позиционный вызов:** `_Builder.bat 2` = сборка профиля №2 (режим по умолчанию — IB). Регистр команд не учитывается.
 
 **Примеры:** `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat --help`. `src build-all` не поддерживается.\
@@ -393,6 +395,7 @@ SRC_CORES="safe"
 *   `upgrade.sh` — Массовое обновление всех пакетов на роутере.
 *   `packager.sh` — Генерация чистого списка только установленных пользователем пакетов.
 *   `show_pkgs.sh` - Альтернативный вариант получить список пакетов из уроков.
+*   Windows-тесты и локальные инструменты репозитория используют автономный Python 3.13 из `tools/runtime/python313`; WSL/Linux используют системный Python. Во всех запусках передаётся `-B`, чтобы не создавать `__pycache__`.
 *   `scripts/etc/uci-defaults/99-permissions.sh` — авто-фикс прав доступа для файлов (Dropbear/SSH).
 
 <picture>
@@ -438,4 +441,4 @@ SRC_CORES="safe"
 ---
 
 Аудит проекта https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=643bbc46e497cd4911b75d695830f23e
+# checksum:MD5=812590bd58fa3a40a4d650cb1d5d16fc

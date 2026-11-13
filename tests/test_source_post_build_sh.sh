@@ -6,6 +6,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/tests/test_tmp.sh"
+export TMPDIR="$(routerfw_test_tmp "$ROOT")"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/routerfw-sh-postbuild.XXXXXXXX")"
 trap 'rm -rf -- "$TMP"' EXIT
 

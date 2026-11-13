@@ -4,11 +4,10 @@ cd /d "%~dp0"
 
 rem Override the default WSL distribution (Debian) with ROUTERFW_TESTGATE_WSL_DISTRO.
 
-where py >nul 2>&1
-if errorlevel 1 (
-  echo [FAIL] Python launcher "py" is required to run testgate.py.
-  exit /b 1
+call "%~dp0scripts\python_runtime.bat"
+if not defined ROUTERFW_PYTHON_EXE (
+    echo [FAIL] Repository Python runtime is missing or invalid.
+    exit /b 1
 )
-
-py -3 "%~dp0testgate.py"
+"%ROUTERFW_PYTHON_EXE%" -B "%~dp0testgate.py"
 exit /b %ERRORLEVEL%

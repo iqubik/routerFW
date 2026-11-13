@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -47,10 +48,8 @@ class BashSelection(unittest.TestCase):
                 bash_runner.bash_executable()
 
     def test_probe_rejects_a_non_bash_shell(self):
-        shell = bash_runner.shutil.which("sh")
-        if not shell:
-            self.skipTest("sh not available")
-        with patch.dict(os.environ, {"ROUTERFW_TEST_BASH": shell}):
+        # Git for Windows can ship Bash under the name sh.exe.
+        with patch.dict(os.environ, {"ROUTERFW_TEST_BASH": sys.executable}):
             with self.assertRaisesRegex(RuntimeError, "No compatible Bash"):
                 bash_runner.bash_executable()
 
@@ -60,10 +59,13 @@ class BashSelection(unittest.TestCase):
         self.assertIn("mktemp -d", bash_runner._PROBE)
         self.assertIn("BASH_VERSION", bash_runner._PROBE)
 
-    def test_windows_tmpdir_is_normalized(self):
+    def test_temporary_files_stay_in_project_tmp(self):
         with patch.object(bash_runner.os, "name", "nt"):
             result = bash_runner.bash_environment({"TMPDIR": r"C:\\Users\\user\\Temp", "OTHER": "test"})
-            self.assertEqual(result["TMPDIR"], "/tmp")
+            expected = str(bash_runner._TEST_REPO / "tmp").replace("\\", "/")
+            if len(expected) > 2 and expected[1:3] == ":/":
+                expected = f"/{expected[0].lower()}/{expected[3:]}"
+            self.assertEqual(result["TMPDIR"], expected)
             self.assertEqual(result["OTHER"], "test")
 
     def test_explicit_override_does_not_fallback(self):

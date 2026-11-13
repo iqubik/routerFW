@@ -16,6 +16,63 @@ fi
 sudo -E -u build bash << 'EOF'
 set -e
 export HOME=/home/build
+
+snapshot_runtime() {
+python3 -B - "$@" <<'PY_ROUTERFW_SNAPSHOT'
+import hashlib, json, os, sys
+from pathlib import Path
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+def tree_hash(path):
+    digest = hashlib.sha256()
+    if not path.exists():
+        return digest.hexdigest()
+    for item in sorted(path.rglob("*"), key=lambda p: p.relative_to(path).as_posix()):
+        rel = item.relative_to(path).as_posix()
+        if item.is_symlink():
+            digest.update(f"L\0{rel}\0{os.readlink(item)}\0".encode())
+        elif item.is_file():
+            digest.update(f"F\0{rel}\0{sha256(item)}\0".encode())
+        elif item.is_dir():
+            digest.update(f"D\0{rel}\0".encode())
+    return digest.hexdigest()
+
+action, *args = sys.argv[1:]
+if action == "capture":
+    profile, profile_id, destination, *inputs = args
+    snapshot = {"schema": 1, "profile_id": profile_id, "profile_sha256": sha256(profile),
+                "inputs": {label: tree_hash(Path(path)) for label, path in
+                           (value.split("=", 1) for value in inputs)}}
+    target = Path(destination)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+elif action == "finalize":
+    capture_file, output, mode, config = args
+    output = Path(output)
+    snapshot = json.loads(Path(capture_file).read_text(encoding="utf-8"))
+    config = Path(config)
+    snapshot.update({"mode": mode, "config_sha256": sha256(config) if config.is_file() else None})
+    (output / "routerfw-build-snapshot.json").write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    checksums, upstream = output / "sha256sums", output / ".routerfw-upstream.sha256sums"
+    if checksums.is_file() and not upstream.exists():
+        checksums.replace(upstream)
+    entries = [path for path in output.rglob("*") if path.is_file() and path != checksums]
+    checksums.write_text("".join(
+        f"{sha256(path)} *{path.relative_to(output).as_posix()}\n"
+        for path in sorted(entries, key=lambda item: item.relative_to(output).as_posix())
+    ), encoding="utf-8")
+else:
+    raise SystemExit(f"unknown snapshot action: {action}")
+PY_ROUTERFW_SNAPSHOT
+}
+
 [ -f /overlay_permissions.sh ] || { echo '[PERMISSIONS ERROR] Shared policy module not mounted.' >&2; exit 1; }
 # shellcheck source=system/overlay_permissions.sh
 source /overlay_permissions.sh
@@ -50,6 +107,10 @@ echo "=================================================="
 
 START_TIME=$(date +%s)
 TIMESTAMP=$(TZ='UTC-3' date +%d%m%y-%H%M%S)
+BUILD_CAPTURE="/tmp/routerfw-build-${PROFILE_ID}-$$.json"
+trap 'rm -f -- "$BUILD_CAPTURE"' EXIT
+snapshot_runtime capture "/profiles/$CONF_FILE" "$PROFILE_ID" "$BUILD_CAPTURE" \
+    "custom_files=/overlay_files" "custom_patches=/patches" "src_packages=/input_packages"
 
 # 1. GIT / FEEDS
 # BEGIN SOURCE GIT AND FEEDS HELPERS (isolated regression tests extract this block)
@@ -1106,6 +1167,7 @@ for component in "$SRC_TARGET" "$SRC_SUBTARGET"; do
 done
 # Export selected subtarget firmware artifacts, excluding only top-level packages/.
 source_export_artifacts "bin/targets/$SRC_TARGET/$SRC_SUBTARGET" /output "$TIMESTAMP" || exit 1
+snapshot_runtime finalize "$BUILD_CAPTURE" "$TARGET_DIR" sourcebuilder "$TARGET_DIR/config.buildinfo"
 
 # Метаданные ядра из profiles.json (версия и vermagic)
 META_FILE="$TARGET_DIR/profiles.json"
@@ -1142,4 +1204,4 @@ done
 ELAPSED=$(($(date +%s) - START_TIME))
 echo -e "\n=== Build $PROFILE_NAME completed in ${ELAPSED}s. ===\n"
 EOF
-# checksum:MD5=e8cdfa8a1954fbc31ec5e0f1c81aac19
+# checksum:MD5=0be7e9b1145d51a79fe0409d94e43860
