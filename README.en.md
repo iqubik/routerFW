@@ -106,6 +106,8 @@ You can run the builder with arguments **without entering the interactive menu**
 | `check-clear` | — | `[<id>]` | Clear checksum:MD5 from all files or one profile |
 | `help` | `-h`, `--help` | — | Help and exit |
 
+Set `ROUTERFW_STATE_PROFILE=1` to profile `state`/`s`: stderr shows `arch`, `inputs`, and `outputs` timing per profile and total scan time. Profiling is off by default.
+
 **Positional:** `_Builder.bat 2` = build profile #2 (default mode — IB). Commands are case-insensitive.
 
 **Examples:** `_Builder.bat --lang=EN build 1`, `_Builder.bat ib build-all`, `_Builder.bat clean 2 3`, `_Builder.bat --help`. `src build-all` is not supported.
@@ -385,6 +387,7 @@ This feature turns closed-source software integration from a complex engineering
 *   `upgrade.sh` — Bulk update of all packages on the router.
 *   `packager.sh` — Generates a clean list of only user-installed packages.
 *   `show_pkgs.sh` — Alternative way to get a package list from the lessons.
+*   Windows repository tests and local tools use the standalone Python 3.13 runtime in `tools/runtime/python313`; WSL/Linux use their native Python. All launches pass `-B` to avoid creating `__pycache__`.
 *   `scripts/etc/uci-defaults/99-permissions.sh` — fixes permissions for selected files (Dropbear/SSH).
 
 <picture>
@@ -430,4 +433,4 @@ Release visualization (CHANGELOG) — timeline, heatmap, activity river, pulse b
 ---
 
 Project audit https://github.com/iqubik/routerFW/blob/main/docs/audit.md
-# checksum:MD5=08678b29c95e93d584f27df743a0f5d6
+# checksum:MD5=8a838c123989ca97073fa918ded41651

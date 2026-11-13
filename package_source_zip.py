@@ -88,6 +88,8 @@ def _skip_dir(name: str, relative: Path, include_custom: bool) -> bool:
     lower = name.casefold()
     if lower in EXCLUDED_DIRS or lower in SECRET_DIRS or GENERATED_DIR_RE.match(lower):
         return True
+    if relative.as_posix().casefold() == "tools/runtime/python313":
+        return True
     if relative.as_posix().casefold() == "scripts/checker":
         return True
     if not include_custom and len(relative.parts) == 1 and lower in CUSTOM_DIRS:

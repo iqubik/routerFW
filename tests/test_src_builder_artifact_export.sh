@@ -3,6 +3,8 @@
 # Source Builder export contract: standalone/offline, no Docker or firmware builds.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+source "$ROOT/tests/test_tmp.sh"
+export TMPDIR="$(routerfw_test_tmp "$ROOT")"
 TMP=$(mktemp -d)
 trap 'rm -rf -- "$TMP"' EXIT
 awk '/^# BEGIN SOURCE ARTIFACT EXPORT HELPERS/ {found=1; inside=1; next} /^# END SOURCE ARTIFACT EXPORT HELPERS/ {inside=0; exit} inside {print} END {if (!found) exit 1}' "$ROOT/system/src_builder.sh" > "$TMP/helpers.sh"

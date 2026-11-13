@@ -13,6 +13,7 @@ from __future__ import annotations
 from functools import lru_cache
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -33,6 +34,7 @@ printf ROUTERFW_BASH_PROBE_OK
 """
 _EXPECTED = b"ROUTERFW_BASH_PROBE_OK"
 _TEST_REPO = Path(__file__).resolve().parents[1]
+(_TEST_REPO / "tmp").mkdir(parents=True, exist_ok=True)
 
 
 def _candidates() -> list[str]:
@@ -63,16 +65,14 @@ def _candidates() -> list[str]:
 
 
 def bash_environment(base: dict[str, str] | None = None) -> dict[str, str]:
-    """Pass a POSIX TMPDIR to Git Bash/WSL, never a raw C:\\... path.
-
-    Windows processes can inherit TMPDIR in Win32 spelling. GNU mktemp then
-    creates an unusable path whose cleanup fails and may poison test results.
-    A POSIX /tmp works in both Git Bash and WSL; only test subprocesses are
-    affected, not the developer's persistent build volumes.
-    """
+    """Keep Bash fixture files in the ignored project scratch directory."""
     env = dict(os.environ if base is None else base)
+    repo_tmp = str(_TEST_REPO / "tmp")
     if os.name == "nt":
-        env["TMPDIR"] = "/tmp"
+        repo_tmp = repo_tmp.replace("\\", "/")
+        if re.match(r"^[A-Za-z]:/", repo_tmp):
+            repo_tmp = f"/{repo_tmp[0].lower()}/{repo_tmp[3:]}"
+    env["TMPDIR"] = repo_tmp
     return env
 
 

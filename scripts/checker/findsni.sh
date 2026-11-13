@@ -55,7 +55,7 @@ pkill -f "RealiTLScanner-linux-64 --addr $TARGET_IP" 2>/dev/null
 
 echo "✅ Сбор завершен. Запуск checker.py..."
 echo "======================================================================"
-python3 checker.py
+python3 -B checker.py
 
 if [ -s "good_snis.txt" ]; then
     echo "📋 Идеальные домены:"

@@ -3,6 +3,8 @@
 # Offline ownership/hook overlay tests. No firmware, Docker or network required.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+source "$ROOT/tests/test_tmp.sh"
+export TMPDIR="$(routerfw_test_tmp "$ROOT")"
 TMP=$(mktemp -d)
 trap 'rm -rf -- "$TMP"' EXIT
 awk '/^# BEGIN SOURCE OVERLAY LIFECYCLE HELPERS/ { inside=1; next } /^# END SOURCE OVERLAY LIFECYCLE HELPERS/ { inside=0; found=1; exit } inside { print } END {if (!found) exit 1}' "$ROOT/system/src_builder.sh" > "$TMP/functions.sh"
@@ -144,7 +146,7 @@ assert_missing "$TMP/external/payload"
 rm outside "$ROUTERFW_PATCH_SOURCE/outside/payload"
 pass 'destination symlink traversal rejected'
 # Verify shell script structural ordering even without executing entire OpenWrt builder.
-python3 - "$ROOT/system/src_builder.sh" <<'PY'
+python3 -B - "$ROOT/system/src_builder.sh" <<'PY'
 import sys
 s=open(sys.argv[1]).read()
 assert s.index('source_apply_patches || exit 1') < s.index('source_prepare_files || exit 1') < s.index('if [ -f "/overlay_files/hooks.sh" ]')

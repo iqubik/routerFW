@@ -10,6 +10,7 @@ import unittest
 
 
 REPO = Path(__file__).resolve().parents[1]
+import temp_support
 SCRIPT = REPO / "scripts" / "write_worktree_tree.ps1"
 BATCH = REPO / "capture_worktree_diff.bat"
 SHELL = None

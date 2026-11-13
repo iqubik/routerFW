@@ -4,7 +4,12 @@
 
 from pathlib import Path
 from time import perf_counter
+import sys
 import unittest
+
+REPO = Path(__file__).resolve().parents[1]
+(REPO / "tmp").mkdir(parents=True, exist_ok=True)
+sys.dont_write_bytecode = True
 
 
 class TimedResult(unittest.TextTestResult):

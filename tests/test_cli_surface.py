@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 
 from bash_runner import bash_executable, bash_environment
+import temp_support
 
 REPO = Path(__file__).resolve().parents[1]
 PLATFORMS = ("sh", "bat") if os.name == "nt" else ("sh",)
@@ -48,12 +49,12 @@ def invoke(name, *args, input_text=None, cwd=None, runtime=None):
                            stdout=p.stdout.decode("utf-8", "replace"))
 
 
-def invoke_cases(cases):
+def invoke_cases(cases, *, cwd=None):
     # These CLI cases use test mode, independent stdin, and read-only profiles.
     bash_executable()
     with ThreadPoolExecutor(max_workers=4) as workers:
         return list(workers.map(
-            lambda case: invoke(case[0], *case[1], input_text=case[2]), cases,
+            lambda case: invoke(case[0], *case[1], input_text=case[2], cwd=cwd), cases,
         ))
 
 
@@ -99,8 +100,8 @@ class CliSurfaceParity(unittest.TestCase):
                 self.assertEqual(p.returncode == 0, options[args], p.stdout[-1200:])
 
     def test_help_lists_all_aliases_and_actual_contract(self):
-        for platform in PLATFORMS:
-            p = invoke(platform, "help")
+        cases = [(platform, ("help",), None) for platform in PLATFORMS]
+        for (platform, _, _), p in zip(cases, invoke_cases(cases)):
             self.assertEqual(p.returncode, 0, p.stdout[-1200:])
             for expected in ["build_all", "[id/All]", "[1-6/1-3]", "edit, e",
                              "parallel", "sequential", "SOURCE unsupported", "source menuconfig 1"]:
@@ -139,11 +140,11 @@ class CliSurfaceParity(unittest.TestCase):
                              root / "system" / "lang" / locale)
             shutil.copy2(REPO / "system" / "version.env", root / "system" / "version.env")
             (root / "profiles" / "dummy.conf").write_text('PROFILE_NAME="dummy"\nTARGET_PROFILE="dummy"\n', encoding="utf-8")
-            for platform in PLATFORMS:
-                for command in ["check-all", "check-clear"]:
-                    with self.subTest(platform=platform, command=command):
-                        p = invoke(platform, command, cwd=root)
-                        self.assertNotEqual(p.returncode, 0, p.stdout[-1500:])
+            cases = [(platform, (command,), None)
+                     for platform in PLATFORMS for command in ("check-all", "check-clear")]
+            for (platform, (command,), _), p in zip(cases, invoke_cases(cases, cwd=root)):
+                with self.subTest(platform=platform, command=command):
+                    self.assertNotEqual(p.returncode, 0, p.stdout[-1500:])
 
     def test_source_contract_in_batch_and_bash(self):
         sh = (REPO / "_Builder.sh").read_text(encoding="utf-8")

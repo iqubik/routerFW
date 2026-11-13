@@ -59,10 +59,13 @@ class BashSelection(unittest.TestCase):
         self.assertIn("mktemp -d", bash_runner._PROBE)
         self.assertIn("BASH_VERSION", bash_runner._PROBE)
 
-    def test_windows_tmpdir_is_normalized(self):
+    def test_temporary_files_stay_in_project_tmp(self):
         with patch.object(bash_runner.os, "name", "nt"):
             result = bash_runner.bash_environment({"TMPDIR": r"C:\\Users\\user\\Temp", "OTHER": "test"})
-            self.assertEqual(result["TMPDIR"], "/tmp")
+            expected = str(bash_runner._TEST_REPO / "tmp").replace("\\", "/")
+            if len(expected) > 2 and expected[1:3] == ":/":
+                expected = f"/{expected[0].lower()}/{expected[3:]}"
+            self.assertEqual(result["TMPDIR"], expected)
             self.assertEqual(result["OTHER"], "test")
 
     def test_explicit_override_does_not_fallback(self):

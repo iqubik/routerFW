@@ -477,7 +477,7 @@ if /i "%choice%"=="0" (
         echo.
         :: Используем локализованное прощание и зеленый цвет успеха
         echo !C_VAL!!L_EXIT_BYE!!C_RST!
-        >nul 2>&1 <nul timeout /t 2 /nobreak
+        timeout /t 3 >nul 2>&1
         exit /b
     )
     goto MENU
@@ -1300,26 +1300,38 @@ exit /b 0
 echo.
 echo !C_LBL!!L_ANALYSIS!!C_RST!
 echo.
-for /L %%i in (1,1,%count%) do (
-    set "p_id=!profile[%%i]:.conf=!"
-    set "this_arch=--------"
-    for /f "usebackq tokens=2 delims==" %%a in (`type "profiles\!profile[%%i]!" ^| findstr "SRC_ARCH"`) do (
-        set "VAL=%%a"
-        set "VAL=!VAL:"=!"
-        for /f "tokens=* delims= " %%b in ("!VAL!") do set "this_arch=%%b"
+:: One embedded PowerShell scan replaces repeated recursive CMD scans.
+set "state_idx=0"
+for /f "usebackq tokens=1-3 delims=|" %%A in (`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$lines=[IO.File]::ReadAllLines('_Builder.bat'); $body=[Collections.Generic.List[string]]::new(); $copy=$false; foreach($line in $lines){if($line -eq '::PSPROFILESTATE:BEGIN'){$copy=$true;continue};if($line -eq '::PSPROFILESTATE:END'){break};if($copy){$body.Add($line.Substring(17))}};if(-not $body.Count){exit 2};& ([ScriptBlock]::Create(($body -join [Environment]::NewLine))) -Root '.'"`) do (
+    set /a state_idx+=1 >nul
+    set "p_id=%%A"
+    set "this_arch=%%B"
+    set "state_flags=%%C"
+    for %%I in (!state_idx!) do set "expected_id=!profile[%%I]:.conf=!"
+    if /i not "!p_id!"=="!expected_id!" (
+        echo [STATE] Profile enumeration mismatch: !p_id! / !expected_id! 1>&2
+        exit /b 1
     )
-    set "st_f=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_files\!p_id!" 2>nul | findstr "^" >nul && set "st_f=!C_GRY!F!C_RST!"
-    set "st_p=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_p=!C_KEY!P!C_RST!"
-    set "st_s=!C_GRY!·!C_RST!" & dir /a-d /b /s "src_packages\!p_id!" 2>nul | findstr "^" >nul && set "st_s=!C_VAL!S!C_RST!"
-    set "st_m=!C_GRY!·!C_RST!" & if exist "firmware_output\sourcebuilder\!p_id!\manual_config" set "st_m=!C_ERR!M!C_RST!"
-    set "st_h=!C_GRY!·!C_RST!" & if exist "custom_files\!p_id!\hooks.sh" set "st_h=!C_LBL!H!C_RST!"
-    set "st_pt=!C_GRY!·!C_RST!" & dir /a-d /b /s "custom_patches\!p_id!" 2>nul | findstr "^" >nul && set "st_pt=!C_GRY!X!C_RST!"
-    set "st_oi=!C_GRY!··!C_RST!" & dir /s /a-d /b "firmware_output\imagebuilder\!p_id!\*" 2>nul | findstr "^" >nul && set "st_oi=!C_VAL!OI!C_RST!"
-    set "st_os=!C_GRY!··!C_RST!" & dir /s /a-d /b "firmware_output\sourcebuilder\!p_id!\*" 2>nul | findstr "^" >nul && set "st_os=!C_VAL!OS!C_RST!"
-    set "id_pad=%%i" & if %%i LSS 10 set "id_pad= %%i"
+    if not "!state_flags:~7,1!"=="1" if not "!state_flags:~7,1!"=="0" (
+        echo [STATE] Invalid state record for !p_id! 1>&2
+        exit /b 1
+    )
+    set "st_f=!C_GRY!·!C_RST!" & if "!state_flags:~0,1!"=="1" set "st_f=!C_GRY!F!C_RST!"
+    set "st_p=!C_GRY!·!C_RST!" & if "!state_flags:~1,1!"=="1" set "st_p=!C_KEY!P!C_RST!"
+    set "st_s=!C_GRY!·!C_RST!" & if "!state_flags:~2,1!"=="1" set "st_s=!C_VAL!S!C_RST!"
+    set "st_m=!C_GRY!·!C_RST!" & if "!state_flags:~3,1!"=="1" set "st_m=!C_ERR!M!C_RST!"
+    set "st_h=!C_GRY!·!C_RST!" & if "!state_flags:~4,1!"=="1" set "st_h=!C_LBL!H!C_RST!"
+    set "st_pt=!C_GRY!·!C_RST!" & if "!state_flags:~5,1!"=="1" set "st_pt=!C_GRY!X!C_RST!"
+    set "st_oi=!C_GRY!··!C_RST!" & if "!state_flags:~6,1!"=="1" set "st_oi=!C_VAL!OI!C_RST!"
+    set "st_os=!C_GRY!··!C_RST!" & if "!state_flags:~7,1!"=="1" set "st_os=!C_VAL!OS!C_RST!"
+    set "id_pad=!state_idx!" & if !state_idx! LSS 10 set "id_pad= !state_idx!"
     set "tmp_name=!p_id!                                             " & set "n_name=!tmp_name:~0,45!"
     set "tmp_arch=!this_arch!                    " & set "n_arch=!tmp_arch:~0,20!"
     echo    !C_GRY![!C_KEY!!id_pad!!C_GRY!]!C_RST! !n_name! !C_LBL!!n_arch!!C_RST! !C_GRY![!st_f!!st_p!!st_s!!st_m!!st_h!!st_pt! !C_RST!^|!C_GRY! !st_oi! !st_os!]!C_RST!
+)
+if not "!state_idx!"=="%count%" (
+    echo [STATE] Incomplete profile state scan: !state_idx!/%count% 1>&2
+    exit /b 1
 )
 echo    !C_GRY!────────────────────────────────────────────────────────────────────────────────────────────────────────────!C_RST!
 echo    !L_LEGEND_IND!
@@ -2427,4 +2439,65 @@ if not exist "custom_files\%~1\etc\uci-defaults" mkdir "custom_files\%~1\etc\uci
 set "B64=IyEvYmluL3NoCiMgRml4IFNTSCBwZXJtaXNzaW9ucwpbIC1kIC9ldGMvZHJvcGJlYXIgXSAmJiBjaG1vZCA3MDAgL2V0Yy9kcm9wYmVhcgpbIC1mIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzIF0gJiYgY2htb2QgNjAwIC9ldGMvZHJvcGJlYXIvYXV0aG9yaXplZF9rZXlzCiMgRml4IFNoYWRvdwpbIC1mIC9ldGMvc2hhZG93IF0gJiYgY2htb2QgNjAwIC9ldGMvc2hhZG93CiMgRml4IHJvb3QgU1NIIGtleXMKWyAtZCAvcm9vdC8uc3NoIF0gJiYgY2htb2QgNzAwIC9yb290Ly5zc2gKWyAtZiAvcm9vdC8uc3NoL2lkX3JzYSBdICYmIGNobW9kIDYwMCAvcm9vdC8uc3NoL2lkX3JzYQpleGl0IDAK"
 powershell -Command "[IO.File]::WriteAllBytes('custom_files\%~1\etc\uci-defaults\99-permissions.sh', [Convert]::FromBase64String('%B64%'))" >nul 2>&1
 exit /b
-:: checksum:MD5=a2527e7d06b22b84e7642cb4530ea299
+::PSPROFILESTATE:BEGIN
+::PSPROFILESTATE:# file: system/profile_state.ps1
+::PSPROFILESTATE:# Read-only, bat-state-only scanner: emits profile-id|arch|F P S M H X OI OS bits.
+::PSPROFILESTATE:# One PowerShell invocation instead of O(profiles * checks) CMD subprocesses.
+::PSPROFILESTATE:param([Parameter(Mandatory=$true)][string]$Root)
+::PSPROFILESTATE:$ErrorActionPreference = 'Stop'
+::PSPROFILESTATE:$clock = [Diagnostics.Stopwatch]::StartNew()
+::PSPROFILESTATE:$profileEnabled = $env:ROUTERFW_STATE_PROFILE -eq '1'
+::PSPROFILESTATE:
+::PSPROFILESTATE:function Get-AnyEntry([string]$path) {
+::PSPROFILESTATE:    if (-not [IO.Directory]::Exists($path)) { return $false }
+::PSPROFILESTATE:    try {
+::PSPROFILESTATE:        # Match the existing BAT 'dir /a-d /b /s': directories alone do not count.
+::PSPROFILESTATE:        $iterator = [IO.Directory]::EnumerateFiles($path, '*', [IO.SearchOption]::AllDirectories).GetEnumerator()
+::PSPROFILESTATE:        try { return $iterator.MoveNext() } finally { $iterator.Dispose() }
+::PSPROFILESTATE:    } catch [IO.IOException] { return $false } catch [UnauthorizedAccessException] { return $false }
+::PSPROFILESTATE:}
+::PSPROFILESTATE:
+::PSPROFILESTATE:$profilesDir = [IO.Path]::Combine($Root, 'profiles')
+::PSPROFILESTATE:if (-not [IO.Directory]::Exists($profilesDir)) { throw "Missing profiles directory: $profilesDir" }
+::PSPROFILESTATE:$profiles = [string[]][IO.Directory]::GetFiles($profilesDir, '*.conf')
+::PSPROFILESTATE:[Array]::Sort($profiles, [StringComparer]::Ordinal)
+::PSPROFILESTATE:foreach ($file in $profiles) {
+::PSPROFILESTATE:    $rowStart = $clock.Elapsed.TotalMilliseconds
+::PSPROFILESTATE:    $id = [IO.Path]::GetFileNameWithoutExtension($file)
+::PSPROFILESTATE:    # Match _Builder.bat :IS_SAFE_PROFILE_TOKEN; invalid profiles are skipped
+::PSPROFILESTATE:    # by the host during enumeration and must not shift its numbered rows.
+::PSPROFILESTATE:    if ($id -notmatch '^[A-Za-z0-9._-]+$' -or $id.Contains('..')) { continue }
+::PSPROFILESTATE:    $arch = '--------'
+::PSPROFILESTATE:    foreach ($line in [IO.File]::ReadLines($file)) {
+::PSPROFILESTATE:        if ($line.Contains('SRC_ARCH=')) {
+::PSPROFILESTATE:            $quote = [regex]::Match($line, 'SRC_ARCH="([^"]*)"')
+::PSPROFILESTATE:            if ($quote.Success) { $arch = $quote.Groups[1].Value.Trim() }
+::PSPROFILESTATE:        }
+::PSPROFILESTATE:    }
+::PSPROFILESTATE:    $archMs = $clock.Elapsed.TotalMilliseconds
+::PSPROFILESTATE:    # F/P/S/X: any *file* recursively; M/H: exact file; OI/OS: any file.
+::PSPROFILESTATE:    $flagPaths = @('custom_files', 'custom_packages', 'src_packages')
+::PSPROFILESTATE:    $bits = ''
+::PSPROFILESTATE:    foreach ($prefix in $flagPaths) {
+::PSPROFILESTATE:        $path = [IO.Path]::Combine($Root, $prefix, $id)
+::PSPROFILESTATE:        $bits += $(if (Get-AnyEntry $path) { '1' } else { '0' })
+::PSPROFILESTATE:    }
+::PSPROFILESTATE:    $bits += $(if ([IO.File]::Exists([IO.Path]::Combine($Root,'firmware_output','sourcebuilder',$id,'manual_config'))) { '1' } else { '0' })
+::PSPROFILESTATE:    $bits += $(if ([IO.File]::Exists([IO.Path]::Combine($Root,'custom_files',$id,'hooks.sh'))) { '1' } else { '0' })
+::PSPROFILESTATE:    $bits += $(if (Get-AnyEntry ([IO.Path]::Combine($Root,'custom_patches',$id))) { '1' } else { '0' })
+::PSPROFILESTATE:    $inputMs = $clock.Elapsed.TotalMilliseconds
+::PSPROFILESTATE:    $bits += $(if (Get-AnyEntry ([IO.Path]::Combine($Root,'firmware_output','imagebuilder',$id))) { '1' } else { '0' })
+::PSPROFILESTATE:    $bits += $(if (Get-AnyEntry ([IO.Path]::Combine($Root,'firmware_output','sourcebuilder',$id))) { '1' } else { '0' })
+::PSPROFILESTATE:    $outputMs = $clock.Elapsed.TotalMilliseconds
+::PSPROFILESTATE:    # Delimiter is safe: profile IDs never contain '|'; arch '|' is sanitized.
+::PSPROFILESTATE:    $arch = $arch.Replace('|','/')
+::PSPROFILESTATE:    [Console]::Out.WriteLine("$id|$arch|$bits")
+::PSPROFILESTATE:    if ($profileEnabled) {
+::PSPROFILESTATE:        [Console]::Error.WriteLine(('[STATE-PROFILE] {0} arch={1:N1}ms inputs={2:N1}ms outputs={3:N1}ms total={4:N1}ms' -f $id, ($archMs-$rowStart), ($inputMs-$archMs), ($outputMs-$inputMs), ($outputMs-$rowStart)))
+::PSPROFILESTATE:    }
+::PSPROFILESTATE:}
+::PSPROFILESTATE:if ($profileEnabled) {
+::PSPROFILESTATE:    [Console]::Error.WriteLine(('[STATE-PROFILE] scan-total={0:N1}ms profiles={1}' -f $clock.Elapsed.TotalMilliseconds, $profiles.Length))
+::PSPROFILESTATE:}
+::PSPROFILESTATE:END
+:: checksum:MD5=537434b82f818bd4006d4f23f7908b7c

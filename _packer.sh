@@ -411,3 +411,4 @@ echo -e "  Файл обновлен: $NEW_UNPACKER"
 echo -e "  Архив создан:  $ARCHIVE_NAME"
 echo -e "  ГОТОВО (v${PACKER_VER} SH)"
 echo -e "${C_OK}========================================${C_RST}"
+# checksum:MD5=549f01eca425003f5d3b0883a96f657a

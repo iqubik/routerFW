@@ -313,6 +313,9 @@ run_compose() {
         # An interactive container must inherit real terminal handles. Piping its
         # output through tee breaks Windows/WSL console interop (menuconfig/shell).
         # Keep the captured/retry route for non-interactive build commands only.
+        if [[ "${COMPOSE_LABEL:-}" == docker*compose* ]]; then
+            compose_args+=(--ansi always)
+        fi
         local interactive_arg
         for interactive_arg in "$@"; do
             case "$interactive_arg" in
@@ -650,7 +653,7 @@ if [ "$RUNTIME_REQUIRED" -eq 1 ]; then
                 exit 1
             fi
             mapfile -d '' -t compose_test_args < <(
-                ROUTERFW_TEST_COMPOSE_ARGS_PAYLOAD="$ROUTERFW_TEST_COMPOSE_ARGS" python3 -c '
+                ROUTERFW_TEST_COMPOSE_ARGS_PAYLOAD="$ROUTERFW_TEST_COMPOSE_ARGS" python3 -B -c '
 import os
 import shlex
 import sys
@@ -678,7 +681,7 @@ for arg in shlex.split(os.environ.get("ROUTERFW_TEST_COMPOSE_ARGS_PAYLOAD", ""))
             DOCKER_CONFIG_CREATED=1
             _REAL_CFG="$HOME/.docker/config.json"
             if [ -f "$_REAL_CFG" ] && command -v python3 &>/dev/null; then
-                REAL_DOCKER_CONFIG="$_REAL_CFG" python3 -c "
+                REAL_DOCKER_CONFIG="$_REAL_CFG" python3 -B -c "
 import json, sys
 import os
 with open(os.environ['REAL_DOCKER_CONFIG']) as f:
@@ -1928,26 +1931,56 @@ dispatch_cli() {
             exit 0
             ;;
         STATE)
+            # Optional phase profiling; keep normal state output unchanged.
+            state_now_us() {
+                if [[ -n "${EPOCHREALTIME:-}" ]]; then
+                    printf '%s' "${EPOCHREALTIME/./}"
+                else
+                    date +%s%6N
+                fi
+            }
+            state_file_present() {
+                [[ -d "$1" && -n "$(find "$1" -type f -print -quit 2>/dev/null)" ]]
+            }
             echo ""
             echo -e "${C_LBL}${L_ANALYSIS}${C_RST}"
             echo ""
+            state_profile_enabled=0
+            [[ "${ROUTERFW_STATE_PROFILE:-0}" == "1" ]] && state_profile_enabled=1
+            if ((state_profile_enabled)); then state_all_start=$(state_now_us); fi
             for ((i=1; i<=count; i++)); do
+                if ((state_profile_enabled)); then state_row_start=$(state_now_us); fi
                 p_id="${profiles[$i]%.conf}"
                 p_id=$(echo "$p_id" | tr -d '\r')
                 f="profiles/${profiles[$i]}"
                 this_arch=$(grep "SRC_ARCH=" "$f" 2>/dev/null | cut -d'"' -f2 | tr -d '\r')
                 [ -z "$this_arch" ] && this_arch="--------"
-                st_f="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_files/$p_id" 2>/dev/null)" ] && st_f="${C_GRY}F${C_RST}"
-                st_p="${C_GRY}·${C_RST}"; [ "$(ls -A "custom_packages/$p_id" 2>/dev/null)" ] && st_p="${C_KEY}P${C_RST}"
-                st_s="${C_GRY}·${C_RST}"; [ "$(ls -A "src_packages/$p_id" 2>/dev/null)" ] && st_s="${C_VAL}S${C_RST}"
+                if ((state_profile_enabled)); then state_arch_end=$(state_now_us); fi
+                st_f="${C_GRY}·${C_RST}"; state_file_present "custom_files/$p_id" && st_f="${C_GRY}F${C_RST}"
+                st_p="${C_GRY}·${C_RST}"; state_file_present "custom_packages/$p_id" && st_p="${C_KEY}P${C_RST}"
+                st_s="${C_GRY}·${C_RST}"; state_file_present "src_packages/$p_id" && st_s="${C_VAL}S${C_RST}"
                 st_m="${C_GRY}·${C_RST}"; [ -f "firmware_output/sourcebuilder/$p_id/manual_config" ] && st_m="${C_ERR}M${C_RST}"
                 st_h="${C_GRY}·${C_RST}"; [ -f "custom_files/$p_id/hooks.sh" ] && st_h="${C_LBL}H${C_RST}"
-                st_pt="${C_GRY}·${C_RST}"; [ -d "custom_patches/$p_id" ] && [ "$(ls -A "custom_patches/$p_id" 2>/dev/null)" ] && st_pt="${C_GRY}X${C_RST}"
-                st_oi="${C_GRY}··${C_RST}"; [ -n "$(find "firmware_output/imagebuilder/$p_id" -type f 2>/dev/null)" ] && st_oi="${C_VAL}OI${C_RST}"
-                st_os="${C_GRY}··${C_RST}"; [ -n "$(find "firmware_output/sourcebuilder/$p_id" -type f 2>/dev/null)" ] && st_os="${C_VAL}OS${C_RST}"
+                st_pt="${C_GRY}·${C_RST}"; state_file_present "custom_patches/$p_id" && st_pt="${C_GRY}X${C_RST}"
+                if ((state_profile_enabled)); then state_input_end=$(state_now_us); fi
+                st_oi="${C_GRY}··${C_RST}"; state_file_present "firmware_output/imagebuilder/$p_id" && st_oi="${C_VAL}OI${C_RST}"
+                st_os="${C_GRY}··${C_RST}"; state_file_present "firmware_output/sourcebuilder/$p_id" && st_os="${C_VAL}OS${C_RST}"
+                if ((state_profile_enabled)); then
+                    state_output_end=$(state_now_us)
+                    printf '[STATE-PROFILE] %s arch=%dms inputs=%dms outputs=%dms total=%dms\n' \
+                        "$p_id" "$(((state_arch_end-state_row_start)/1000))" \
+                        "$(((state_input_end-state_arch_end)/1000))" \
+                        "$(((state_output_end-state_input_end)/1000))" \
+                        "$(((state_output_end-state_row_start)/1000))" >&2
+                fi
                 printf "    ${C_GRY}[${C_KEY}%2d${C_GRY}]${C_RST} %-45s ${C_LBL}%-20s${C_RST} ${C_GRY}[%s%s%s%s%s%s | %s %s]${C_RST}\n" \
                        "$i" "$p_id" "$this_arch" "$st_f" "$st_p" "$st_s" "$st_m" "$st_h" "$st_pt" "$st_oi" "$st_os"
             done
+            if ((state_profile_enabled)); then
+                state_all_end=$(state_now_us)
+                printf '[STATE-PROFILE] scan-total=%dms profiles=%d\n' \
+                    "$(((state_all_end-state_all_start)/1000))" "$count" >&2
+            fi
             echo -e "    ${C_GRY}────────────────────────────────────────────────────────────────────────────────────────────────────────────${C_RST}"
             echo -e "    ${L_LEGEND_IND}"
             echo -e "    ${C_GRY}${L_LEGEND_TEXT}${C_RST}"
@@ -2243,7 +2276,7 @@ while true; do
             read -r exit_confirm
             if [[ -z "$exit_confirm" || "$exit_confirm" =~ ^[Yy]$ ]]; then
                 echo -e "${C_OK}${L_EXIT_BYE}${C_RST}"
-                sleep 3
+                read -r -n 1 -s -t 3 || true
                 exit 0
             fi 
             continue ;;
@@ -2419,4 +2452,4 @@ while true; do
             ;;
     esac
 done
-# checksum:MD5=4606bdc9cad5a4341bf586dcca0be192
+# checksum:MD5=0e1bb5a384fa035527346e99df6e7fe5

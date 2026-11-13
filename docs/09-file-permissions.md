@@ -41,5 +41,5 @@
 
 После сборки проверь права и содержимое непосредственно в SquashFS внутри `sysupgrade.itb`: тестовый `/etc/routerfw/overlay-probe.txt` должен иметь `0644`, каталог — `0755`, `/etc/uci-defaults/99-permissions.sh` — `0644`. Для проверки SB используй тот же persistent Docker volume (в том числе повторные ON → OFF и v1 → v2). Старые прошивки автоматически не изменяются: требуется новая сборка.
 
-Offline-регрессии: `python3 -m unittest tests.test_overlay_permissions` и `bash tests/test_src_builder_lifecycle.sh`. Публикаторы `_packer.sh` и `_packer.bat` включают общий модуль и эту документацию в `_unpacker`.
-# checksum:MD5=c17f4d56fcde002a5c06a9fd0f2f6dc2
+Offline-регрессии: `python3 -B -m unittest tests.test_overlay_permissions` и `bash tests/test_src_builder_lifecycle.sh`. Публикаторы `_packer.sh` и `_packer.bat` включают общий модуль и эту документацию в `_unpacker`.
+# checksum:MD5=7fd561fe134ae5c1d8fc52b1aaae3cff

@@ -9,6 +9,7 @@ would not detect a missing shared regression or provide behavioral parity.
 from __future__ import annotations
 
 import re
+import os
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+import temp_support
 
 # Intentionally platform-specific tests; document every exception here.
 BASH_ONLY = frozenset({
@@ -46,6 +48,12 @@ def _labels(path: Path, *, windows: bool) -> tuple[set[str], set[str]]:
 
 
 class TesterParity(unittest.TestCase):
+    def test_exit_goodbye_waits_three_seconds_and_accepts_any_key(self):
+        shell = (REPO / "_Builder.sh").read_text(encoding="utf-8")
+        batch = (REPO / "_Builder.bat").read_text(encoding="utf-8-sig")
+        self.assertRegex(shell, r'read -r -n 1 -s -t 3 \|\| true')
+        self.assertRegex(batch, r'(?i)timeout /t 3 >nul 2>&1')
+
     @unittest.skipUnless(sys.platform.startswith("linux"), "Requires POSIX signal behavior")
     def test_runtime_probe_suppresses_child_signal_diagnostic(self):
         builder = (REPO / "_Builder.sh").read_text(encoding="utf-8")
@@ -97,6 +105,41 @@ class TesterParity(unittest.TestCase):
             harness,
             r'run_check 0 "Source Builder Storage Recovery" "bash tests/test_src_builder_storage\.sh && bash tests/test_src_builder_git_feeds\.sh && bash tests/test_src_builder_lifecycle\.sh"',
         )
+
+    def test_python_test_launches_disable_bytecode_and_prefer_local_runtime(self):
+        helper = (REPO / "scripts" / "python_runtime.bat").read_text(encoding="utf-8")
+        self.assertIn(r"tools\runtime\python313\python.exe", helper)
+        self.assertIn("ROUTERFW_PYTHON_EXE", helper)
+        self.assertIn(" -B -c ", helper)
+        for filename, required in (
+            ("tester.sh", "python3 -B tests/run_unittest.py"),
+            ("tester.bat", "-B tests/run_unittest.py"),
+            ("testgate.bat", "-B \"%~dp0testgate.py\""),
+            ("package_source_zip.bat", "-B \"%~dp0package_source_zip.py\""),
+        ):
+            self.assertIn(required, (REPO / filename).read_text(encoding="utf-8-sig"))
+
+    @unittest.skipUnless(os.name == "nt", "Batch override behavior needs Windows")
+    def test_repository_python_explicit_override_is_preserved(self):
+        with tempfile.TemporaryDirectory(prefix="routerfw-python-override-") as scratch:
+            check = Path(scratch) / "probe.bat"
+            helper = REPO / "scripts" / "python_runtime.bat"
+            check.write_text(
+                '@echo off\ncall "' + str(helper) + '"\n'
+                'if /i "%ROUTERFW_PYTHON_EXE%"=="' + sys.executable + '" (exit /b 0)\n'
+                'exit /b 1\n', encoding="utf-8"
+            )
+            proc = subprocess.run(["cmd.exe", "/d", "/c", str(check)],
+                                  capture_output=True, text=True, timeout=12,
+                                  env={**os.environ, "ROUTERFW_PYTHON_EXE": sys.executable})
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+
+    def test_repository_python_runtime_and_internal_tools_are_not_packed(self):
+        for filename in ("_packer.sh", "_packer.bat"):
+            packer = (REPO / filename).read_text(encoding="utf-8-sig")
+            self.assertNotIn("tools/runtime/python313", packer)
+            self.assertNotIn("python_runtime.bat", packer)
+            self.assertNotIn("scripts/validate_build.py", packer)
 
     def test_github_workflow_runner_os_labels_are_pinned(self):
         # A GitHub runner image rolls forward even with a versioned label, but
