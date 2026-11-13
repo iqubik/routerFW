@@ -59,7 +59,8 @@ class StateScannerTests(unittest.TestCase):
         p = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive",
                             "-ExecutionPolicy", "Bypass", "-File", str(script),
                             "-Root", str(self.root)], capture_output=True,
-                           text=True, timeout=25, env={**os.environ, "ROUTERFW_STATE_PROFILE": "1"})
+                           text=True, encoding="utf-8", errors="replace", timeout=25,
+                           env={**os.environ, "ROUTERFW_STATE_PROFILE": "1"})
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertEqual(p.stdout.splitlines(), [
             "a|aarch64_generic|10111111", "b|--------|00000000"
@@ -77,7 +78,7 @@ class StateScannerTests(unittest.TestCase):
         shutil.copy2(REPO / "system/version.env", self.root / "system/version.env")
         p = subprocess.run(
             ["cmd.exe", "/d", "/c", "_Builder.bat --lang=EN state"],
-            cwd=self.root, capture_output=True, text=True, timeout=30,
+            cwd=self.root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
             env={**os.environ, "ROUTERFW_TEST_MODE": "1", "ROUTERFW_NO_CLS": "1",
                  "ROUTERFW_STATE_PROFILE": "1", "TERM": "dumb"},
         )
@@ -113,7 +114,7 @@ class StateScannerTests(unittest.TestCase):
                 self.assertIn("[STATE-PROFILE] scan-total=", p.stderr)
 
     def test_state_scanner_is_embedded_and_not_packaged_separately(self):
-        self.assertNotIn('system/profile_state.ps1', (REPO / '_packer.sh').read_text())
+        self.assertNotIn('system/profile_state.ps1', (REPO / '_packer.sh').read_text(encoding="utf-8"))
         self.assertNotIn('system/profile_state.ps1', (REPO / '_packer.bat').read_text(encoding="utf-8-sig"))
         self.assertIn("::PSPROFILESTATE:BEGIN", (REPO / "_Builder.bat").read_text(encoding="utf-8-sig"))
         self.assertIn('state_file_present "firmware_output', (REPO / '_Builder.sh').read_text())

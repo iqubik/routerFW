@@ -96,7 +96,8 @@ class TesterParity(unittest.TestCase):
         _, bat = _labels(REPO / "tester.bat", windows=True)
         self.assertEqual(sh - bat, BASH_ONLY)
         self.assertEqual(bat - sh, BATCH_ONLY)
-        self.assertIn("Source Tree Packager", sh & bat)
+        self.assertIn("Python Regression Suite", sh & bat)
+        self.assertNotIn("Source Tree Packager", sh | bat)
         self.assertFalse(any(label.startswith("Packer ") for label in sh | bat))
 
     def test_source_builder_regression_runs_storage_git_feeds_and_lifecycle(self):
@@ -110,6 +111,7 @@ class TesterParity(unittest.TestCase):
         helper = (REPO / "scripts" / "python_runtime.bat").read_text(encoding="utf-8")
         self.assertIn(r"tools\runtime\python313\python.exe", helper)
         self.assertIn("ROUTERFW_PYTHON_EXE", helper)
+        self.assertIn('set "PYTHONUTF8=1"', helper)
         self.assertIn(" -B -c ", helper)
         for filename, required in (
             ("tester.sh", "python3 -B tests/run_unittest.py"),
@@ -140,6 +142,13 @@ class TesterParity(unittest.TestCase):
             self.assertNotIn("tools/runtime/python313", packer)
             self.assertNotIn("python_runtime.bat", packer)
             self.assertNotIn("scripts/validate_build.py", packer)
+
+    def test_windows_ci_runs_the_same_batch_test_harness(self):
+        workflow = (REPO / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+        windows_job = workflow.split("  windows-tests:", 1)[1].split("  docker-smoke:", 1)[0]
+        self.assertRegex(windows_job, r"(?m)^\s+run:\s+\.\\tester\.bat\s*$")
+        tester = (REPO / "tester.bat").read_text(encoding="utf-8-sig")
+        self.assertIn('call "%~dp0scripts\\python_runtime.bat"', tester)
 
     def test_github_workflow_runner_os_labels_are_pinned(self):
         # A GitHub runner image rolls forward even with a versioned label, but

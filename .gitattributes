@@ -1,5 +1,6 @@
 # Windows-скрипты: CRLF, без нормализации
 *.bat -text
+*.bat whitespace=cr-at-eol
 *.ps1 -text
 *.cmd -text
 system/lang/*.env text eol=lf

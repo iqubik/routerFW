@@ -61,7 +61,8 @@ class DiffTreePowerShellRuntimeTests(unittest.TestCase):
         return subprocess.run(
             [SHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(SCRIPT),
              "-Root", str(root or self.root), "-Output", str(self.output), "-MaxEntries", str(cap)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
             check=False,
         )
 

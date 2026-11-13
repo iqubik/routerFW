@@ -1,5 +1,6 @@
 @echo off
 rem Use the repository-local embeddable CPython when it is available.
+set "PYTHONUTF8=1"
 rem Prefer the bundled runtime, but honor an explicit caller override.
 rem An invalid override must fail closed, not silently choose another Python.
 if not defined ROUTERFW_PYTHON_EXE (
