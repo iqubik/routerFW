@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 88" width="800" height="88">
+<style>
+  .tr-nd { opacity: 0; animation: trFade 0.4s ease forwards; }
+  .tr-ln { opacity: 0; stroke-dasharray: 800; stroke-dashoffset: 800; animation: trDraw 0.8s ease forwards; }
+  .tr-dot { animation: trFade 0.4s ease forwards, trDotFocus 100s linear infinite; }
+  .tr-txt { fill-opacity: 0.05; animation: trFocus 100s linear infinite; }
+  .tr-txt:hover { fill-opacity: 1 !important; }
+  @keyframes trFade { to { opacity: 1; } }
+  @keyframes trDraw { to { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes trDotFocus { 0% { transform: scale(1.2); } 2.5% { transform: scale(0.9); } 100% { transform: scale(0.9); } }
+  @keyframes trFocus { 0% { fill-opacity: 1; } 2.5% { fill-opacity: 0.05; } 100% { fill-opacity: 0.05; } }
+</style>
+<rect width="800" height="88" fill="#0d1117"/>
+<line x1="52" y1="44" x2="776" y2="44" stroke="#30363d" stroke-width="2" class="tr-ln" style="animation-delay: 0.1s"/>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/1.0" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="52" cy="44" r="4" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 52px 44px; animation-delay: 0.15s, 0s"/>
+    <text class="tr-txt" x="52" y="36" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: 0s">1.0</text>
+    <text class="tr-txt" x="52" y="58" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: 0s">25.12</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/2.0" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="55" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 55px 44px; animation-delay: 0.18s, -2.5s"/>
+    <text class="tr-txt" x="55" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -2.5s">2.0 (19)</text>
+    <text class="tr-txt" x="55" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -2.5s">27.12</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/2.1" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="59" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 59px 44px; animation-delay: 0.21s, -5s"/>
+    <text class="tr-txt" x="59" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -5s">2.1 (18)</text>
+    <text class="tr-txt" x="59" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -5s">28.12</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/2.4" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="59" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 59px 44px; animation-delay: 0.24s, -7.5s"/>
+    <text class="tr-txt" x="59" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -7.5s">2.4 (20)</text>
+    <text class="tr-txt" x="59" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -7.5s">29.12</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/2.5" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="60" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 60px 44px; animation-delay: 0.27s, -10s"/>
+    <text class="tr-txt" x="60" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -10s">2.5 (11)</text>
+    <text class="tr-txt" x="60" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -10s">29.12</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/2.51" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="61" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 61px 44px; animation-delay: 0.3s, -12.5s"/>
+    <text class="tr-txt" x="61" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -12.5s">2.51 (6)</text>
+    <text class="tr-txt" x="61" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -12.5s">29.12</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.2" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="69" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 69px 44px; animation-delay: 0.33s, -15s"/>
+    <text class="tr-txt" x="69" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -15s">3.2 (37)</text>
+    <text class="tr-txt" x="69" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -15s">02.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.3" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="71" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 71px 44px; animation-delay: 0.36s, -17.5s"/>
+    <text class="tr-txt" x="71" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -17.5s">3.3 (7)</text>
+    <text class="tr-txt" x="71" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -17.5s">03.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.4" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="76" cy="44" r="7" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 76px 44px; animation-delay: 0.39s, -20s"/>
+    <text class="tr-txt" x="76" y="33" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -20s">3.4 (1)</text>
+    <text class="tr-txt" x="76" y="61" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -20s">05.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.5" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="77" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 77px 44px; animation-delay: 0.42s, -22.5s"/>
+    <text class="tr-txt" x="77" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -22.5s">3.5 (10)</text>
+    <text class="tr-txt" x="77" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -22.5s">05.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.51" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="77" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 77px 44px; animation-delay: 0.45s, -25s"/>
+    <text class="tr-txt" x="77" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -25s">3.51 (15)</text>
+    <text class="tr-txt" x="77" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -25s">05.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.54" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="77" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 77px 44px; animation-delay: 0.48s, -27.5s"/>
+    <text class="tr-txt" x="77" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -27.5s">3.54 (7)</text>
+    <text class="tr-txt" x="77" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -27.5s">05.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.6" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="81" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 81px 44px; animation-delay: 0.51s, -30s"/>
+    <text class="tr-txt" x="81" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -30s">3.6 (17)</text>
+    <text class="tr-txt" x="81" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -30s">07.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.8" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="84" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 84px 44px; animation-delay: 0.54s, -32.5s"/>
+    <text class="tr-txt" x="84" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -32.5s">3.8 (20)</text>
+    <text class="tr-txt" x="84" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -32.5s">08.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/3.9" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="86" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 86px 44px; animation-delay: 0.57s, -35s"/>
+    <text class="tr-txt" x="86" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -35s">3.9 (46)</text>
+    <text class="tr-txt" x="86" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -35s">09.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.0" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="89" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 89px 44px; animation-delay: 0.6s, -37.5s"/>
+    <text class="tr-txt" x="89" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -37.5s">4.0 (16)</text>
+    <text class="tr-txt" x="89" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -37.5s">11.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.02" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="92" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 92px 44px; animation-delay: 0.63s, -40s"/>
+    <text class="tr-txt" x="92" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -40s">4.02 (21)</text>
+    <text class="tr-txt" x="92" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -40s">12.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.04_hotfix" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="94" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 94px 44px; animation-delay: 0.66s, -42.5s"/>
+    <text class="tr-txt" x="94" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -42.5s">4.04_hotfix (26)</text>
+    <text class="tr-txt" x="94" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -42.5s">13.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.09" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="97" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 97px 44px; animation-delay: 0.69s, -45s"/>
+    <text class="tr-txt" x="97" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -45s">4.09 (39)</text>
+    <text class="tr-txt" x="97" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -45s">14.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.1" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="100" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 100px 44px; animation-delay: 0.72s, -47.5s"/>
+    <text class="tr-txt" x="100" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -47.5s">4.1 (13)</text>
+    <text class="tr-txt" x="100" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -47.5s">16.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.11" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="104" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 104px 44px; animation-delay: 0.75s, -50s"/>
+    <text class="tr-txt" x="104" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -50s">4.11 (12)</text>
+    <text class="tr-txt" x="104" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -50s">17.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.12" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="108" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 108px 44px; animation-delay: 0.78s, -52.5s"/>
+    <text class="tr-txt" x="108" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -52.5s">4.12 (16)</text>
+    <text class="tr-txt" x="108" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -52.5s">19.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.20" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="111" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 111px 44px; animation-delay: 0.81s, -55s"/>
+    <text class="tr-txt" x="111" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -55s">4.20 (29)</text>
+    <text class="tr-txt" x="111" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -55s">20.01</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.22" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="147" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 147px 44px; animation-delay: 0.84s, -57.5s"/>
+    <text class="tr-txt" x="147" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -57.5s">4.22 (43)</text>
+    <text class="tr-txt" x="147" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -57.5s">05.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.3" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="149" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 149px 44px; animation-delay: 0.87s, -60s"/>
+    <text class="tr-txt" x="149" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -60s">4.3 (18)</text>
+    <text class="tr-txt" x="149" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -60s">06.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.32" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="161" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 161px 44px; animation-delay: 0.9s, -62.5s"/>
+    <text class="tr-txt" x="161" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -62.5s">4.32 (29)</text>
+    <text class="tr-txt" x="161" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -62.5s">11.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.40" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="175" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 175px 44px; animation-delay: 0.93s, -65s"/>
+    <text class="tr-txt" x="175" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -65s">4.40 (23)</text>
+    <text class="tr-txt" x="175" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -65s">18.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.41" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="176" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 176px 44px; animation-delay: 0.96s, -67.5s"/>
+    <text class="tr-txt" x="176" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -67.5s">4.41 (14)</text>
+    <text class="tr-txt" x="176" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -67.5s">18.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.42" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="177" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 177px 44px; animation-delay: 0.99s, -70s"/>
+    <text class="tr-txt" x="177" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -70s">4.42 (37)</text>
+    <text class="tr-txt" x="177" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -70s">18.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.43" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="177" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 177px 44px; animation-delay: 1.02s, -72.5s"/>
+    <text class="tr-txt" x="177" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -72.5s">4.43 (16)</text>
+    <text class="tr-txt" x="177" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -72.5s">18.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.44" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="190" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 190px 44px; animation-delay: 1.05s, -75s"/>
+    <text class="tr-txt" x="190" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -75s">4.44 (26)</text>
+    <text class="tr-txt" x="190" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -75s">24.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.45" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="195" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 195px 44px; animation-delay: 1.08s, -77.5s"/>
+    <text class="tr-txt" x="195" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -77.5s">4.45 (29)</text>
+    <text class="tr-txt" x="195" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -77.5s">26.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.46" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="198" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 198px 44px; animation-delay: 1.11s, -80s"/>
+    <text class="tr-txt" x="198" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -80s">4.46 (18)</text>
+    <text class="tr-txt" x="198" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -80s">28.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.47" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="199" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 199px 44px; animation-delay: 1.14s, -82.5s"/>
+    <text class="tr-txt" x="199" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -82.5s">4.47 (20)</text>
+    <text class="tr-txt" x="199" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -82.5s">28.02</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.49" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="211" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 211px 44px; animation-delay: 1.17s, -85s"/>
+    <text class="tr-txt" x="211" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -85s">4.49 (28)</text>
+    <text class="tr-txt" x="211" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -85s">05.03</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.50" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="228" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 228px 44px; animation-delay: 1.2s, -87.5s"/>
+    <text class="tr-txt" x="228" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -87.5s">4.50 (17)</text>
+    <text class="tr-txt" x="228" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -87.5s">13.03</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.51" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="279" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 279px 44px; animation-delay: 1.23s, -90s"/>
+    <text class="tr-txt" x="279" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -90s">4.51 (51)</text>
+    <text class="tr-txt" x="279" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -90s">04.04</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.60" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="286" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 286px 44px; animation-delay: 1.26s, -92.5s"/>
+    <text class="tr-txt" x="286" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -92.5s">4.60 (42)</text>
+    <text class="tr-txt" x="286" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -92.5s">07.04</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.70" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="508" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 508px 44px; animation-delay: 1.29s, -95s"/>
+    <text class="tr-txt" x="508" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -95s">4.70 (91)</text>
+    <text class="tr-txt" x="508" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -95s">14.07</text>
+  </a>
+  <a xlink:href="https://github.com/iqubik/routerFW/releases/tag/4.71" target="_blank" rel="noopener">
+    <circle class="tr-nd tr-dot" cx="776" cy="44" r="12" fill="#58a6ff" stroke="#e6edf3" stroke-width="1" style="transform-origin: 776px 44px; animation-delay: 1.32s, -97.5s"/>
+    <text class="tr-txt" x="776" y="28" text-anchor="middle" fill="#e6edf3" font-size="10" font-family="system-ui,sans-serif" style="animation-delay: -97.5s">4.71 (24)</text>
+    <text class="tr-txt" x="776" y="66" text-anchor="middle" fill="#8b949e" font-size="8" font-family="system-ui,sans-serif" style="animation-delay: -97.5s">09.11</text>
+  </a>
+</svg>
